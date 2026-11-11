@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ player.name }} - 角色管理 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:340px 1fr;gap:24px" id="pm-layout">
+  <div>
+    <div class="bs-card">
+      <div class="bs-card-body" style="text-align:center">
+        <img src="/preview/{{ player.tid_skin.tid }}?png" alt="皮肤预览"
+             id="pm-skin-preview"
+             style="width:100%;border-radius:8px;background:var(--bs-primary-light)"
+             {% if not player.tid_skin %}hidden{% endif %}>
+        <div id="pm-no-skin" style="color:var(--bs-text-secondary);padding:24px 0"
+             {% if player.tid_skin %}hidden{% endif %}>
+          尚未设置皮肤
+        </div>
+        <h2 style="margin:12px 0 4px;font-size:18px">{{ player.name }}</h2>
+        <p style="margin:0;font-size:12px;color:var(--bs-text-secondary)">
+          UUID: {{ player.uuid }}
+        </p>
+        <img src="/preview/{{ player.tid_cape.tid }}?png" alt="披风预览"
+             id="pm-cape-preview"
+             style="width:70%;margin-top:12px;border-radius:8px"
+             {% if not player.tid_cape %}hidden{% endif %}>
+      </div>
+    </div>
+
+    <div class="bs-card" style="margin-top:16px">
+      <div class="bs-card-body">
+        <h3 style="margin:0 0 10px;font-size:15px">改名</h3>
+        <form id="pm-rename-form" style="display:flex;gap:8px">
+          {% csrf_token %}
+          <input class="bs-input" name="name" value="{{ player.name }}" maxlength="50" required>
+          <button class="bs-btn bs-btn-secondary" type="submit">保存</button>
+        </form>
+        <button class="bs-btn bs-btn-danger" style="width:100%;margin-top:16px"
+                id="pm-delete-btn">删除角色</button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="bs-card">
+      <div class="bs-card-body">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h3 style="margin:0;font-size:15px">应用皮肤</h3>
+          {% if player.tid_skin %}
+          <button class="bs-btn bs-btn-secondary" style="padding:4px 12px;font-size:12px"
+                  id="pm-clear-skin" data-url="/user/players/{{ player.pid }}/skin">清除</button>
+          {% endif %}
+        </div>
+        <div id="pm-skin-list" class="bs-grid" style="margin-top:14px">
+          {% for t in closet_skins %}
+          <div class="bs-card" style="cursor:pointer" data-tid="{{ t.tid }}"
+               data-active="{% if player.tid_skin_id == t.tid %}1{% endif %}"
+               style="{% if player.tid_skin_id == t.tid %}border-color:var(--bs-primary){% endif %};cursor:pointer">
+            <div style="padding:8px">
+              <img src="/preview/{{ t.tid }}?height=150" style="width:100%;border-radius:6px">
+              <div style="font-size:13px;margin-top:6px">{{ t.name }}</div>
+            </div>
+          </div>
+          {% empty %}
+          <p style="color:var(--bs-text-secondary);grid-column:1/-1">
+            衣柜里没有皮肤，去 <a href="/skinlib">皮肤库</a> 收藏一些吧
+          </p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="bs-card" style="margin-top:16px">
+      <div class="bs-card-body">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h3 style="margin:0;font-size:15px">应用披风</h3>
+          {% if player.tid_cape %}
+          <button class="bs-btn bs-btn-secondary" style="padding:4px 12px;font-size:12px"
+                  id="pm-clear-cape" data-url="/user/players/{{ player.pid }}/cape">清除</button>
+          {% endif %}
+        </div>
+        <div id="pm-cape-list" class="bs-grid" style="margin-top:14px">
+          {% for t in closet_capes %}
+          <div class="bs-card" data-tid="{{ t.tid }}" style="cursor:pointer">
+            <div style="padding:8px">
+              <img src="/preview/{{ t.tid }}?height=150" style="width:100%;border-radius:6px">
+              <div style="font-size:13px;margin-top:6px">{{ t.name }}</div>
+            </div>
+          </div>
+          {% empty %}
+          <p style="color:var(--bs-text-secondary);grid-column:1/-1">衣柜里没有披风</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_foot %}
+<script src="/static/js/player-manage.js"></script>
+{% endblock %}
