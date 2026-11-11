@@ -101,19 +101,72 @@ class TestUserCenterSplitPages:
     @pytest.mark.parametrize("path,expect_fragment", [
         ("/user", "dashboard-notifications"),          # 仪表盘
         ("/user/profile", "nick-form"),                 # 资料页
-        ("/user/players/page", "add-player-form"),      # 角色页
-        ("/user/closet/page", "closet-list"),            # 衣柜页
-        ("/user/notifications/page", "notifications-list"),  # 通知页
+        ("/user/players", "add-player-form"),           # 角色页（同 URL 浏览器直达）
+        ("/user/closet", "closet-list"),                # 衣柜页
+        ("/user/notifications", "notifications-list"),  # 通知页
     ])
     def test_split_pages_render(self, logged, path, expect_fragment):
+        """浏览器直达（无 XHR 头）= 页面 HTML，不再是 JSON。"""
         html = logged.get(path).content.decode()
         assert expect_fragment in html
+
+    @pytest.mark.parametrize("path", [
+        "/user/players",
+        "/user/closet",
+        "/user/notifications",
+    ])
+    def test_ajax_gets_json(self, logged, path):
+        """JS fetch（XHR 头）= JSON API，与页面同 URL 协商。"""
+        resp = logged.get(
+            path, headers={"X-Requested-With": "XMLHttpRequest"}
+        )
+        assert resp["Content-Type"] == "application/json"
+        assert resp.json()["code"] == 0
 
     def test_nav_has_avatar_and_logout(self, logged):
         html = logged.get("/user").content.decode()
         assert "nav-avatar" in html
         assert "nav-logout" in html
         assert "退出登录" in html
+
+
+class TestOptionsSectionSplit:
+    @pytest.fixture()
+    def super_client(self, client):
+        User.objects.create_superuser(
+            email="op@x.com", nickname="OP", password="password8"
+        )
+        client.login(username="op@x.com", password="password8")
+        return client
+
+    @pytest.mark.parametrize("section,expect,absent", [
+        ("general", "site_name", "mail_host"),           # 常规不含 SMTP
+        ("users", "disable_registration", "mail_host"),
+        ("services", "mail_host", "site_name"),          # 对接服务不含站名
+        ("yggdrasil", "ygg_token_expire_1", "mail_host"),
+    ])
+    def test_sections_split(self, super_client, section, expect, absent):
+        html = super_client.get(f"/admin/options/{section}").content.decode()
+        assert expect in html
+        assert absent not in html
+
+    def test_unknown_section_falls_back_general(self, super_client):
+        assert super_client.get("/admin/options/nope").status_code == 200
+
+    def test_yggdrasil_tab_shows_public_key(self, super_client):
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+
+        from options.models import Option
+
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        Option.objects.set("ygg_private_key", key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        ).decode())
+        html = super_client.get("/admin/options/yggdrasil").content.decode()
+        assert "BEGIN PUBLIC KEY" in html
 
 
 class TestUploadPreviewHook:

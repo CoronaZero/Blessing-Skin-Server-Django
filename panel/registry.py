@@ -22,6 +22,16 @@ class OptionGroup:
     title: str
     fields: list
     super_admin_only: bool = False
+    section: str = "general"  # general / users / services / yggdrasil
+
+
+# 子页签定义（拆分后的选项导航）
+OPTION_SECTIONS = [
+    ("general", "常规", "基本信息、默认材质"),
+    ("users", "用户与注册", "注册、角色名规则、积分、登录安全"),
+    ("services", "对接服务", "邮件 SMTP、验证码"),
+    ("yggdrasil", "Yggdrasil", "认证协议与签名密钥"),
+]
 
 
 OPTION_REGISTRY: list[OptionGroup] = [
@@ -54,6 +64,7 @@ OPTION_REGISTRY: list[OptionGroup] = [
     OptionGroup(
         slug="register",
         title="注册",
+        section="users",
         fields=[
             OptionField("disable_registration", "关闭注册", widget="bool"),
             OptionField("invitation_required", "注册需邀请码", widget="bool"),
@@ -65,6 +76,7 @@ OPTION_REGISTRY: list[OptionGroup] = [
     OptionGroup(
         slug="score",
         title="积分",
+        section="users",
         fields=[
             OptionField("score_per_storage", "公开纹理每 KB 扣分", widget="int"),
             OptionField("private_score_per_storage", "私密纹理每 KB 扣分", widget="int"),
@@ -77,6 +89,7 @@ OPTION_REGISTRY: list[OptionGroup] = [
     OptionGroup(
         slug="player_name",
         title="角色名规则",
+        section="users",
         fields=[
             OptionField(
                 "player_name_rule", "角色名规则", widget="select",
@@ -91,6 +104,7 @@ OPTION_REGISTRY: list[OptionGroup] = [
     OptionGroup(
         slug="login",
         title="登录与安全",
+        section="users",
         super_admin_only=True,
         fields=[
             OptionField("login_enumeration_protection",
@@ -102,6 +116,7 @@ OPTION_REGISTRY: list[OptionGroup] = [
         slug="captcha",
         title="验证码",
         super_admin_only=True,
+        section="services",
         fields=[
             OptionField(
                 "captcha_provider", "验证码提供者", widget="select",
@@ -118,6 +133,7 @@ OPTION_REGISTRY: list[OptionGroup] = [
         slug="mail",
         title="邮件（SMTP）",
         super_admin_only=True,
+        section="services",
         fields=[
             OptionField("mail_host", "SMTP 服务器", help_text="填写后真实发送，留空打印到控制台"),
             OptionField("mail_port", "端口", widget="int"),
@@ -134,6 +150,7 @@ OPTION_REGISTRY: list[OptionGroup] = [
         slug="yggdrasil",
         title="Yggdrasil",
         super_admin_only=True,
+        section="yggdrasil",
         fields=[
             OptionField(
                 "ygg_uuid_algorithm", "UUID 算法", widget="select",

@@ -85,10 +85,17 @@ def list_players(request):
     return json_response("", SUCCESS, data)
 
 
+def _is_ajax(request) -> bool:
+    """JS fetch（bsFetch 携带 X-Requested-With）返回 JSON，浏览器直达返回页面。"""
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+
 @login_required
 @require_GET
 def players_page(request):
-    """角色列表独立页（分页改造）。"""
+    """角色列表页与 JSON API 同 URL 协商（浏览器=页面 / AJAX=JSON）。"""
+    if _is_ajax(request):
+        return list_players(request)
     from django.shortcuts import render
 
     from options.models import Option as _Option
@@ -120,9 +127,11 @@ def add_player(request):
 
 @login_required
 def players_collection(request):
-    """GET 列表 / POST 新增（同一 URL）。"""
+    """三协商入口：浏览器 GET=页面 / AJAX GET=JSON / POST=新增。"""
     if request.method == "GET":
-        return list_players(request)
+        if _is_ajax(request):
+            return list_players(request)
+        return players_page(request)
     return add_player(request)
 
 

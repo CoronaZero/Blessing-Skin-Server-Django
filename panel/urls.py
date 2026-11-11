@@ -17,5 +17,6 @@ urlpatterns = [
     path("options", views.options_page, name="options"),
     path("options/save", views.options_save, name="options_save"),
     path("options/captcha-test", views.captcha_test, name="captcha_test"),
+    path("options/<str:section>", views.options_page, name="options_section"),
     path("broadcast", views.broadcast, name="broadcast"),
 ]

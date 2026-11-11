@@ -395,11 +395,17 @@ def closet_page(request):
     )
 
 
+def _is_ajax(request) -> bool:
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+
 @login_required
 def closet_collection(request):
-    """GET 列表 / POST 添加（同一 URL）。"""
+    """三协商：浏览器 GET=页面 / AJAX GET=JSON / POST=添加。"""
     if request.method == "GET":
-        return closet_list(request)
+        if _is_ajax(request):
+            return closet_list(request)
+        return closet_page(request)
     return closet_add(request)
 
 

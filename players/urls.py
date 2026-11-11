@@ -1,4 +1,4 @@
-"""players 路由：用户角色管理端点。"""
+﻿"""players 路由：用户角色管理端点。"""
 
 from django.urls import path
 
@@ -7,10 +7,8 @@ from . import views, views_manage
 app_name = "players"
 
 urlpatterns = [
-    # 同 URL GET 列表 / POST 新增
-    path("user/players", views.players_collection, name="collection"),
-    # 角色列表页（GET 渲染独立页）
-    path("user/players/page", views.players_page, name="players_page"),
+    # 同 URL 三协商：浏览器直达=列表页 / AJAX GET=JSON / POST=新增
+    path("user/players", views.players_collection, name="players_page"),
     path("user/players/<int:pid>/delete", views.delete_player, name="delete"),
     path("user/players/<int:pid>/name", views.rename_player, name="rename"),
     path("user/players/<int:pid>/skin", views.set_texture_skin, name="set_skin"),

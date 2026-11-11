@@ -1,4 +1,4 @@
-"""用户中心 API 测试（TDD 先行）。
+﻿"""用户中心 API 测试（TDD 先行）。
 
 对照原版 UserController / PlayerController / ClosetController / ReportController：
 - /user/profile         GET 页 / POST 修改资料（nickname/password/email/delete）
@@ -108,7 +108,7 @@ class TestProfile:
 class TestPlayers:
     def test_list_players(self, client_logged, user):
         Player.objects.create(uid=user, name="Steve")
-        resp = client_logged.get("/user/players")
+        resp = client_logged.get("/user/players", headers={"X-Requested-With": "XMLHttpRequest"})
         assert resp.json()["code"] == 0
         names = [p["name"] for p in resp.json()["data"]]
         assert "Steve" in names
@@ -183,7 +183,7 @@ class TestCloset:
         )
 
     def test_list_empty(self, client_logged):
-        resp = client_logged.get("/user/closet")
+        resp = client_logged.get("/user/closet", headers={"X-Requested-With": "XMLHttpRequest"})
         assert resp.json()["code"] == 0
         assert resp.json()["data"] == []
 
@@ -236,7 +236,10 @@ class TestCloset:
 class TestNotifications:
     def test_list(self, client_logged, user):
         Notification.objects.create(recipient=user, title="欢迎", content="哈哈")
-        resp = client_logged.get("/user/notifications")
+        resp = client_logged.get(
+            "/user/notifications",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
         assert resp.json()["code"] == 0
         assert len(resp.json()["data"]) == 1
         assert resp.json()["data"][0]["title"] == "欢迎"

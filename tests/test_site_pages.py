@@ -1,4 +1,4 @@
-"""全站页面可达性：模板 URL 审计 + 关键页面冒烟。
+﻿"""全站页面可达性：模板 URL 审计 + 关键页面冒烟。
 
 背景（真实部署踩坑）：导航栏/登录跳转/LOGIN_REDIRECT_URL 全指向
 /user，但该路由从未实现——用户登录后直接 404。此类"引用悬空"
@@ -82,9 +82,9 @@ class TestCorePagesSmoke:
     @pytest.mark.parametrize("path", [
         "/user",              # 分页改造后的仪表盘
         "/user/profile",
-        "/user/players/page",
-        "/user/closet/page",
-        "/user/notifications/page",
+        "/user/players",
+        "/user/closet",
+        "/user/notifications",
         "/skinlib",
         "/skinlib/upload",    # 本次新增的上传页
     ])

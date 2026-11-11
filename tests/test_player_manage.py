@@ -61,6 +61,6 @@ class TestPlayerManagePage:
 
     def test_manage_page_url_referenced_from_user_center(self, client, user, player):
         """角色列表页有 JS 渲染容器（管理链接由 JS 动态生成）。"""
-        html = self._client(client, user).get("/user/players/page").content.decode()
+        html = self._client(client, user).get("/user/players").content.decode()
         assert 'id="players-list"' in html
         assert "user_players.js" in html

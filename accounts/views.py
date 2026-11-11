@@ -438,18 +438,15 @@ def profile_submit(request):
 
 
 @login_required
-def notifications_page(request):
-    """通知独立页（分页改造，数据走 JSON API）。"""
-    return render(
-        request,
-        "users/notifications.html",
-        {"site_name": Option.objects.get_value("site_name")},
-    )
-
-
-@login_required
 @require_GET
 def notifications_list(request):
+    """三协商：浏览器直达=通知页 / AJAX=JSON。"""
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return render(
+            request,
+            "users/notifications.html",
+            {"site_name": Option.objects.get_value("site_name")},
+        )
 
     qs = request.user.notifications.all().order_by("-created_at")[:50]
     data = [

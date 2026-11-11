@@ -43,7 +43,6 @@ urlpatterns = [
     path("user", views.user_dashboard, name="user_center"),
     path("user/profile", views.profile_view, name="profile"),
     path("user/notifications", views.notifications_list, name="notifications"),
-    path("user/notifications/page", views.notifications_page, name="notifications_page"),
     path(
         "user/notifications/<int:notification_id>/read",
         views.notification_read,

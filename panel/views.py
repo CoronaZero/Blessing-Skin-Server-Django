@@ -197,14 +197,23 @@ def report_action(request, rid: int):
 
 @super_admin_required
 @require_GET
-def options_page(request):
+def options_page(request, section: str = "general"):
+    """选项面板（按 section 分页签渲染，拆分四页不再杂糅）。"""
+    from .registry import OPTION_SECTIONS
+
+    if section not in {s[0] for s in OPTION_SECTIONS}:
+        section = "general"
     groups = []
     for group in OPTION_REGISTRY:
+        if group.section != section:
+            continue
         values = {f.key: Option.objects.get_value(f.key, "") for f in group.fields}
         groups.append({"group": group, "values": values})
     ctx = _panel_ctx(request, "options")
     ctx.update({
         "option_groups": groups,
+        "sections": OPTION_SECTIONS,
+        "current_section": section,
         "ygg_public_key": _derive_public_key(),
     })
     return render(request, "panel/options.html", ctx)
