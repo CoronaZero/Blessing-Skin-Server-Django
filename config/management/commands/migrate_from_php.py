@@ -439,8 +439,20 @@ class Command(BaseCommand):
 
         from players.uuidgen import generate_uuid_v4
 
-        for row in legacy.rows(prefix + "players"):
-            name = row["player_name"]
+        players_rows = legacy.rows(prefix + "players") if legacy.has_table(
+            prefix + "players"
+        ) else []
+        for row in players_rows:
+            # 列名两代兼容（真实服务器踩坑第三例）：
+            # <2019_03_13 为 player_name，之后 rename 为 name（BS 6.x）
+            name = row.get("name") or row.get("player_name")
+            if not name:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"跳过 pid={row.get('pid')}：players 行缺少角色名列"
+                    )
+                )
+                continue
             Player.objects.update_or_create(
                 pid=row["pid"],
                 defaults={
@@ -452,9 +464,7 @@ class Command(BaseCommand):
                     "last_modified": _dt(row.get("last_modified")),
                 },
             )
-        if not legacy.has_table(prefix + "players"):
-            return 0
-        return len(legacy.rows(prefix + "players"))
+        return len(players_rows)
 
     def migrate_textures(self, source_rows) -> int:
         for row in source_rows:

@@ -46,7 +46,7 @@ PHP_DDL = [
     CREATE TABLE players (
         pid INTEGER PRIMARY KEY AUTOINCREMENT,
         uid INTEGER NOT NULL,
-        player_name VARCHAR(50) NOT NULL,
+        name VARCHAR(50) NOT NULL,
         tid_skin INTEGER DEFAULT 0,
         tid_cape INTEGER DEFAULT 0,
         last_modified DATETIME NOT NULL
@@ -121,7 +121,7 @@ def build_php_site(tmp_path, *, textures_dir="storage/textures"):
         ["deadbeef" * 8],
     )
     conn.execute(
-        "INSERT INTO players (pid, uid, player_name, tid_skin, tid_cape, last_modified)"
+        "INSERT INTO players (pid, uid, name, tid_skin, tid_cape, last_modified)"
         " VALUES (1, 2, 'OldSteve', ?, ?, '2020-05-01 00:00:00')",
         [1, 2],
     )
