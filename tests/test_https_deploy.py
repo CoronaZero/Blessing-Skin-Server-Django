@@ -13,7 +13,8 @@ pytestmark = pytest.mark.django_db
 def load_base(monkeypatch, tmp_path, **env):
     import importlib
 
-    monkeypatch.setenv("ENV_FILE", str(tmp_path / "no.env"))
+    env_file = env.pop("__env_file", None)
+    monkeypatch.setenv("ENV_FILE", str(env_file) if env_file else str(tmp_path / "no.env"))
     for key in ("SECRET_KEY", "DEBUG", "ALLOWED_HOSTS", "COOKIE_SECURE"):
         monkeypatch.delenv(key, raising=False)
     for key, value in env.items():
@@ -22,6 +23,26 @@ def load_base(monkeypatch, tmp_path, **env):
     import config.settings.base as base
 
     return importlib.reload(base)
+
+
+class TestCookieSecureFromEnvFile:
+    def test_cookie_secure_readable_from_dotenv_file(self, monkeypatch, tmp_path):
+        """.env 文件通道：COOKIE_SECURE=1 写入 .env 即生效。"""
+        env_file = tmp_path / ".env"
+        env_file.write_text("COOKIE_SECURE=1\n", encoding="utf-8")
+        base = load_base(monkeypatch, tmp_path, __env_file=str(env_file))
+        assert base.SESSION_COOKIE_SECURE is True
+        assert base.CSRF_COOKIE_SECURE is True
+
+    def test_real_env_takes_precedence_over_dotenv(self, monkeypatch, tmp_path):
+        """同名真实环境变量优先于 .env（override=False 语义）。"""
+        env_file = tmp_path / ".env"
+        env_file.write_text("COOKIE_SECURE=1\n", encoding="utf-8")
+        base = load_base(
+            monkeypatch, tmp_path,
+            __env_file=str(env_file), COOKIE_SECURE="0",
+        )
+        assert base.SESSION_COOKIE_SECURE is False
 
 
 class TestTrustedOriginsSettings:
