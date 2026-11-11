@@ -62,6 +62,32 @@ class TestHello:
         assert isinstance(data["skinDomains"], list)
         assert "signaturePublickey" in data
 
+    def test_hello_derives_public_key_from_private(self, client, db):
+        """真实迁移场景：库里只有私钥（原版仅存私钥），公钥须实时派生。"""
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+
+        from options.models import Option
+
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        private_pem = key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        ).decode()
+        Option.objects.set("ygg_private_key", private_pem)
+
+        resp = client.get(BASE + "/")
+        emitted = resp.json()["signaturePublickey"]
+        assert emitted.startswith("-----BEGIN PUBLIC KEY-----")
+        # 与私钥真正配对
+        parsed = serialization.load_pem_public_key(emitted.encode())
+        assert parsed.public_numbers() == key.public_key().public_numbers()
+
+    def test_hello_empty_when_no_key_at_all(self, client, db):
+        resp = client.get(BASE + "/")
+        assert resp.json()["signaturePublickey"] == ""
+
 
 # ---- authenticate ----
 

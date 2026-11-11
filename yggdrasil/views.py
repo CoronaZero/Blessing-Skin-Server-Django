@@ -67,7 +67,24 @@ def hello(request):
 
         skin_domains = [request.get_host()]
 
+    # 公钥：优先 ygg_public_key；缺失时从 ygg_private_key 实时派生
+    # （原版即如此——数据库只存私钥，公钥 openssl 实时导出）
     public_key = (Option.objects.get_value("ygg_public_key") or "").strip()
+    if not public_key:
+        private_pem = (Option.objects.get_value("ygg_private_key") or "").strip()
+        if private_pem:
+            try:
+                from cryptography.hazmat.primitives import serialization
+
+                private_key = serialization.load_pem_private_key(
+                    private_pem.encode(), password=None
+                )
+                public_key = private_key.public_key().public_bytes(
+                    serialization.Encoding.PEM,
+                    serialization.PublicFormat.SubjectPublicKeyInfo,
+                ).decode()
+            except (ValueError, TypeError):
+                public_key = ""
     return _json_ok({
         "meta": {
             "serverName": server_name,
