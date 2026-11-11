@@ -139,12 +139,17 @@ class TestStorage:
             texture_storage.read("d" * 64)
 
     def test_hash_is_only_filename(self):
-        """文件名严格为 hex hash，无扩展名无路径穿越。"""
+        """文件名严格为 hex hash，无扩展名无路径穿越。
+
+        跨平台断言：basename 恰好等于 digest（Windows '\' 与 Linux '/'
+        路径分隔符均由 pathlib 归一处理）。
+        """
+        from pathlib import Path
+
         digest = "e" * 64
         texture_storage.save_bytes(digest, VALID_SKIN_64_32)
-        stored_name = texture_storage.path(digest)
-        assert stored_name.endswith(digest)
-        assert "/" not in stored_name.split("\\")[-1]
+        stored_path = texture_storage.path(digest)
+        assert Path(stored_path).name == digest
 
 
 # ---- 头像渲染 ----
