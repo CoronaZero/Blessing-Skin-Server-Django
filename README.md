@@ -79,7 +79,7 @@ python manage.py runserver
 
 Settings 分层：`config/settings/{base,dev,test,prod}.py`；`manage.py` 默认 dev，容器入口默认 prod，`DJANGO_SETTINGS_MODULE` 可覆盖。
 
-MySQL/PgSQL 驱动（`mysqlclient` / `psycopg`）按需安装，未列入默认依赖以保持轻量。
+MySQL 驱动已内置：**PyMySQL**（纯 Python，经 `install_as_MySQLdb()` shim 满足 Django 后端的 MySQLdb 接口，零系统依赖）。改用 `mysqlclient`（性能更佳但需系统 `libmysqlclient`）时：`pip install mysqlclient` 并移除 `config/__init__.py` 中的 shim。PgSQL 驱动（`psycopg[binary]`）按需安装。
 
 ## 数据迁移（从 PHP 版）
 
