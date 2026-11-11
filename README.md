@@ -95,6 +95,18 @@ python manage.py migrate_from_php --env /path/to/php-site/.env
 
 自动从 `.env` 读取：数据库连接（`DB_*`）、密码盐（`SALT`，`SALTED2*` 历史用户登录依赖）、皮肤目录（`TEXTURES_DIR` 或默认 `<站点>/storage/textures`）。数据库逐表搬运后，**将用户上传的皮肤文件全部物理复制到新站存储目录**（如 `./data/textures/`，不引用旧站路径），逐文件 sha256 校验，缺失/损坏文件输出清单（数据库记录保留，角色引用不断链）。重跑幂等。
 
+**`.env` 各键的迁移处理**：
+
+| 键 | 处理 |
+|---|---|
+| `DB_CONNECTION` / `DB_HOST` / `DB_PORT` / `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` / `DB_PREFIX` | 用于连接旧库（`DB_PREFIX` 由 `--table-prefix` 对应） |
+| `SALT` | 注入运行环境，`SALTED2*` 算法历史用户登录立即可用；`PWD_METHOD` 为 `SALTED2*` 而缺盐时迁移命令会报错提示 |
+| `PWD_METHOD` | 仅展示于报告（Django 版按散列特征自动识别全部 10 种算法，不依赖此键） |
+| `TEXTURES_DIR` | 皮肤文件复制源目录 |
+| `APP_KEY` | **忽略**——session 不跨站迁移；密码重置链接在本站为一次性数据库令牌，无需 Laravel 签名密钥 |
+| `JWT_SECRET` | **忽略**——旧站 Yggdrasil 令牌存于其缓存且 3-7 天有效期，无可搬数据；玩家重新登录即签发新令牌 |
+| `APP_NAME` / 其他站点键 | 站点名展示于报告；站点配置随 options 表搬运 |
+
 > Docker 部署时：把 PHP 站点目录挂进容器执行，如
 > `docker compose exec blessing-skin python manage.py migrate_from_php --env /mnt/php-site/.env`
 > （compose 中给 blessing-skin 服务临时加一行 `- /path/to/php-site:/mnt/php-site:ro`）

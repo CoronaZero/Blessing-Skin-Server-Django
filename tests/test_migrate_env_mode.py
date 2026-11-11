@@ -247,6 +247,35 @@ class TestEnvDrivenMigration:
         with pytest.raises(CommandError):
             run_env_migration(tmp_path / "no-such.env")
 
+    def test_pwd_method_reported_in_output(self, tmp_path, storage):
+        """PWD_METHOD 展示于报告：管理员可确认旧站算法已被兼容。"""
+        php = build_php_site(tmp_path)
+        output = run_env_migration(php["env_file"])
+        assert "SALTED2SHA256" in output
+        assert "自动识别" in output or "自动升级" in output
+
+    def test_salted2_without_salt_warns_loudly(self, tmp_path, storage):
+        """PWD_METHOD=SALTED2* 且缺 SALT → 醒目错误警告（历史用户将无法登录）。"""
+        php = build_php_site(tmp_path)
+        env_content = "\n".join(
+            line for line in php["env_file"].read_text(encoding="utf-8").splitlines()
+            if not line.startswith("SALT=")
+        )
+        php["env_file"].write_text(env_content, encoding="utf-8")
+        output = run_env_migration(php["env_file"])
+        assert "SALT" in output
+        assert "无法登录" in output
+
+    def test_app_key_and_jwt_secret_ignored_with_reason(self, tmp_path, storage):
+        """APP_KEY / JWT_SECRET：显式输出「已忽略 + 原因」，消除迁移者困惑。"""
+        php = build_php_site(tmp_path)
+        env_content = php["env_file"].read_text(encoding="utf-8")
+        env_content += "APP_KEY=base64:xxxx\nJWT_SECRET=old-jwt-secret\n"
+        php["env_file"].write_text(env_content, encoding="utf-8")
+        output = run_env_migration(php["env_file"])
+        assert "APP_KEY：已忽略" in output
+        assert "JWT_SECRET：已忽略" in output
+
     def test_default_textures_dir_assumed(self, tmp_path, storage):
         """.env 无 TEXTURES_DIR 时按 <site>/storage/textures 解析。"""
         php = build_php_site(tmp_path)

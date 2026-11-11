@@ -260,11 +260,36 @@ class Command(BaseCommand):
             php_env = parse_php_env_file(env_path)
             source, textures_dir, site_root = build_dsn_from_env(php_env, env_path)
             # SALTED2* 历史用户登录依赖全局盐（写入进程环境）
+            pwd_method = (php_env.get("PWD_METHOD") or "").strip().upper()
             if php_env.get("SALT"):
                 os.environ["SALT"] = php_env["SALT"]
                 self.stdout.write(
                     f"已捕获 SALT（{len(php_env['SALT'])} 字符），"
                     "SALTED2* 历史用户登录可用"
+                )
+            elif pwd_method.startswith("SALTED2"):
+                self.stdout.write(self.style.ERROR(
+                    f"警告：PWD_METHOD={pwd_method} 但 .env 未配置 SALT！"
+                    "SALTED2* 算法的用户密码 = hash(hash(密码)+盐)，"
+                    "缺盐则历史用户全部无法登录。请从旧站 .env 补全 SALT 后重跑。"
+                ))
+            if pwd_method:
+                self.stdout.write(
+                    f"旧站密码算法：{pwd_method}"
+                    "（Django 版按散列特征自动识别全部 10 种算法，"
+                    "登录成功后自动升级 Argon2）"
+                )
+            # 显式交代两个「读取但不迁移」的键，消除迁移者困惑：
+            if php_env.get("APP_KEY"):
+                self.stdout.write(
+                    "APP_KEY：已忽略 —— Laravel session 不跨站迁移；"
+                    "密码重置链接在本站为一次性数据库令牌，无需 Laravel 签名密钥"
+                )
+            if php_env.get("JWT_SECRET"):
+                self.stdout.write(
+                    "JWT_SECRET：已忽略 —— 旧站 Yggdrasil 令牌存于其缓存"
+                    "（非数据库）且 3-7 天有效期，无可搬数据；"
+                    "玩家启动器重新登录即签发新令牌"
                 )
             title = php_env.get("APP_NAME") or php_env.get("SITE_NAME") or ""
             if title:
