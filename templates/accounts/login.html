@@ -1,1 +1,89 @@
-﻿<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>auth</title></head><body><div id="app" data-page="login"></div><!-- Phase 5 Tailwind 前台替换 --></body></html>
+{% extends "base.html" %}
+{% block title %}登录 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
+
+{% block content %}
+<div style="max-width:420px;margin:40px auto">
+  <div class="bs-card">
+    <div class="bs-card-body">
+      <h1 class="bs-card-title">登录</h1>
+      <p style="margin:0 0 20px;color:var(--bs-text-secondary);font-size:13px">
+        使用邮箱或角色名登录
+      </p>
+
+      <div id="login-alert" style="display:none" class="bs-alert bs-alert-error"></div>
+
+      <form id="login-form" method="post" action="/auth/login">
+        {% csrf_token %}
+        <div class="bs-field">
+          <label for="id-identification">邮箱 / 角色名</label>
+          <input class="bs-input" id="id-identification" name="identification"
+                 autocomplete="username" required>
+        </div>
+        <div class="bs-field">
+          <label for="id-password">密码</label>
+          <input class="bs-input" id="id-password" name="password" type="password"
+                 autocomplete="current-password" required>
+        </div>
+
+        {% if captcha.provider == "turnstile" %}
+        <div class="bs-field" id="captcha-slot" data-sitekey="{{ captcha.sitekey }}"></div>
+        {% elif captcha.provider == "recaptcha" %}
+        <div class="bs-field">
+          <div id="captcha-slot"
+               class="g-recaptcha"
+               data-sitekey="{{ captcha.sitekey }}"></div>
+        </div>
+        {% endif %}
+        <input type="hidden" name="captcha" id="captcha-token">
+
+        <button class="bs-btn bs-btn-primary" style="width:100%" type="submit" id="login-submit">
+          登录
+        </button>
+      </form>
+
+      <p style="margin-top:16px;font-size:13px;text-align:center">
+        <a href="/auth/forgot">忘记密码？</a> ·
+        <a href="/auth/register">注册新账号</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_foot %}
+<script>
+(function () {
+  const form = document.getElementById("login-form");
+  const alertBox = document.getElementById("login-alert");
+  const submitBtn = document.getElementById("login-submit");
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    submitBtn.disabled = true;
+    try {
+      const payload = await window.bsPost("/auth/login", new FormData(form));
+      if (payload.code === 0) {
+        window.location.href = (payload.data && payload.data.redirectTo) || "/user";
+        return;
+      }
+      alertBox.textContent = payload.message;
+      alertBox.style.display = "block";
+      if (payload.code === 2) {
+        document.getElementById("id-identification").focus();
+      } else {
+        document.getElementById("id-password").focus();
+      }
+    } catch (err) {
+      alertBox.textContent = "网络异常，请稍后再试";
+      alertBox.style.display = "block";
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+})();
+</script>
+
+{% if captcha.provider == "turnstile" %}
+<script src="/static/js/turnstile.js" defer></script>
+{% endif %}
+{% endblock %}

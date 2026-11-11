@@ -1,0 +1,50 @@
+<!doctype html>
+{% load static %}
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Blessing Skin{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  {% block navbar %}
+  <nav class="bs-navbar">
+    <div class="bs-container bs-navbar-inner">
+      <a class="bs-navbar-brand" href="/">
+        <svg class="bs-icon" style="width:22px;height:22px" aria-hidden="true">
+          <use href="{% static 'icons/home.svg' %}#"></use>
+        </svg>
+        {{ site_name|default:"Blessing Skin" }}
+      </a>
+      <ul class="bs-navbar-nav">
+        <li><a href="/skinlib">皮肤库</a></li>
+        {% if user.is_authenticated %}
+          <li><a href="/user">用户中心</a></li>
+          <li><a href="/user#players">我的角色</a></li>
+        {% endif %}
+      </ul>
+      <div>
+        {% if user.is_authenticated %}
+          <span style="font-size:13px;color:var(--bs-text-secondary)">{{ user.nickname }}</span>
+        {% else %}
+          <a class="bs-btn bs-btn-primary" style="padding:6px 14px" href="/auth/login">登录</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+  {% endblock %}
+
+  <main class="bs-container" style="padding-top:32px;padding-bottom:32px">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="bs-footer">
+    Powered by Blessing Skin (Django Edition)
+  </footer>
+
+  <script src="{% static 'js/base.js' %}"></script>
+  {% block extra_foot %}{% endblock %}
+</body>
+</html>

@@ -38,11 +38,14 @@ def _client_ip(request) -> str:
 
 @require_GET
 def login_page(request):
-    """登录页占位（Tailwind 前台 Phase 5 替换）。"""
+    """登录页（Tailwind 风格）。"""
     return render(
         request,
         "accounts/login.html",
-        {"captcha": get_captcha_requirements()},
+        {
+            "captcha": get_captcha_requirements(),
+            "site_name": Option.objects.get_value("site_name"),
+        },
     )
 
 
@@ -103,7 +106,14 @@ def register_page(request):
     return render(
         request,
         "accounts/register.html",
-        {"captcha": get_captcha_requirements()},
+        {
+            "captcha": get_captcha_requirements(),
+            "site_name": Option.objects.get_value("site_name"),
+            "invitation_required": (
+                Option.objects.get_value("invitation_required") or "0"
+            )
+            in ("1", "true"),
+        },
     )
 
 
@@ -185,10 +195,7 @@ def logout_submit(request):
 
 @require_GET
 def forgot_page(request):
-    return render(request, "accounts/forgot.html")
-
-
-@require_POST
+    return render(request, "accounts/forgot.html")@require_POST
 def forgot_submit(request):
     email = request.POST.get("email", "").strip()
     if not email or "@" not in email:
@@ -224,7 +231,11 @@ def forgot_submit(request):
 
 @require_GET
 def reset_page(request):
-    return render(request, "accounts/reset.html")
+    return render(
+        request,
+        "accounts/reset.html",
+        {"uid": request.GET.get("uid", ""), "token": request.GET.get("token", "")},
+    )
 
 
 @require_POST

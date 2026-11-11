@@ -1,1 +1,61 @@
-﻿<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>auth</title></head><body><div id="app" data-page="reset"></div><!-- Phase 5 Tailwind 前台替换 --></body></html>
+{% extends "base.html" %}
+{% block title %}重置密码 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
+
+{% block content %}
+<div style="max-width:420px;margin:40px auto">
+  <div class="bs-card">
+    <div class="bs-card-body">
+      <h1 class="bs-card-title">重置密码</h1>
+      <div id="reset-alert" style="display:none" class="bs-alert bs-alert-error"></div>
+
+      <form id="reset-form" data-uid="{{ uid }}" data-token="{{ token }}">
+        {% csrf_token %}
+        <input type="hidden" name="uid" value="{{ uid }}">
+        <input type="hidden" name="token" value="{{ token }}">
+        <div class="bs-field">
+          <label for="id-password">新密码（8-32 位）</label>
+          <input class="bs-input" id="id-password" name="password" type="password"
+                 minlength="8" maxlength="32" required>
+        </div>
+        <div class="bs-field">
+          <label for="id-password2">确认新密码</label>
+          <input class="bs-input" id="id-password2" name="password_confirmation"
+                 type="password" minlength="8" maxlength="32" required>
+        </div>
+        <button class="bs-btn bs-btn-primary" style="width:100%" type="submit">
+          重置密码
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_foot %}
+<script>
+(function () {
+  const form = document.getElementById("reset-form");
+  const alertBox = document.getElementById("reset-alert");
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const fd = new FormData(form);
+    if (fd.get("password") !== fd.get("password_confirmation")) {
+      alertBox.textContent = "两次输入的密码不一致";
+      alertBox.style.display = "block";
+      return;
+    }
+    const payload = await window.bsPost("/auth/reset?" +
+      "uid=" + encodeURIComponent(fd.get("uid")) +
+      "&token=" + encodeURIComponent(fd.get("token")), fd);
+    alertBox.className = "bs-alert " +
+      (payload.code === 0 ? "bs-alert-success" : "bs-alert-error");
+    alertBox.textContent = payload.message;
+    alertBox.style.display = "block";
+    if (payload.code === 0) {
+      setTimeout(function () { window.location.href = "/auth/login"; }, 1600);
+    }
+  });
+})();
+</script>
+{% endblock %}

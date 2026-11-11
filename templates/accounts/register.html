@@ -1,1 +1,104 @@
-﻿<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>auth</title></head><body><div id="app" data-page="register"></div><!-- Phase 5 Tailwind 前台替换 --></body></html>
+{% extends "base.html" %}
+{% block title %}注册 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
+
+{% block content %}
+<div style="max-width:460px;margin:40px auto">
+  <div class="bs-card">
+    <div class="bs-card-body">
+      <h1 class="bs-card-title">注册</h1>
+      <div id="reg-alert" style="display:none" class="bs-alert bs-alert-error"></div>
+
+      <form id="reg-form">
+        {% csrf_token %}
+        <div class="bs-field">
+          <label for="id-email">邮箱</label>
+          <input class="bs-input" id="id-email" name="email" type="email" required>
+        </div>
+        <div class="bs-field">
+          <label for="id-nickname">昵称</label>
+          <input class="bs-input" id="id-nickname" name="nickname" maxlength="32">
+        </div>
+        <div class="bs-field">
+          <label for="id-password">密码（8-32 位）</label>
+          <input class="bs-input" id="id-password" name="password" type="password"
+                 minlength="8" maxlength="32" required>
+        </div>
+        <div class="bs-field">
+          <label for="id-password2">确认密码</label>
+          <input class="bs-input" id="id-password2" name="password_confirmation"
+                 type="password" minlength="8" maxlength="32" required>
+        </div>
+
+        {% if invitation_required %}
+        <div class="bs-field">
+          <label for="id-invitation">邀请码</label>
+          <input class="bs-input" id="id-invitation" name="invitation_code" required>
+        </div>
+        {% endif %}
+
+        {% if captcha.provider == "turnstile" %}
+        <div class="bs-field" id="captcha-slot" data-sitekey="{{ captcha.sitekey }}"></div>
+        <input type="hidden" name="captcha" id="captcha-token">
+        {% elif captcha.provider == "recaptcha" %}
+        <div class="bs-field">
+          <div class="g-recaptcha" data-sitekey="{{ captcha.sitekey }}"></div>
+        </div>
+        {% endif %}
+
+        <button class="bs-btn bs-btn-primary" style="width:100%" type="submit" id="reg-submit">
+          注册
+        </button>
+      </form>
+
+      <p style="margin-top:16px;font-size:13px;text-align:center">
+        已有账号？<a href="/auth/login">直接登录</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_foot %}
+<script>
+(function () {
+  const form = document.getElementById("reg-form");
+  const alertBox = document.getElementById("reg-alert");
+  const submitBtn = document.getElementById("reg-submit");
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    alertBox.style.display = "none";
+
+    const fd = new FormData(form);
+    const pass = fd.get("password");
+    const pass2 = fd.get("password_confirmation");
+    if (pass !== pass2) {
+      alertBox.textContent = "两次输入的密码不一致";
+      alertBox.style.display = "block";
+      return;
+    }
+
+    submitBtn.disabled = true;
+    try {
+      const payload = await window.bsPost("/auth/register", fd);
+      if (payload.code === 0) {
+        window.bsToast("注册成功，正在跳转…", "success");
+        window.location.href = (payload.data && payload.data.redirectTo) || "/user";
+        return;
+      }
+      alertBox.textContent = payload.message;
+      alertBox.style.display = "block";
+    } catch (err) {
+      alertBox.textContent = "网络异常，请稍后再试";
+      alertBox.style.display = "block";
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+})();
+</script>
+
+{% if captcha.provider == "turnstile" %}
+<script src="/static/js/turnstile.js" defer></script>
+{% endif %}
+{% endblock %}
