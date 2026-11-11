@@ -14,6 +14,12 @@ DATABASES = {
 # 邮件进内存 outbox，测试可断言
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
+# Manifest storage 需预先 collectstatic（测试无产物），回退默认
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
+
 # Yggdrasil 节流默认关闭（限流专项测试用 override_settings 打开）
 YGG_RATE_LIMIT_SECONDS = 0
 YGG_MAX_BODY_BYTES = 1024 * 1024
