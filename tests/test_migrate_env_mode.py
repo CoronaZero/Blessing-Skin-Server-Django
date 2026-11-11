@@ -1,4 +1,4 @@
-"""migrate_from_php v2 测试：--env 驱动的完整站点迁移（含皮肤文件复制）。
+﻿"""migrate_from_php v2 测试：--env 驱动的完整站点迁移（含皮肤文件复制）。
 
 v2 目标（对照用户需求）：
 - --env <path> 指向 PHP 站 .env：自动解析 DB 连接、SALT、PWD_METHOD，
@@ -121,6 +121,14 @@ def build_php_site(tmp_path, *, textures_dir="storage/textures"):
         ["deadbeef" * 8],
     )
     conn.execute(
+        # permission=1（管理员）→ 可进后台、非超管
+        "INSERT INTO users (uid, email, nickname, score, avatar, password, ip,"
+        " permission, last_sign_at, register_at, verified)"
+        " VALUES (3, 'mod@old.com', '老管理', 5, 0, ?, '192.0.2.2', 1,"
+        " '2020-02-11 00:00:00', '2020-01-20 00:00:00', 1)",
+        ["cafebabe" * 8],
+    )
+    conn.execute(
         "INSERT INTO players (pid, uid, name, tid_skin, tid_cape, last_modified)"
         " VALUES (1, 2, 'OldSteve', ?, ?, '2020-05-01 00:00:00')",
         [1, 2],
@@ -203,7 +211,7 @@ class TestEnvDrivenMigration:
         output = run_env_migration(php["env_file"])
 
         # 用户/角色/纹理/选项全部到位
-        assert User.objects.count() == 2
+        assert User.objects.count() == 3
         assert Player.objects.get(name="OldSteve").uid.email == "user@old.com"
         assert Texture.objects.count() == 3
         assert Option.objects.get_value("site_name") == "老站名"
@@ -240,6 +248,40 @@ class TestEnvDrivenMigration:
         assert "引用完整性告警" in output
         assert "tid_cape=77" in output
         assert "uid=99" in output
+
+    def test_admin_permission_bridged_to_django_admin(self, tmp_path, storage):
+        """双权限体系桥接（真实部署踩坑）。
+
+        PHP permission：0 普通 / 1 管理员 / 2 超管 →
+        Django Admin 门禁字段：is_staff（进后台）/ is_superuser（全权限）。
+        迁移的管理员进不了 /admin/ 就是因为缺这段映射。
+        """
+        php = build_php_site(tmp_path)
+        run_env_migration(php["env_file"])
+
+        super_admin = User.objects.get(email="admin@old.com")  # permission=2
+        assert super_admin.permission == 2
+        assert super_admin.is_staff is True
+        assert super_admin.is_superuser is True
+
+        admin = User.objects.get(email="mod@old.com")  # permission=1
+        assert admin.is_staff is True
+        assert admin.is_superuser is False
+
+        normal = User.objects.get(email="user@old.com")  # permission=0
+        assert normal.is_staff is False
+        assert normal.is_superuser is False
+
+    def test_migrated_super_admin_can_enter_django_admin(self, tmp_path, storage, client):
+        """端到端：迁移的超管能真正访问 /admin/（主诉场景）。"""
+        php = build_php_site(tmp_path)
+        run_env_migration(php["env_file"])
+
+        super_admin = User.objects.get(email="admin@old.com")
+        assert client.login(username="admin@old.com", password="") is False  # 密码是搬来的散列
+        # 直接以会话登录验证 Admin 可达
+        client.force_login(super_admin)
+        assert client.get("/admin/").status_code == 200
 
     def test_migration_order_textures_before_players(self, tmp_path, storage):
         """依赖序：users→textures→players（InnoDB 即时 FK 下唯一可行序）。
@@ -348,7 +390,7 @@ class TestEnvDrivenMigration:
         php = build_php_site(tmp_path)
         run_env_migration(php["env_file"])
         run_env_migration(php["env_file"])
-        assert User.objects.count() == 2
+        assert User.objects.count() == 3
         assert Texture.objects.count() == 3
 
 

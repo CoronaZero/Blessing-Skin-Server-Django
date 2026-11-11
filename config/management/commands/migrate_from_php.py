@@ -443,6 +443,12 @@ class Command(BaseCommand):
                     "avatar": row.get("avatar") or 0,
                     "ip": row.get("ip") or "",
                     "permission": row.get("permission") or 0,
+                    # 双权限体系桥接（真实部署踩坑：迁移的管理员进不了 Django
+                    # Admin——Admin 门禁看 is_staff/is_superuser 而非 permission）：
+                    # PHP permission >= 1（管理员）→ 可进后台；
+                    # == 2（超管）→ 后台全部权限。重跑以旧库为准。
+                    "is_staff": (row.get("permission") or 0) >= 1,
+                    "is_superuser": (row.get("permission") or 0) >= 2,
                     "verified": bool(row.get("verified")),
                     "last_sign_at": _dt(row.get("last_sign_at")),
                     "register_at": _dt(row.get("register_at")),
