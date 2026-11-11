@@ -36,8 +36,11 @@
         '<img src="/avatar/64/' + encodeURIComponent(p.name) + '.png"' +
         '     style="width:48px;height:48px;image-rendering:pixelated"><div' +
         '     style="font-weight:600;margin-top:6px">' + escapeHtml(p.name) + "</div>" +
-        '<button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px' +
-        ';margin-top:6px" data-del="' + p.pid + '">删除</button>';
+        '<div style="display:flex;gap:6px;justify-content:center;margin-top:6px">' +
+        '<a class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"' +
+        '   href="/user/players/' + p.pid + '">管理</a>' +
+        '<button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"' +
+        '        data-del="' + p.pid + '">删除</button></div>';
       el.querySelector("[data-del]").addEventListener("click", async function () {
         if (!window.confirm("确定删除角色 " + p.name + "？")) return;
         const r = await window.bsPost("/user/players/" + p.pid + "/delete");
@@ -61,8 +64,8 @@
       el.className = "bs-card";
       el.innerHTML =
         '<div style="padding:10px">' +
-        '<img src="/textures/' + item.hash + '" style="width:100%;image-rendering:pixelated' +
-        ';border-radius:6px;background:var(--bs-primary-light)">' +
+        '<img src="/preview/' + item.tid + '?height=150" style="width:100%;' +
+        'border-radius:6px;background:var(--bs-primary-light)">' +
         '<div style="font-weight:600;margin-top:6px;font-size:14px">' +
         escapeHtml(item.name) + "</div></div>";
       list.appendChild(el);

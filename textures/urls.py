@@ -35,6 +35,8 @@ urlpatterns = [
         name="upload",
     ),
     path("textures/<str:hash_value>", views.serve_texture, name="texture"),
+    # 皮肤立绘预览（对照原版 /preview/{tid}；另支持 hash 定位）
+    path("preview/<int:tid>", views.preview_texture, name="preview"),
     path("avatar/<int:size>/<str:player_name>", views.serve_avatar, name="avatar"),
     # CustomSkinAPI R1 根路径兜底：/{player}.json（注册在根 urls最后）
     re_path(r"^(?P<player_name>[\w\-.]+)\.json$", views.player_profile_json, name="player_json"),

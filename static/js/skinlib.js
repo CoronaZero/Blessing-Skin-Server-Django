@@ -1,4 +1,4 @@
-/* 皮肤库列表交互（对照 /skinlib/search JSON 契约） */
+﻿/* 皮肤库列表交互（对照 /skinlib/search JSON 契约） */
 
 (function () {
   "use strict";
@@ -41,8 +41,8 @@
       card.className = "bs-card";
       card.innerHTML =
         '<div style="padding:12px;cursor:pointer" data-tid="' + item.tid + '">' +
-        '<img src="/textures/' + item.hash + '" alt="' + escapeHtml(item.name) + '"' +
-        '     style="width:100%;image-rendering:pixelated;border-radius:6px;background:' +
+        '<img src="/preview/' + item.tid + '?height=150" alt="' + escapeHtml(item.name) + '"' +
+        '     style="width:100%;border-radius:6px;background:' +
         "var(--bs-primary-light)" + '">' +
         '<div style="margin-top:8px;font-weight:600">' + escapeHtml(item.name) + "</div>" +
         '<div style="font-size:12px;color:var(--bs-text-secondary);display:flex;' +

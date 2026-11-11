@@ -1,10 +1,12 @@
 """textures 视图：皮肤库搜索/上传/纹理文件/头像/CustomSkinAPI。"""
 
+import io
 import math
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
+from PIL import Image
 
 from config.jsonapi import SPECIAL, SUCCESS, json_response
 from options.models import Option
@@ -12,6 +14,7 @@ from players.models import Player
 
 from .models import Texture
 from .rendering import AVATAR_SIZES, render_avatar, render_texture_response
+from .skinrender import render_cape_portrait, render_skin_portrait
 from .storage import TextureFileNotFoundError, texture_storage
 from .validation import validate_texture_image
 
@@ -90,7 +93,15 @@ def search(request):
     except ValueError:
         page = 1
 
-    queryset = Texture.objects.filter(public=True).select_related("uploader")
+    # 可见性对照原版 library：admin 全可见；普通用户=公开+自己的
+    if request.user.is_admin():
+        queryset = Texture.objects.select_related("uploader")
+    else:
+        from django.db.models import Q
+
+        queryset = Texture.objects.filter(
+            Q(public=True) | Q(uploader=request.user)
+        ).select_related("uploader")
     if category == "cape":
         queryset = queryset.filter(type="cape")
     elif category == "alex":
@@ -263,6 +274,56 @@ def player_profile_json(request, player_name: str):
         return HttpResponseNotFound()
 
     return JsonResponse(player.to_profile_dict())
+
+
+# ---- 皮肤立绘预览（对照原版 /preview/{tid}，3D 投影渲染 + 缓存）----
+
+
+@require_GET
+def preview_texture(request, tid: int):
+    """渲染纹理立绘：skin→正面+背面 3D 立绘；cape→披风平展图。"""
+    from django.core.cache import cache
+
+    texture = Texture.objects.filter(tid=tid).first()
+    if texture is None:
+        return HttpResponseNotFound()
+
+    use_png = "png" in request.GET
+    height = request.GET.get("height", "200")
+    cache_key = f"preview:t{texture.tid}:{'png' if use_png else 'webp'}"
+    cached = cache.get(cache_key)
+    if cached is None:
+        try:
+            data = texture_storage.read(texture.hash)
+        except (TextureFileNotFoundError, ValueError):
+            return HttpResponse(status=404)
+        if texture.type == "cape":
+            image_bytes = render_cape_portrait(data, int(height))
+            fmt = "PNG"
+        else:
+            image_bytes = render_skin_portrait(data, 12, texture.type == "alex")
+            fmt = "PNG"
+        if not use_png:
+            try:
+                img = Image.open(io.BytesIO(image_bytes))
+                buf = io.BytesIO()
+                img.save(buf, format="WEBP", quality=100)
+                image_bytes, fmt = buf.getvalue(), "WEBP"
+            except Exception:  # noqa: BLE001 - 无 webp 编码器时回落 PNG
+                pass
+        cached = (fmt, image_bytes)
+        from options.models import Option
+
+        try:
+            persist = (Option.objects.get_value("enable_preview_cache") or "0") in ("1", "true")
+        except Exception:  # noqa: BLE001 - options 表未就绪时短缓存
+            persist = False
+        cache.set(cache_key, cached, 3600 * 24 * 365 if persist else 60)
+
+    fmt, image_bytes = cached
+    resp = HttpResponse(image_bytes, content_type=f"image/{fmt.lower()}")
+    resp["Cache-Control"] = "public, max-age=86400"
+    return resp
 
 
 # ---- 用户衣柜（对照原版 ClosetController）----
