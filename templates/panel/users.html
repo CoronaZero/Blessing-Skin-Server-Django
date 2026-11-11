@@ -1,0 +1,90 @@
+{% extends "panel/base.html" %}
+{% block title %}用户管理{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <h1 style="margin:0;font-size:20px">用户管理</h1>
+  <form method="get" style="display:flex;gap:8px">
+    <input class="bs-input" name="q" value="{{ q }}" placeholder="搜索邮箱/昵称" style="width:240px">
+    <button class="bs-btn bs-btn-secondary" type="submit">搜索</button>
+  </form>
+</div>
+
+<div class="bs-card">
+  <div class="bs-card-body" style="overflow-x:auto">
+    <table class="pm-table">
+      <tr><th>UID</th><th>邮箱</th><th>昵称</th><th>积分</th><th>权限</th><th>操作</th></tr>
+      {% for u in page_obj %}
+      <tr>
+        <td>{{ u.uid }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.nickname }}</td>
+        <td>
+          <span data-score>{{ u.score }}</span>
+          {% if is_super %}
+          <button class="bs-btn bs-btn-secondary" style="padding:2px 8px;font-size:11px"
+                  data-toggle="score" data-target="{{ u.uid }}">±</button>
+          {% endif %}
+        </td>
+        <td>
+          {% if u.permission == -1 %}<span style="color:var(--bs-danger)">封禁</span>
+          {% elif u.permission == 1 %}管理员
+          {% elif u.permission == 2 %}<b style="color:var(--bs-primary)">超管</b>
+          {% else %}普通{% endif %}
+        </td>
+        <td style="white-space:nowrap">
+          {% if u.permission == -1 %}
+          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+                  data-action="unban" data-url="/admin/users/{{ u.uid }}/action">解封</button>
+          {% elif u.uid != request.user.uid %}
+          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+                  data-action="ban" data-url="/admin/users/{{ u.uid }}/action"
+                  data-confirm="确定封禁 {{ u.email }}？">封禁</button>
+          {% endif %}
+          {% if is_super and u.uid != request.user.uid %}
+          <select data-perm data-target="{{ u.uid }}" style="font-size:12px;padding:2px">
+            <option value="">调权…</option>
+            <option value="0">普通</option>
+            <option value="1">管理员</option>
+            <option value="2">超管</option>
+          </select>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% include "panel/_pager.html" %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_foot %}
+<script>
+(function () {
+  // 积分调整（提示输入）
+  document.querySelectorAll("[data-toggle='score']").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      const input = window.prompt("输入积分变化（正加负减）：");
+      if (!input) return;
+      const fd = new FormData();
+      fd.set("action", "score");
+      fd.set("delta", input);
+      const r = await window.bsPost("/admin/users/" + btn.dataset.target + "/action", fd);
+      window.bsToast(r.message, r.code === 0 ? "success" : "error");
+      if (r.code === 0) setTimeout(function () { location.reload(); }, 700);
+    });
+  });
+  // 调权
+  document.querySelectorAll("[data-perm]").forEach(function (sel) {
+    sel.addEventListener("change", async function () {
+      if (!sel.value) return;
+      const fd = new FormData();
+      fd.set("action", "perm");
+      fd.set("level", sel.value);
+      const r = await window.bsPost("/admin/users/" + sel.dataset.target + "/action", fd);
+      window.bsToast(r.message, r.code === 0 ? "success" : "error");
+      if (r.code === 0) setTimeout(function () { location.reload(); }, 700);
+    });
+  });
+})();
+</script>
+{% endblock %}

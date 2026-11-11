@@ -39,16 +39,11 @@ urlpatterns = [
         name="reset_page",
     ),
     path("auth/verify/<str:token>", views.verify_email, name="verify"),
-    # ---- 用户中心 ----
-    # /user 是用户中心主页（导航栏/LOGIN_REDIRECT_URL 的目标，
-    # 渲染角色/衣柜/通知/资料四区）；/user/profile 保留原路径同视图
-    path("user", views.profile_view, name="user_center"),
+    # ---- 用户中心（分页：仪表盘/资料/角色列表/衣柜/通知）----
+    path("user", views.user_dashboard, name="user_center"),
     path("user/profile", views.profile_view, name="profile"),
-    path(
-        "user/notifications",
-        views.notifications_list,
-        name="notifications",
-    ),
+    path("user/notifications", views.notifications_list, name="notifications"),
+    path("user/notifications/page", views.notifications_page, name="notifications_page"),
     path(
         "user/notifications/<int:notification_id>/read",
         views.notification_read,

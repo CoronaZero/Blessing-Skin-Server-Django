@@ -6,22 +6,32 @@
   <div>
     <div class="bs-card">
       <div class="bs-card-body" style="text-align:center">
-        <img src="/preview/{{ player.tid_skin.tid }}?png" alt="皮肤预览"
-             id="pm-skin-preview"
+        <img src="{% if preview_skin %}/preview/{{ preview_skin.tid }}?png{% else %}{% endif %}"
+             alt="皮肤预览" id="pm-skin-preview"
              style="width:100%;border-radius:8px;background:var(--bs-primary-light)"
-             {% if not player.tid_skin %}hidden{% endif %}>
+             {% if not preview_skin %}hidden{% endif %}>
         <div id="pm-no-skin" style="color:var(--bs-text-secondary);padding:24px 0"
-             {% if player.tid_skin %}hidden{% endif %}>
-          尚未设置皮肤
+             {% if preview_skin %}hidden{% endif %}>
+          尚未设置皮肤{% if preview_skin %}（下方为默认皮肤占位）{% endif %}
         </div>
+        {% if not has_own_skin and preview_skin %}
+        <p style="font-size:11px;color:var(--bs-text-secondary);margin:6px 0 0">
+          ↑ 显示的是站点默认皮肤占位，可在右侧选择衣柜皮肤
+        </p>
+        {% endif %}
         <h2 style="margin:12px 0 4px;font-size:18px">{{ player.name }}</h2>
         <p style="margin:0;font-size:12px;color:var(--bs-text-secondary)">
           UUID: {{ player.uuid }}
         </p>
-        <img src="/preview/{{ player.tid_cape.tid }}?png" alt="披风预览"
+        <img src="/preview/{{ preview_cape.tid }}?png" alt="披风预览"
              id="pm-cape-preview"
              style="width:70%;margin-top:12px;border-radius:8px"
-             {% if not player.tid_cape %}hidden{% endif %}>
+             {% if not preview_cape %}hidden{% endif %}>
+        {% if not has_own_cape and preview_cape %}
+        <p style="font-size:11px;color:var(--bs-text-secondary);margin:6px 0 0">
+          ↑ 显示的是站点默认披风占位
+        </p>
+        {% endif %}
       </div>
     </div>
 

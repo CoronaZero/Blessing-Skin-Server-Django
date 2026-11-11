@@ -176,6 +176,7 @@ INSTALLED_APPS = [
     "invitation",
     "oauth_bridge",
     "setup",
+    "panel",
     # ---- 第三方 ----
     "oauth2_provider",
 ]

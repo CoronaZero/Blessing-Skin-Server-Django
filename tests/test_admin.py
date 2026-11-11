@@ -1,91 +1,116 @@
-"""Admin 注册契约测试：核心模型必须可管理、权限语义正确。"""
+"""管理后台测试（自研 panel 已替代自带 admin）。"""
 
 import pytest
-from django.contrib import admin as django_admin
-from django.test import Client
 
 from accounts.models import User
+from moderation.models import Report
+from textures.models import Texture
 
 pytestmark = pytest.mark.django_db
 
 
-class TestAdminRegistrations:
-    def test_all_models_registered(self):
-
-        from accounts.models import PasswordReset
-        from invitation.models import InvitationCode
-        from moderation.models import Report
-        from notifications.models import Notification
-        from options.models import Option
-        from players.models import Player
-        from textures.models import ClosetItem, Texture
-        from yggdrasil.models import YggdrasilLog, YggdrasilToken
-
-        registry = django_admin.site._registry
-        expected = [
-            User,
-            PasswordReset,
-            Player,
-            Texture,
-            ClosetItem,
-            Report,
-            Notification,
-            Option,
-            InvitationCode,
-            YggdrasilToken,
-            YggdrasilLog,
-        ]
-        for model in expected:
-            assert model in registry, f"{model.__name__} 未注册到 Admin"
-
-    def test_admin_index_requires_permission(self, client):
-        resp = client.get("/admin/")
-        assert resp.status_code == 302  # 未登录跳登录页
-
-    def test_super_admin_can_access(self, client):
-        User.objects.create_superuser(email="op@x.com", nickname="OP", password="password8")
-        assert client.login(username="op@x.com", password="password8")
-        resp = client.get("/admin/")
-        assert resp.status_code == 200
-
-    def test_normal_user_cannot_access(self, client):
-        User.objects.create_user(email="n@x.com", nickname="n", password="password8")
-        assert client.login(username="n@x.com", password="password8")
-        resp = client.get("/admin/")
-        # is_staff=False → 仍拒绝
-        assert resp.status_code in (302, 403)
+@pytest.fixture()
+def super_client(client):
+    User.objects.create_superuser(
+        email="op@x.com", nickname="OP", password="password8"
+    )
+    client.login(username="op@x.com", password="password8")
+    return client
 
 
-class TestAdminListPages:
-    @pytest.fixture()
-    def op_client(self):
-        User.objects.create_superuser(email="op2@x.com", nickname="OP2", password="password8")
-        c = Client()
-        assert c.login(username="op2@x.com", password="password8")
-        return c
+@pytest.fixture()
+def plain_admin_client(client):
+    User.objects.create_user(
+        email="ad@x.com", nickname="ad", password="password8",
+        permission=User.Permission.ADMIN,
+    )
+    client.login(username="ad@x.com", password="password8")
+    return client
 
+
+class TestPanelAccess:
     @pytest.mark.parametrize("path", [
-        "/admin/accounts/user/",
-        "/admin/players/player/",
-        "/admin/textures/texture/",
-        "/admin/moderation/report/",
-        "/admin/options/option/",
-        "/admin/invitation/invitationcode/",
-        "/admin/yggdrasil/yggdrasiltoken/",
-        "/admin/yggdrasil/yggdrasillog/",
+        "/admin/",
+        "/admin/users",
+        "/admin/textures",
+        "/admin/reports",
+        "/admin/options",
     ])
-    def test_core_changelists_render(self, op_client, path):
-        resp = op_client.get(path)
-        assert resp.status_code == 200, f"{path} 返回 {resp.status_code}"
+    def test_super_admin_all_pages(self, super_client, path):
+        assert super_client.get(path).status_code == 200, path
 
-    def test_user_ban_action(self, op_client):
-        user = User.objects.create_user(
-            email="banme@x.com", nickname="ban", password="password8"
+    def test_plain_admin_no_options(self, plain_admin_client):
+        assert plain_admin_client.get("/admin/options").status_code == 404
+        assert plain_admin_client.get("/admin/users").status_code == 200
+
+    def test_normal_user_rejected(self, client):
+        User.objects.create_user(email="n@x.com", nickname="n", password="x")
+        client.force_login(User.objects.get(email="n@x.com"))
+        assert client.get("/admin/").status_code == 404
+
+
+class TestPanelUserActions:
+    def test_ban_unban(self, super_client):
+        target = User.objects.create_user(email="t@x.com", nickname="t", password="x")
+        r = super_client.post(f"/admin/users/{target.uid}/action", {"action": "ban"})
+        assert r.json()["code"] == 0
+        target.refresh_from_db()
+        assert target.permission == User.Permission.BANNED
+        r = super_client.post(f"/admin/users/{target.uid}/action", {"action": "unban"})
+        assert r.json()["code"] == 0
+        target.refresh_from_db()
+        assert target.permission == User.Permission.NORMAL
+
+    def test_plain_admin_cannot_change_permission(self, plain_admin_client):
+        target = User.objects.create_user(email="t2@x.com", nickname="t2", password="x")
+        r = plain_admin_client.post(
+            f"/admin/users/{target.uid}/action", {"action": "perm", "level": "2"}
         )
-        resp = op_client.post(
-            "/admin/accounts/user/",
-            {"action": "ban_users", "_selected_action": [user.uid]},
+        assert r.json()["code"] != 0
+
+    def test_super_admin_can_promote(self, super_client):
+        target = User.objects.create_user(email="t3@x.com", nickname="t3", password="x")
+        r = super_client.post(
+            f"/admin/users/{target.uid}/action", {"action": "perm", "level": "1"}
         )
-        assert resp.status_code in (200, 302)
-        user.refresh_from_db()
-        assert user.permission == User.Permission.BANNED
+        assert r.json()["code"] == 0
+        target.refresh_from_db()
+        assert target.permission == User.Permission.ADMIN
+
+
+class TestPanelTextureActions:
+    def test_toggle_public_and_delete(self, super_client):
+        owner = User.objects.create_user(email="o@x.com", nickname="o", password="x")
+        t = Texture.objects.create(
+            name="T", type="steve", hash="a" * 64, size=1, uploader=owner, public=True
+        )
+        r = super_client.post(f"/admin/textures/{t.tid}/action",
+                              {"action": "toggle_public"})
+        assert r.json()["code"] == 0
+        t.refresh_from_db()
+        assert t.public is False
+        r = super_client.post(f"/admin/textures/{t.tid}/action", {"action": "delete"})
+        assert r.json()["code"] == 0
+        assert not Texture.objects.filter(tid=t.tid).exists()
+
+
+class TestPanelReportActions:
+    def test_resolve_reject(self, super_client):
+        reporter = User.objects.create_user(email="r@x.com", nickname="r", password="x")
+        uploader = User.objects.create_user(email="u@x.com", nickname="u", password="x")
+        t = Texture.objects.create(
+            name="T", type="steve", hash="b" * 64, size=1, uploader=uploader, public=True
+        )
+        report = Report.objects.create(
+            texture=t, uploader=uploader, reporter=reporter, reason="测试"
+        )
+        r = super_client.post(f"/admin/reports/{report.id}/action",
+                              {"action": "resolve"})
+        assert r.json()["code"] == 0
+        report.refresh_from_db()
+        assert report.status == Report.Status.RESOLVED
+        r = super_client.post(f"/admin/reports/{report.id}/action",
+                              {"action": "reject"})
+        assert r.json()["code"] == 0
+        report.refresh_from_db()
+        assert report.status == Report.Status.REJECTED

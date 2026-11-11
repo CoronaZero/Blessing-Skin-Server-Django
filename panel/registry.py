@@ -1,0 +1,149 @@
+﻿"""选项注册表：类型化控件 + 分组定义（自研管理面板的选项心脏）。
+
+对照原版 OptionForm 的分组表单：每项声明控件类型，
+面板按注册表自动渲染开关/文本/数字/密钥控件。
+"""
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class OptionField:
+    key: str
+    label: str
+    widget: str = "text"  # text / bool / int / textarea / password / select
+    help_text: str = ""
+    choices: list = field(default_factory=list)  # select 用
+
+
+@dataclass
+class OptionGroup:
+    slug: str
+    title: str
+    fields: list
+    super_admin_only: bool = False
+
+
+OPTION_REGISTRY: list[OptionGroup] = [
+    OptionGroup(
+        slug="general",
+        title="基本信息",
+        fields=[
+            OptionField("site_name", "站点名称"),
+            OptionField("site_url", "站点地址", help_text="https://skin.example.com，邮件链接用它构建"),
+            OptionField("site_description", "站点描述", widget="textarea"),
+        ],
+    ),
+    OptionGroup(
+        slug="defaults",
+        title="默认材质",
+        super_admin_only=True,
+        fields=[
+            OptionField(
+                "default_skin_tid", "默认皮肤 TID",
+                widget="int",
+                help_text="用户创建角色时自动应用；无皮肤角色的预览用它占位（0=停用）",
+            ),
+            OptionField(
+                "default_cape_tid", "默认披风 TID",
+                widget="int",
+                help_text="披风演示占位与创建角色默认应用（0=停用）",
+            ),
+        ],
+    ),
+    OptionGroup(
+        slug="register",
+        title="注册",
+        fields=[
+            OptionField("disable_registration", "关闭注册", widget="bool"),
+            OptionField("invitation_required", "注册需邀请码", widget="bool"),
+            OptionField("require_verification", "注册需邮箱验证", widget="bool"),
+            OptionField("regs_per_ip", "同 IP 注册上限", widget="int"),
+            OptionField("player_limit_per_user", "每人角色上限（0=不限）", widget="int"),
+        ],
+    ),
+    OptionGroup(
+        slug="score",
+        title="积分",
+        fields=[
+            OptionField("score_per_storage", "公开纹理每 KB 扣分", widget="int"),
+            OptionField("private_score_per_storage", "私密纹理每 KB 扣分", widget="int"),
+            OptionField("score_per_closet_item", "收藏扣分", widget="int"),
+            OptionField("score_per_sign", "签到得分", widget="int"),
+            OptionField("score_award_per_texture", "上传奖励（抵扣）", widget="int"),
+            OptionField("user_initial_score", "新用户初始积分", widget="int"),
+        ],
+    ),
+    OptionGroup(
+        slug="player_name",
+        title="角色名规则",
+        fields=[
+            OptionField(
+                "player_name_rule", "角色名规则", widget="select",
+                choices=[("official", "官方（字母数字下划线）"), ("cjk", "允许中文"),
+                         ("utf8", "UTF-8 任意"), ("custom", "自定义正则")],
+            ),
+            OptionField("custom_player_name_regexp", "自定义正则（规则=custom 时）"),
+            OptionField("player_name_length_min", "最小长度", widget="int"),
+            OptionField("player_name_length_max", "最大长度", widget="int"),
+        ],
+    ),
+    OptionGroup(
+        slug="login",
+        title="登录与安全",
+        super_admin_only=True,
+        fields=[
+            OptionField("login_enumeration_protection",
+                        "登录枚举防护（统一报错文案）", widget="bool"),
+            OptionField("score_forget_password", "找回密码扣分", widget="int"),
+        ],
+    ),
+    OptionGroup(
+        slug="captcha",
+        title="验证码",
+        super_admin_only=True,
+        fields=[
+            OptionField(
+                "captcha_provider", "验证码提供者", widget="select",
+                choices=[("", "关闭"), ("turnstile", "Cloudflare Turnstile"),
+                         ("recaptcha", "Google reCAPTCHA")],
+            ),
+            OptionField("turnstile_sitekey", "Turnstile Sitekey"),
+            OptionField("turnstile_secret", "Turnstile Secret", widget="password"),
+            OptionField("recaptcha_sitekey", "reCAPTCHA Sitekey"),
+            OptionField("recaptcha_secret", "reCAPTCHA Secret", widget="password"),
+        ],
+    ),
+    OptionGroup(
+        slug="mail",
+        title="邮件（SMTP）",
+        super_admin_only=True,
+        fields=[
+            OptionField("mail_host", "SMTP 服务器", help_text="填写后真实发送，留空打印到控制台"),
+            OptionField("mail_port", "端口", widget="int"),
+            OptionField(
+                "mail_encryption", "加密方式", widget="select",
+                choices=[("ssl", "SSL（465）"), ("tls", "TLS/STARTTLS（587）")],
+            ),
+            OptionField("mail_username", "用户名"),
+            OptionField("mail_password", "密码/授权码", widget="password"),
+            OptionField("mail_from_address", "发件人地址"),
+        ],
+    ),
+    OptionGroup(
+        slug="yggdrasil",
+        title="Yggdrasil",
+        super_admin_only=True,
+        fields=[
+            OptionField(
+                "ygg_uuid_algorithm", "UUID 算法", widget="select",
+                choices=[("v4", "随机 v4"), ("v3", "离线 v3（盗版一致）")],
+            ),
+            OptionField("ygg_token_expire_1", "令牌有效期（秒）", widget="int"),
+            OptionField("ygg_token_expire_2", "刷新窗口（秒）", widget="int"),
+            OptionField("ygg_tokens_limit", "每人令牌上限", widget="int"),
+            OptionField("ygg_search_profile_max", "批量查询上限", widget="int"),
+            OptionField("ygg_skin_domain", "皮肤域名（逗号分隔，留空用当前域名）"),
+        ],
+    ),
+]

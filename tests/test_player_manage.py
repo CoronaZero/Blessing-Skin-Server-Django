@@ -60,7 +60,7 @@ class TestPlayerManagePage:
         assert self._client(client, user).get("/user/players/99999").status_code == 404
 
     def test_manage_page_url_referenced_from_user_center(self, client, user, player):
-        """用户中心角色卡有「管理」链接指向管理页（模板审计不覆盖 JS 生成链接，
-        此处端到端锚定）。"""
-        html = self._client(client, user).get("/user").content.decode()
-        assert "user/players/" in html or "players-list" in html  # JS 渲染容器存在
+        """角色列表页有 JS 渲染容器（管理链接由 JS 动态生成）。"""
+        html = self._client(client, user).get("/user/players/page").content.decode()
+        assert 'id="players-list"' in html
+        assert "user_players.js" in html

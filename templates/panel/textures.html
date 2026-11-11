@@ -1,0 +1,63 @@
+{% extends "panel/base.html" %}
+{% block title %}皮肤库管理{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <h1 style="margin:0;font-size:20px">皮肤库管理</h1>
+  <form method="get" style="display:flex;gap:8px">
+    <input class="bs-input" name="q" value="{{ q }}" placeholder="名称/hash" style="width:240px">
+    <button class="bs-btn bs-btn-secondary" type="submit">搜索</button>
+  </form>
+</div>
+
+<div class="bs-card">
+  <div class="bs-card-body" style="overflow-x:auto">
+    <table class="pm-table">
+      <tr><th>TID</th><th>预览</th><th>名称</th><th>类型</th><th>上传者</th><th>公开</th><th>操作</th></tr>
+      {% for t in page_obj %}
+      <tr>
+        <td>{{ t.tid }}</td>
+        <td><img src="/preview/{{ t.tid }}?height=48&png" style="height:48px"></td>
+        <td>
+          <span data-name="{{ t.tid }}">{{ t.name }}</span>
+          <button class="bs-btn bs-btn-secondary" style="padding:2px 8px;font-size:11px"
+                  data-rename="{{ t.tid }}">改名</button>
+        </td>
+        <td>{{ t.get_type_display }}</td>
+        <td>{{ t.uploader.nickname }}</td>
+        <td>{% if t.public %}公开{% else %}<span style="color:var(--bs-danger)">私密</span>{% endif %}</td>
+        <td style="white-space:nowrap">
+          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+                  data-action="toggle_public" data-url="/admin/textures/{{ t.tid }}/action">
+            切换公开
+          </button>
+          <button class="bs-btn bs-btn-danger" style="padding:3px 10px;font-size:12px"
+                  data-action="delete" data-url="/admin/textures/{{ t.tid }}/action"
+                  data-confirm="确定删除 {{ t.name }}？角色引用将一并清除。">删除</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% include "panel/_pager.html" %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_foot %}
+<script>
+(function () {
+  document.querySelectorAll("[data-rename]").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      const tid = btn.dataset.rename;
+      const name = window.prompt("新名称：", document.querySelector("[data-name='" + tid + "']").textContent);
+      if (!name) return;
+      const fd = new FormData();
+      fd.set("action", "rename");
+      fd.set("name", name);
+      const r = await window.bsPost("/admin/textures/" + tid + "/action", fd);
+      window.bsToast(r.message, r.code === 0 ? "success" : "error");
+      if (r.code === 0) setTimeout(function () { location.reload(); }, 700);
+    });
+  });
+})();
+</script>
+{% endblock %}

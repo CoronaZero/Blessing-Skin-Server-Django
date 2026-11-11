@@ -319,30 +319,54 @@ def _base_url(request) -> str:
     return f"{scheme}://{request.get_host()}"
 
 
-@login_required
-def profile_view(request):
-    """用户中心页：GET 渲染（含用户概要）/ POST 修改资料。"""
-    if request.method == "POST":
-        return profile_submit(request)
+def _bs_user_json(user):
+    """用户概要 JSON（模板注入 BS_USER 全局，纯辅助函数非视图）。"""
     import json as _json
 
+    return _json.dumps(
+        {
+            "nickname": user.nickname,
+            "email": user.email,
+            "score": user.score,
+            "players": [
+                {"pid": p.pid, "name": p.name, "uuid": p.uuid}
+                for p in user.players.all()
+            ],
+        },
+        ensure_ascii=False,
+    )
+
+
+@login_required
+def user_dashboard(request):
+    """用户中心仪表盘（分页改造后的主页：概览+签到+最近通知）。"""
+
+    recent_notifications = (
+        request.user.notifications.order_by("-created_at")[:5]
+    )
+    announcement = Option.objects.get_value("site_announcement") or ""
+    return render(
+        request,
+        "accounts/dashboard.html",
+        {
+            "site_name": Option.objects.get_value("site_name"),
+            "bs_user_json": _bs_user_json(request.user),
+            "recent_notifications": recent_notifications,
+            "announcement": announcement,
+        },
+    )
+
+
+def profile_view(request):
+    """资料页（分页改造后专指资料设置）/ POST 修改资料。"""
+    if request.method == "POST":
+        return profile_submit(request)
     return render(
         request,
         "accounts/profile.html",
         {
             "site_name": Option.objects.get_value("site_name"),
-            "bs_user_json": _json.dumps(
-                {
-                    "nickname": request.user.nickname,
-                    "email": request.user.email,
-                    "score": request.user.score,
-                    "players": [
-                        {"pid": p.pid, "name": p.name, "uuid": p.uuid}
-                        for p in request.user.players.all()
-                    ],
-                },
-                ensure_ascii=False,
-            ),
+            "bs_user_json": _bs_user_json(request.user),
         },
     )
 
@@ -411,6 +435,16 @@ def profile_submit(request):
         return json_response("账号已注销", SUCCESS)
 
     return json_response("未知的操作")
+
+
+@login_required
+def notifications_page(request):
+    """通知独立页（分页改造，数据走 JSON API）。"""
+    return render(
+        request,
+        "users/notifications.html",
+        {"site_name": Option.objects.get_value("site_name")},
+    )
 
 
 @login_required

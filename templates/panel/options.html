@@ -1,0 +1,82 @@
+{% extends "panel/base.html" %}
+{% load get_item %}
+{% block title %}站点选项{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 20px;font-size:20px">站点选项</h1>
+
+<form id="pm-options">
+  {% csrf_token %}
+  {% for entry in option_groups %}
+  <div class="bs-card" style="margin-bottom:16px">
+    <div class="bs-card-body">
+      <h2 style="font-size:15px;margin:0 0 14px">{{ entry.group.title }}</h2>
+      {% for f in entry.group.fields %}
+      <div class="bs-field" style="max-width:520px">
+        <label for="opt-{{ f.key }}">{{ f.label }}</label>
+        {% if f.widget == 'bool' %}
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="opt-{{ f.key }}" name="{{ f.key }}"
+                 {% if entry.values|get_item:f.key == '1' %}checked{% endif %}
+                 data-bool="1" style="width:16px;height:16px">
+          <span style="font-size:13px;color:var(--bs-text-secondary)">启用</span>
+        </label>
+        {% elif f.widget == 'select' %}
+        <select class="bs-select" id="opt-{{ f.key }}" name="{{ f.key }}">
+          {% for value, label in f.choices %}
+          <option value="{{ value }}"
+                  {% if entry.values|get_item:f.key == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% elif f.widget == 'textarea' %}
+        <textarea class="bs-textarea" id="opt-{{ f.key }}" name="{{ f.key }}"
+                  rows="2">{{ entry.values|get_item:f.key }}</textarea>
+        {% elif f.widget == 'int' %}
+        <input class="bs-input" type="number" id="opt-{{ f.key }}" name="{{ f.key }}"
+               value="{{ entry.values|get_item:f.key }}">
+        {% elif f.widget == 'password' %}
+        <input class="bs-input" type="password" id="opt-{{ f.key }}" name="{{ f.key }}"
+               placeholder="{{ entry.values|get_item:f.key|yesno:'已配置（留空不修改）,未配置' }}">
+        {% else %}
+        <input class="bs-input" id="opt-{{ f.key }}" name="{{ f.key }}"
+               value="{{ entry.values|get_item:f.key }}">
+        {% endif %}
+        {% if f.help_text %}
+        <p style="font-size:12px;color:var(--bs-text-secondary);margin:5px 0 0">{{ f.help_text }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <div class="bs-card" style="margin-bottom:16px">
+    <div class="bs-card-body">
+      <h2 style="font-size:15px;margin:0 0 14px">Yggdrasil 材质签名公钥</h2>
+      <p style="font-size:12px;color:var(--bs-text-secondary);margin:0 0 8px">
+        启动器（authlib-injector）首次连接时缓存此公钥；私钥仅存数据库，请勿泄露。
+      </p>
+      <textarea class="bs-textarea" rows="4" readonly
+                style="font-family:monospace;font-size:11px">{{ ygg_public_key }}</textarea>
+    </div>
+  </div>
+
+  <button class="bs-btn bs-btn-primary" type="submit" id="pm-save" style="padding:10px 32px">保存全部</button>
+</form>
+{% endblock %}
+
+{% block extra_foot %}
+<script>
+(function () {
+  document.getElementById("pm-options").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const fd = new FormData(this);
+    // 未勾选的 checkbox 不会提交：补 "0"
+    document.querySelectorAll("input[type='checkbox'][data-bool]").forEach(function (cb) {
+      if (!cb.checked) fd.set(cb.name, "0");
+    });
+    const r = await window.bsPost("/admin/options/save", fd);
+    window.bsToast(r.message, r.code === 0 ? "success" : "error");
+  });
+})();
+</script>
+{% endblock %}

@@ -19,6 +19,20 @@ def _int_option(name: str, default: int = 0) -> int:
         return default
 
 
+def apply_default_textures(player) -> None:
+    """创建角色时自动应用管理员指定的默认皮肤/披风。"""
+    from textures.models import Texture
+
+    for kind in ("skin", "cape"):
+        tid = _int_option(f"default_{kind}_tid", 0)
+        if not tid:
+            continue
+        texture = Texture.objects.filter(tid=tid).first()
+        if texture:
+            setattr(player, f"tid_{kind}", texture)
+    player.save()
+
+
 def validate_player_name(name: str) -> str | None:
     """角色名规则（对照原版 player_name_rule 四档）。
 
@@ -72,6 +86,21 @@ def list_players(request):
 
 
 @login_required
+@require_GET
+def players_page(request):
+    """角色列表独立页（分页改造）。"""
+    from django.shortcuts import render
+
+    from options.models import Option as _Option
+
+    return render(
+        request,
+        "users/players.html",
+        {"site_name": _Option.objects.get_value("site_name")},
+    )
+
+
+@login_required
 @require_POST
 def add_player(request):
     name = (request.POST.get("name") or "").strip()
@@ -85,6 +114,7 @@ def add_player(request):
         return json_response("该角色名已被使用", FAILURE)
 
     player = Player.objects.create(uid=request.user, name=name)
+    apply_default_textures(player)
     return json_response("角色创建成功", SUCCESS, {"pid": player.pid})
 
 

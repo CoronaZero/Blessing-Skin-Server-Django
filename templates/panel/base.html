@@ -1,0 +1,55 @@
+<!doctype html>
+{% load static %}
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}管理面板{% endblock %} - {{ site_name }}</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <style>
+    .pm-layout { display: grid; grid-template-columns: 220px 1fr; gap: 20px; }
+    .pm-nav { list-style: none; margin: 0; padding: 8px; }
+    .pm-nav a { display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+      border-radius: 8px; color: var(--bs-text-secondary); font-size: 14px; }
+    .pm-nav a.active, .pm-nav a:hover { background: var(--bs-primary-light); color: var(--bs-primary); }
+    .pm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .pm-table th, .pm-table td { padding: 9px 10px; border-bottom: 1px solid var(--bs-border); text-align: left; }
+    .pm-table th { color: var(--bs-text-secondary); font-weight: 500; font-size: 12px; }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <nav class="bs-navbar">
+    <div class="bs-container bs-navbar-inner">
+      <a class="bs-navbar-brand" href="/admin/">管理面板</a>
+      <div class="bs-navbar-nav"></div>
+      <div>
+        <a href="/" style="font-size:13px;color:var(--bs-text-secondary)">← 返回站点</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="bs-container" style="padding-top:24px;padding-bottom:48px">
+    <div class="pm-layout">
+      <aside class="bs-card" style="align-self:start">
+        <ul class="pm-nav">
+          <li><a href="/admin/" {% if active == 'dashboard' %}class="active"{% endif %}>概览</a></li>
+          <li><a href="/admin/users" {% if active == 'users' %}class="active"{% endif %}>用户</a></li>
+          <li><a href="/admin/textures" {% if active == 'textures' %}class="active"{% endif %}>皮肤库</a></li>
+          <li><a href="/admin/reports" {% if active == 'reports' %}class="active"{% endif %}>举报</a></li>
+          {% if is_super %}
+          <li><a href="/admin/options" {% if active == 'options' %}class="active"{% endif %}>站点选项</a></li>
+          {% endif %}
+        </ul>
+      </aside>
+      <section>
+        {% block content %}{% endblock %}
+      </section>
+    </div>
+  </main>
+
+  <script src="{% static 'js/base.js' %}"></script>
+  <script src="{% static 'js/panel.js' %}"></script>
+  {% block extra_foot %}{% endblock %}
+</body>
+</html>

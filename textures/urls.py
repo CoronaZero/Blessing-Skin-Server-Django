@@ -42,7 +42,9 @@ urlpatterns = [
     re_path(r"^(?P<player_name>[\w\-.]+)\.json$", views.player_profile_json, name="player_json"),
     # ---- 用户中心：衣柜 / 举报 ----
     path("user/closet", views.closet_collection, name="closet"),
-    path("user/closet/<int:item_id>/name", views.closet_rename, name="closet_rename"),
+    # 衣柜页独立路由（GET 渲染全页）
+    path("user/closet/page", views.closet_page, name="closet_page"),
     path("user/closet/<int:item_id>/remove", views.closet_remove, name="closet_remove"),
+    path("user/closet/<int:item_id>/name", views.closet_rename, name="closet_rename"),
     path("user/report", views.report_submit, name="report"),
 ]

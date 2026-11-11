@@ -28,7 +28,8 @@ def test_wsgi_asgi_default_to_prod_settings():
     assert asgi_mod.default_settings == "config.settings.prod"
 
 
-def test_root_urlconf_contains_admin():
+def test_root_urlconf_contains_panel():
     from django.urls import reverse
 
-    assert reverse("admin:index") == "/admin/"
+    # /admin/ 已由自研面板接管（自带 admin 退役）
+    assert reverse("panel:dashboard") == "/admin/"

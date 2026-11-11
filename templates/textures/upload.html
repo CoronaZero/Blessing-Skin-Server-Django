@@ -43,6 +43,12 @@
           </p>
         </div>
 
+        <div class="bs-field" id="preview-box" style="display:none">
+          <label>实时预览</label>
+          <canvas id="upload-viewer" width="200" height="280"
+                  style="border-radius:8px;background:var(--bs-primary-light);max-width:100%"></canvas>
+        </div>
+
         <button class="bs-btn bs-btn-primary" style="width:100%" type="submit" id="upload-submit">
           上传
         </button>
@@ -57,5 +63,7 @@
 {% endblock %}
 
 {% block extra_foot %}
-<script src="/static/js/upload.js"></script>
+{% load static %}
+<script src="{% static 'vendor/skinview3d.bundle.js' %}"></script>
+<script src="{% static 'js/upload.js' %}"></script>
 {% endblock %}

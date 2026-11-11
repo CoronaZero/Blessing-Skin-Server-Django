@@ -22,12 +22,24 @@
         <li><a href="/skinlib">皮肤库</a></li>
         {% if user.is_authenticated %}
           <li><a href="/user">用户中心</a></li>
-          <li><a href="/user#players">我的角色</a></li>
+          <li><a href="/user/players">我的角色</a></li>
         {% endif %}
       </ul>
       <div>
         {% if user.is_authenticated %}
-          <span style="font-size:13px;color:var(--bs-text-secondary)">{{ user.nickname }}</span>
+        <div style="position:relative" id="nav-user-menu">
+          <img id="nav-avatar" alt="头像"
+               src="{% if bs_user_json and user.players.first %}/avatar/64/{{ user.players.first.name }}.png{% else %}{% static 'icons/user.svg' %}{% endif %}"
+               style="width:32px;height:32px;border-radius:6px;cursor:pointer;background:var(--bs-primary-light)">
+          <div id="nav-dropdown" style="display:none;position:absolute;right:0;top:40px;background:var(--bs-surface);border:1px solid var(--bs-border);border-radius:8px;box-shadow:var(--bs-shadow);min-width:150px;padding:6px;z-index:50">
+            <div style="font-size:12px;color:var(--bs-text-secondary);padding:6px 10px">{{ user.nickname }}<br>{{ user.email|truncatechars:24 }}</div>
+            <a href="/user" style="display:block;padding:8px 10px;border-radius:6px;font-size:13px">用户中心</a>
+            {% if user.is_admin %}
+            <a href="/admin/" style="display:block;padding:8px 10px;border-radius:6px;font-size:13px">管理面板</a>
+            {% endif %}
+            <button id="nav-logout" style="display:block;width:100%;text-align:left;padding:8px 10px;border-radius:6px;font-size:13px;border:0;background:none;cursor:pointer;color:var(--bs-danger)">退出登录</button>
+          </div>
+        </div>
         {% else %}
           <a class="bs-btn bs-btn-primary" style="padding:6px 14px" href="/auth/login">登录</a>
         {% endif %}

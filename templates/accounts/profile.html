@@ -1,84 +1,46 @@
-﻿{% extends "base.html" %}
-{% block title %}用户中心 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
+{% extends "base.html" %}
+{% block title %}资料设置 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
-<div style="display:grid;grid-template-columns:280px 1fr;gap:20px" id="uc-layout">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+  <h1 style="margin:0;font-size:20px">资料设置</h1>
+  <a class="bs-btn bs-btn-secondary" href="/user">← 返回用户中心</a>
+</div>
 
-  <aside>
-    <div class="bs-card">
-      <div class="bs-card-body" style="text-align:center">
-        <img id="uc-avatar" src="" alt="头像"
-             style="width:96px;height:96px;border-radius:12px;image-rendering:pixelated">
-        <h2 id="uc-nickname" style="margin:12px 0 4px;font-size:16px"></h2>
-        <p id="uc-email" style="margin:0;font-size:12px;color:var(--bs-text-secondary)"></p>
-        <p id="uc-score" style="margin:8px 0 0;font-size:13px"></p>
-      </div>
-    </div>
+<div class="bs-card" id="profile">
+  <div class="bs-card-body">
+    <h1 class="bs-card-title">账号信息</h1>
+    <p style="font-size:14px;color:var(--bs-text-secondary)">
+      邮箱：{{ user.email }} · 注册时间：{{ user.register_at|date:"Y-m-d" }} ·
+      积分：<span id="uc-score">{{ user.score }}</span>
+    </p>
 
-    <div class="bs-card" style="margin-top:16px">
-      <div class="bs-card-body" style="padding:8px">
-        <ul style="list-style:none;margin:0;padding:0;font-size:14px">
-          <li><a href="#players" class="uc-nav" style="display:block;padding:9px 12px;border-radius:6px">我的角色</a></li>
-          <li><a href="#closet" class="uc-nav" style="display:block;padding:9px 12px;border-radius:6px">我的衣柜</a></li>
-          <li><a href="#notifications" class="uc-nav" style="display:block;padding:9px 12px;border-radius:6px">站内通知</a></li>
-          <li><a href="#profile" class="uc-nav" style="display:block;padding:9px 12px;border-radius:6px">资料设置</a></li>
-        </ul>
-      </div>
-    </div>
+    <h3 style="font-size:14px;margin:20px 0 8px">修改昵称</h3>
+    <form id="nick-form" style="display:flex;gap:8px;max-width:380px">
+      {% csrf_token %}
+      <input class="bs-input" name="new_nickname" placeholder="新昵称" value="{{ user.nickname }}" required>
+      <button class="bs-btn bs-btn-secondary" type="submit">保存</button>
+    </form>
 
-    <button class="bs-btn bs-btn-primary" style="width:100%;margin-top:16px" id="sign-btn">
-      每日签到
-    </button>
-  </aside>
+    <h3 style="font-size:14px;margin:24px 0 8px">修改密码</h3>
+    <form id="pass-form" style="display:grid;gap:8px;max-width:380px">
+      {% csrf_token %}
+      <input class="bs-input" name="current_password" type="password" placeholder="当前密码" required>
+      <input class="bs-input" name="new_password" type="password" placeholder="新密码(8-32位)" required>
+      <button class="bs-btn bs-btn-secondary" type="submit" style="justify-self:start">修改密码</button>
+    </form>
 
-  <section>
-    <div class="bs-card" id="players">
-      <div class="bs-card-body">
-        <h1 class="bs-card-title">我的角色</h1>
-        <div id="players-list" style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0"></div>
-        <form id="add-player-form" style="display:flex;gap:8px;max-width:340px">
-          <input class="bs-input" name="name" placeholder="新角色名" required>
-          <button class="bs-btn bs-btn-secondary" type="submit">添加</button>
-        </form>
-      </div>
-    </div>
-
-    <div class="bs-card" style="margin-top:16px" id="closet">
-      <div class="bs-card-body">
-        <h1 class="bs-card-title">我的衣柜</h1>
-        <div id="closet-list" class="bs-grid"></div>
-      </div>
-    </div>
-
-    <div class="bs-card" style="margin-top:16px" id="notifications">
-      <div class="bs-card-body">
-        <h1 class="bs-card-title">站内通知</h1>
-        <div id="notifications-list"></div>
-      </div>
-    </div>
-
-    <div class="bs-card" style="margin-top:16px" id="profile">
-      <div class="bs-card-body">
-        <h1 class="bs-card-title">资料设置</h1>
-
-        <h3 style="font-size:14px;margin:16px 0 8px">修改昵称</h3>
-        <form id="nick-form" style="display:flex;gap:8px;max-width:340px">
-          <input class="bs-input" name="new_nickname" placeholder="新昵称" required>
-          <button class="bs-btn bs-btn-secondary" type="submit">保存</button>
-        </form>
-
-        <h3 style="font-size:14px;margin:20px 0 8px">修改密码</h3>
-        <form id="pass-form" style="display:grid;gap:8px;max-width:340px">
-          <input class="bs-input" name="current_password" type="password" placeholder="当前密码" required>
-          <input class="bs-input" name="new_password" type="password" placeholder="新密码(8-32位)" required>
-          <button class="bs-btn bs-btn-secondary" type="submit" style="justify-self:start">修改密码</button>
-        </form>
-      </div>
-    </div>
-  </section>
+    <h3 style="font-size:14px;margin:24px 0 8px;color:var(--bs-danger)">注销账号</h3>
+    <form id="delete-form" style="display:grid;gap:8px;max-width:380px">
+      {% csrf_token %}
+      <input class="bs-input" name="password" type="password" placeholder="输入当前密码确认注销" required>
+      <button class="bs-btn bs-btn-danger" type="submit"
+              style="justify-self:start">永久注销我的账号</button>
+    </form>
+  </div>
 </div>
 {% endblock %}
 
 {% block extra_foot %}
-<script src="/static/js/user_center.js"></script>
+<script src="/static/js/user_profile.js"></script>
 {% endblock %}

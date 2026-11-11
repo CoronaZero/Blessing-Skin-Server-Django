@@ -59,6 +59,28 @@
   }
   window.bsApplyTheme = applyTheme;
 
+  // ---- 顶栏头像下拉（退出登录入口）----
+  document.addEventListener("click", function (e) {
+    const dropdown = document.getElementById("nav-dropdown");
+    const avatar = document.getElementById("nav-avatar");
+    if (!dropdown || !avatar) return;
+    if (e.target === avatar) {
+      dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+    } else if (!dropdown.contains(e.target)) {
+      dropdown.style.display = "none";
+    }
+  });
+  document.addEventListener("DOMContentLoaded", function () {
+    const logoutBtn = document.getElementById("nav-logout");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", async function () {
+        const fd = new FormData();
+        await window.bsPost("/auth/logout", fd);
+        window.location.href = "/";
+      });
+    }
+  });
+
   // ---- 图标内联（静态引用 → use）----
   window.bsIcon = function (name) {
     return (

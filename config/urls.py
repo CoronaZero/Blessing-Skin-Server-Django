@@ -1,10 +1,9 @@
 """根 URL 配置。Phase 0 仅保留 Django Admin 占位，后续 Phase 逐个挂载路由。"""
 
-from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 
-from . import views
+from . import views, views_legacy
 
 
 def healthz(request):
@@ -22,5 +21,7 @@ urlpatterns = [
     # OAuth2（对照原版 Passport /oauth/token 等端点）
     path("oauth/", include("oauth2_provider.urls", namespace="oauth2_provider")),
     path("api/yggdrasil/", include("yggdrasil.urls")),
-    path("admin/", admin.site.urls),
+    # 自研管理面板（自带 admin 已退役；/admin/login 旧路径跳转）
+    path("admin/", include("panel.urls")),
+    path("admin/login/", views_legacy.admin_login_redirect),
 ]

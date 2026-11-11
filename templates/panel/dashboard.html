@@ -1,0 +1,72 @@
+{% extends "panel/base.html" %}
+{% block title %}概览{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 20px;font-size:20px">概览</h1>
+<div class="bs-grid" style="margin-bottom:24px">
+  <div class="bs-card"><div class="bs-card-body">
+    <div style="font-size:28px;font-weight:700;color:var(--bs-primary)">{{ user_count }}</div>
+    <div style="font-size:13px;color:var(--bs-text-secondary)">用户</div>
+  </div></div>
+  <div class="bs-card"><div class="bs-card-body">
+    <div style="font-size:28px;font-weight:700;color:var(--bs-primary)">{{ player_count }}</div>
+    <div style="font-size:13px;color:var(--bs-text-secondary)">角色</div>
+  </div></div>
+  <div class="bs-card"><div class="bs-card-body">
+    <div style="font-size:28px;font-weight:700;color:var(--bs-primary)">{{ texture_count }}</div>
+    <div style="font-size:13px;color:var(--bs-text-secondary)">纹理</div>
+  </div></div>
+  <div class="bs-card"><div class="bs-card-body">
+    <div style="font-size:28px;font-weight:700;{% if report_pending %}color:var(--bs-danger){% else %}color:var(--bs-primary){% endif %}">{{ report_pending }}</div>
+    <div style="font-size:13px;color:var(--bs-text-secondary)">待处理举报</div>
+  </div></div>
+</div>
+
+<div class="bs-card">
+  <div class="bs-card-body">
+    <h2 style="font-size:15px;margin:0 0 12px">最近注册</h2>
+    <table class="pm-table">
+      <tr><th>UID</th><th>邮箱</th><th>昵称</th><th>积分</th><th>注册时间</th></tr>
+      {% for u in recent_users %}
+      <tr>
+        <td>{{ u.uid }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.nickname }}</td>
+        <td>{{ u.score }}</td>
+        <td>{{ u.register_at|date:"Y-m-d H:i" }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+
+{% if is_super %}
+<div class="bs-card" style="margin-top:16px">
+  <div class="bs-card-body">
+    <h2 style="font-size:15px;margin:0 0 12px">全站广播</h2>
+    <form id="pm-broadcast">
+      {% csrf_token %}
+      <div class="bs-field"><label>标题</label>
+        <input class="bs-input" name="title" required></div>
+      <div class="bs-field"><label>内容</label>
+        <textarea class="bs-textarea" name="content" rows="3"></textarea></div>
+      <button class="bs-btn bs-btn-primary" type="submit">发送给全体用户</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_foot %}
+{% if is_super %}
+<script>
+(function () {
+  document.getElementById("pm-broadcast").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const r = await window.bsPost("/admin/broadcast", new FormData(this));
+    window.bsToast(r.message, r.code === 0 ? "success" : "error");
+    if (r.code === 0) this.reset();
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

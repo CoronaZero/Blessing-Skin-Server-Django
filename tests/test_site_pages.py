@@ -80,26 +80,28 @@ class TestCorePagesSmoke:
         assert client.get(path).status_code == 200, path
 
     @pytest.mark.parametrize("path", [
-        "/user",              # 本次修复的用户中心主页
+        "/user",              # 分页改造后的仪表盘
         "/user/profile",
+        "/user/players/page",
+        "/user/closet/page",
+        "/user/notifications/page",
         "/skinlib",
         "/skinlib/upload",    # 本次新增的上传页
-        "/admin/login/",
     ])
     def test_authenticated_pages(self, logged_client, path):
         assert logged_client.get(path).status_code == 200, path
 
     def test_login_redirect_default_lands_on_user_center(self, logged_client):
-        """LOGIN_REDIRECT_URL 的语义闭环：/user 真实渲染用户中心内容。"""
+        """LOGIN_REDIRECT_URL 的语义闭环：/user 真实渲染仪表盘内容。"""
         resp = logged_client.get("/user")
         assert resp.status_code == 200
-        assert "id=\"players-list\"" in resp.content.decode()
+        assert "dashboard-notifications" in resp.content.decode()
 
-    def test_profile_page_anchor_ids_match_nav_links(self, logged_client):
-        """锚点一致性：导航 /user#players 等锚点在页面真实存在。"""
+    def test_user_center_nav_links_to_split_pages(self, logged_client):
+        """仪表盘侧栏导航指向分页（角色/衣柜/通知/资料）。"""
         html = logged_client.get("/user").content.decode()
-        for anchor in ("players", "closet", "notifications", "profile"):
-            assert f'id="{anchor}"' in html, f"锚点 #{anchor} 缺失"
+        for href in ("/user/players", "/user/closet", "/user/notifications", "/user/profile"):
+            assert href in html, f"导航缺 {href}"
 
     def test_upload_page_has_form(self, logged_client):
         """上传页提供可提交表单（API 早已存在，本次补 UI）。"""

@@ -382,6 +382,19 @@ def closet_add(request):
 
 
 @login_required
+@require_GET
+def closet_page(request):
+    """衣柜独立页（分页改造）。"""
+    from django.shortcuts import render
+
+    return render(
+        request,
+        "users/closet.html",
+        {"site_name": Option.objects.get_value("site_name")},
+    )
+
+
+@login_required
 def closet_collection(request):
     """GET 列表 / POST 添加（同一 URL）。"""
     if request.method == "GET":
