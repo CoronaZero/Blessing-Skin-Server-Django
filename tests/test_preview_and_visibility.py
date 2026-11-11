@@ -126,3 +126,22 @@ class TestSkinlibVisibility:
         client.force_login(other)
         items = client.get("/skinlib/search").json()["data"]["data"]
         assert not any(t["tid"] == priv.tid for t in items)
+
+    def test_skin_category_includes_both_models(self, client, users):
+        """skin 分类须含 steve+alex（对照原版 whereIn）。"""
+        normal, _ = users
+        Texture.objects.create(
+            name="alexT", type="alex", hash="3" * 64, size=1,
+            uploader=normal, public=True,
+        )
+        Texture.objects.create(
+            name="steveT", type="steve", hash="4" * 64, size=1,
+            uploader=normal, public=True,
+        )
+        client.force_login(normal)
+        names = [t["name"] for t in
+                 client.get("/skinlib/search").json()["data"]["data"]]
+        assert "alexT" in names and "steveT" in names
+        names = [t["name"] for t in
+                 client.get("/skinlib/search?category=alex").json()["data"]["data"]]
+        assert "alexT" in names and "steveT" not in names

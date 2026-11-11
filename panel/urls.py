@@ -16,5 +16,6 @@ urlpatterns = [
     path("reports/<int:rid>/action", views.report_action, name="report_action"),
     path("options", views.options_page, name="options"),
     path("options/save", views.options_save, name="options_save"),
+    path("options/captcha-test", views.captcha_test, name="captcha_test"),
     path("broadcast", views.broadcast, name="broadcast"),
 ]

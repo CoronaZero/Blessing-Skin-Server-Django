@@ -60,6 +60,13 @@
     </div>
   </div>
 
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
+    <button class="bs-btn bs-btn-secondary" id="pm-captcha-test" type="button">
+      测试验证码配置连通性
+    </button>
+    <span id="pm-captcha-result" style="font-size:13px;color:var(--bs-text-secondary)"></span>
+  </div>
+
   <button class="bs-btn bs-btn-primary" type="submit" id="pm-save" style="padding:10px 32px">保存全部</button>
 </form>
 {% endblock %}
@@ -67,6 +74,34 @@
 {% block extra_foot %}
 <script>
 (function () {
+  // 验证码连通性测试（先保存当前表单，再探测）
+  document.getElementById("pm-captcha-test").addEventListener("click", async function () {
+    const btn = this;
+    const result = document.getElementById("pm-captcha-result");
+    result.textContent = "正在探测…";
+    btn.disabled = true;
+    try {
+      // 先保存表单（探测用最新配置）
+      const form = document.getElementById("pm-options");
+      const fd = new FormData(form);
+      document.querySelectorAll("input[type='checkbox'][data-bool]").forEach(function (cb) {
+        if (!cb.checked) fd.set(cb.name, "0");
+      });
+      await window.bsPost("/admin/options/save", fd);
+      const provider = fd.get("captcha_provider");
+      const probe = new FormData();
+      probe.set("provider", provider || "");
+      const r = await window.bsPost("/admin/options/captcha-test", probe);
+      result.textContent = r.message;
+      result.style.color = r.code === 0 ? "var(--bs-success)" : "var(--bs-danger)";
+    } catch (err) {
+      result.textContent = "探测失败：" + err;
+      result.style.color = "var(--bs-danger)";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   document.getElementById("pm-options").addEventListener("submit", async function (e) {
     e.preventDefault();
     const fd = new FormData(this);

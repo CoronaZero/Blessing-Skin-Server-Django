@@ -18,10 +18,13 @@
     return payload; // {code, message, data}
   };
 
-  // CSRF（Django 范式：表单与头部双通道）
+  // CSRF（双通道：表单隐藏域优先，cookie 兜底——签到等非表单 POST 依赖后者）
   window.bsCsrfToken = function () {
     const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
-    return input ? input.value : "";
+    if (input && input.value) return input.value;
+    // Django CSRF_COOKIE（默认 HttpOnly=false，JS 可读）
+    const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : "";
   };
 
   window.bsPost = async function (url, formData) {

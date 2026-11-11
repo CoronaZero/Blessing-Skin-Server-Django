@@ -1,4 +1,4 @@
-"""自研管理面板：概览/用户/皮肤/举报/选项/广播。
+﻿"""自研管理面板：概览/用户/皮肤/举报/选项/广播。
 
 对照原版后台的功能分区。权限模型对齐原版：
 - ADMIN（1）：概览/用户管理/皮肤库管理/举报处理
@@ -6,12 +6,8 @@
 自带 django.contrib.admin 不再挂路由。
 """
 
-from functools import wraps
-
-from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import HttpResponseNotFound
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
@@ -23,37 +19,9 @@ from options.models import Option
 from players.models import Player
 from textures.models import ClosetItem, Texture
 
+from .captcha_test import captcha_test  # noqa: F401  re-export for urls
+from .guards import _is_super, admin_required, super_admin_required
 from .registry import OPTION_REGISTRY
-
-
-def _is_admin(user):
-    return user.is_authenticated and user.permission >= User.Permission.ADMIN
-
-
-def _is_super(user):
-    return user.is_authenticated and user.permission >= User.Permission.SUPER_ADMIN
-
-
-def admin_required(view):
-    @wraps(view)
-    @login_required
-    def wrapper(request, *args, **kwargs):
-        if not _is_admin(request.user):
-            return HttpResponseNotFound()
-        return view(request, *args, **kwargs)
-
-    return wrapper
-
-
-def super_admin_required(view):
-    @wraps(view)
-    @login_required
-    def wrapper(request, *args, **kwargs):
-        if not _is_super(request.user):
-            return HttpResponseNotFound()
-        return view(request, *args, **kwargs)
-
-    return wrapper
 
 
 def _panel_ctx(request, active):

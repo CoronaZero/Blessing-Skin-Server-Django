@@ -107,7 +107,8 @@ def search(request):
     elif category == "alex":
         queryset = queryset.filter(type="alex")
     elif category in ("skin", "steve"):
-        queryset = queryset.filter(type="steve")
+        # 对照原版：skin 分类包含 steve+alex（此前漏掉 alex 导致列表缺皮肤）
+        queryset = queryset.filter(type__in=["steve", "alex"])
 
     if keyword:
         queryset = queryset.filter(name__icontains=keyword)
