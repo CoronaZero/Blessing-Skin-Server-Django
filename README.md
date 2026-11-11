@@ -79,6 +79,13 @@ python manage.py runserver
 
 Settings 分层：`config/settings/{base,dev,test,prod}.py`；`manage.py` 默认 dev，容器入口默认 prod，`DJANGO_SETTINGS_MODULE` 可覆盖。
 
+**HTTPS 反向代理部署（Nginx / 1Panel 等）要点**：
+
+- `CSRF_TRUSTED_ORIGINS` 从 `ALLOWED_HOSTS` 自动派生（含 https/http 两种 scheme）——Django 4+ 对 POST 校验 Origin，不配则登录等提交一律 403
+- 应用自动识别反代传递的 `X-Forwarded-Proto` 头；代理侧确保转发该头（1Panel/OpenResty 反代配置通常默认带）
+- 全站 HTTPS 后建议环境变量 `COOKIE_SECURE=1`（Session 与 CSRF Cookie 加 Secure 标记）
+- 管理后台 Options 里设置 `site_url=https://你的域名`——邮件链接、安装向导收集的站点地址用它构建
+
 MySQL 驱动已内置：**PyMySQL**（纯 Python，经 `install_as_MySQLdb()` shim 满足 Django 后端的 MySQLdb 接口，零系统依赖）。改用 `mysqlclient`（性能更佳但需系统 `libmysqlclient`）时：`pip install mysqlclient` 并移除 `config/__init__.py` 中的 shim。PgSQL 驱动（`psycopg[binary]`）按需安装。
 
 ## 数据迁移（从 PHP 版）

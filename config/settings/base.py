@@ -48,6 +48,23 @@ SECRET_KEY = _secret_key
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
 
+# ---- HTTPS 反向代理部署（Nginx / 1Panel OpenResty 等）----
+# Django 4+ 对不安全方法的 Origin 校验：经反代进来的 https 站点
+# 必须显式信任，否则登录等 POST 一律 403（CSRF verification failed）。
+# 从 ALLOWED_HOSTS 自动派生信任源；同时收 http 供本地调试。
+CSRF_TRUSTED_ORIGINS = [
+    f"{scheme}://{host}"
+    for host in ALLOWED_HOSTS
+    for scheme in ("https", "http")
+]
+# 识别反代传递的 X-Forwarded-Proto（无该头的部署不受影响）
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Secure Cookie：全站 HTTPS 后建议 COOKIE_SECURE=1（防 cookie 明文泄漏）；
+# 默认关闭以兼容 http 部署与首次调试
+_cookie_secure = env_bool("COOKIE_SECURE", False)
+SESSION_COOKIE_SECURE = _cookie_secure
+CSRF_COOKIE_SECURE = _cookie_secure
+
 
 def _databases() -> dict:
     """按 DB_CONNECTION（sqlite/mysql/pgsql）构建数据库配置。"""
