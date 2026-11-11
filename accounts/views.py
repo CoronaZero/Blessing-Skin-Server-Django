@@ -38,15 +38,26 @@ def _client_ip(request) -> str:
 
 @require_GET
 def login_page(request):
-    """登录页（Tailwind 风格）。"""
+    """登录页（Tailwind 风格）；受保护页跳转来时回显安全校验后的 next。"""
+    next_url = request.GET.get("next", "")
+    if next_url and not _safe_next(next_url):
+        next_url = ""  # 外站 next 不回显（防 open redirect 钓鱼）
     return render(
         request,
         "accounts/login.html",
         {
             "captcha": get_captcha_requirements(),
             "site_name": Option.objects.get_value("site_name"),
+            "next_url": next_url,
         },
     )
+
+
+def _safe_next(candidate: str) -> bool:
+    """仅放行站内相对路径（绝对地址/协议相对地址一律拒绝）。"""
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    return url_has_allowed_host_and_scheme(candidate, allowed_hosts=None)
 
 
 @require_POST
@@ -86,7 +97,11 @@ def login_submit(request):
 
     auth_login(request, user)
     cache.delete(fails_key)
-    redirect_to = request.session.pop("last_requested_path", "/user")
+    # 回跳优先级：安全校验后的 next > 会话记录 > 默认用户中心
+    next_target = request.POST.get("next") or request.session.pop(
+        "last_requested_path", ""
+    )
+    redirect_to = next_target if (next_target and _safe_next(next_target)) else "/user"
     return json_response("登录成功", SUCCESS, {"redirectTo": redirect_to})
 
 

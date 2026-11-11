@@ -14,6 +14,7 @@
 
       <form id="login-form" method="post" action="/auth/login">
         {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next_url|default:'' }}">
         <div class="bs-field">
           <label for="id-identification">邮箱 / 角色名</label>
           <input class="bs-input" id="id-identification" name="identification"

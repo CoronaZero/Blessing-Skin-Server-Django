@@ -65,6 +65,11 @@ _cookie_secure = env_bool("COOKIE_SECURE", False)
 SESSION_COOKIE_SECURE = _cookie_secure
 CSRF_COOKIE_SECURE = _cookie_secure
 
+# 登录跳转闭环：login_required 弹到本站登录页（Django 默认 /accounts/login/
+# 会 404）；登录成功默认回用户中心，next 参数优先生效
+LOGIN_URL = "/auth/login"
+LOGIN_REDIRECT_URL = "/user"
+
 
 def _databases() -> dict:
     """按 DB_CONNECTION（sqlite/mysql/pgsql）构建数据库配置。"""
