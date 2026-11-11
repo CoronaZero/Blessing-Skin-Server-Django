@@ -1,0 +1,27 @@
+{# 邮件基础模板：邮件客户端兼容的 table 布局 + 站点设计系统配色 #}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:24px 12px;">
+  <tr><td align="center">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;">
+      {% block header %}
+      <tr><td style="padding:0 0 16px;text-align:center;">
+        <span style="font-size:18px;font-weight:700;color:#0052d9;">{{ site_name }}</span>
+      </td></tr>
+      {% endblock %}
+      <tr><td style="background:#ffffff;border:1px solid #e0e0e0;border-radius:10px;padding:28px;">
+        {% block content %}{% endblock %}
+      </td></tr>
+      <tr><td style="padding:16px 4px 0;color:#9aa5b1;font-size:12px;text-align:center;line-height:1.6;">
+        {% block footer %}
+        此邮件由系统发送，请勿直接回复。<br>
+        如非本人操作，请忽略本邮件。
+        {% endblock %}
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

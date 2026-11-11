@@ -31,10 +31,23 @@ def resolve_verification_token(token: str) -> User | None:
     return user
 
 
+def get_site_base_url() -> str:
+    """站点对外根地址：优先 Option site_url，缺省 http://localhost:8000。
+
+    原版对应 option('site_url')（BungeeCord 场景 forceRootUrl 同源）。
+    """
+    from options.models import Option
+
+    configured = (Option.objects.get_value("site_url") or "").strip().rstrip("/")
+    if configured:
+        if not configured.startswith(("http://", "https://")):
+            configured = "https://" + configured
+        return configured
+    return "http://localhost:8000"
+
+
 def make_verification_link(user: User) -> str:
     from django.urls import reverse
 
     path = reverse("accounts:verify", args=[make_verification_token(user)])
-    from django.contrib.sites.shortcuts import get_current_site
-
-    return f"https://{get_current_site(None).domain}{path}"
+    return get_site_base_url() + path

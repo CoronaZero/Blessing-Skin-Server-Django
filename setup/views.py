@@ -23,6 +23,7 @@ LOCK_FILE = Path(__file__).resolve().parent.parent / "install.lock"
 # 安装时写入的全量 option 默认值（对照原版 import_options 迁移）
 DEFAULT_OPTIONS = {
     "site_name": "",
+    "site_url": "",
     "site_description": "",
     "player_name_rule": "official",
     "custom_player_name_regexp": "",
@@ -79,12 +80,15 @@ def submit(request):
         return json_response("请求数据格式错误")
 
     site_name = (payload.get("site_name") or "").strip()
+    site_url = (payload.get("site_url") or "").strip().rstrip("/")
     admin_email = (payload.get("admin_email") or "").strip()
     admin_password = payload.get("admin_password") or ""
     admin_nickname = (payload.get("admin_nickname") or "Admin").strip()
 
     if not site_name:
         return json_response("请填写站点名称")
+    if site_url and not site_url.startswith(("http://", "https://")):
+        site_url = "https://" + site_url
     if "@" not in admin_email:
         return json_response("请填写管理员邮箱")
     if len(admin_password) < 8:
@@ -101,6 +105,8 @@ def submit(request):
 
     options = dict(DEFAULT_OPTIONS)
     options["site_name"] = site_name
+    if site_url:
+        options["site_url"] = site_url
     Option.objects.bulk_set(options)
     _generate_ygg_keypair()
 

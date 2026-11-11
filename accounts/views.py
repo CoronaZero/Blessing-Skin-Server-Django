@@ -21,7 +21,7 @@ from config.jsonapi import FAILURE, SPECIAL, SUCCESS, json_response
 from options.models import Option
 
 from .captcha import get_captcha_requirements, verify_captcha
-from .mailer import send_option_mail
+from .mailer import send_templated_mail
 from .models import PasswordReset, User
 
 
@@ -195,7 +195,10 @@ def logout_submit(request):
 
 @require_GET
 def forgot_page(request):
-    return render(request, "accounts/forgot.html")@require_POST
+    return render(request, "accounts/forgot.html")
+
+
+@require_POST
 def forgot_submit(request):
     email = request.POST.get("email", "").strip()
     if not email or "@" not in email:
@@ -216,12 +219,11 @@ def forgot_submit(request):
         site_name = Option.objects.get_value("site_name") or "Blessing Skin"
         link = f"{_base_url(request)}{reverse('accounts:reset_page')}"
         link = f"{link}?uid={user.uid}&token={reset.token}"
-        send_option_mail(
-            subject=f"【{site_name}】重置你的密码",
-            message=f"你（或他人）在 {site_name} 申请了密码重置。\n\n"
-            f"点击以下链接重置密码（1 小时内有效，仅可使用一次）：\n{link}\n\n"
-            f"如果这不是你的操作，请忽略本邮件。",
+        send_templated_mail(
+            template_name="mail/reset_password.html",
+            subject_prefix=f"【{site_name}】重置你的密码",
             recipient_list=[email],
+            context={"link": link},
         )
         cache.set(mail_key, 1, 180)  # 180s 冷却（对照原版 rate limit）
 
@@ -274,15 +276,15 @@ def reset_submit(request):
 
 
 def _send_verification_mail(user):
-    from .verification import make_verification_token
+    from .verification import make_verification_link
 
-    token = make_verification_token(user)
+    link = make_verification_link(user)
     site_name = Option.objects.get_value("site_name") or "Blessing Skin"
-    link = f"{_default_base_url()}/{reverse('accounts:verify', args=[token]).lstrip('/')}"
-    send_option_mail(
-        subject=f"【{site_name}】验证你的邮箱",
-        message=f"欢迎注册 {site_name}！\n\n点击以下链接完成邮箱验证（1 小时内有效）：\n{link}",
+    send_templated_mail(
+        template_name="mail/verify_email.html",
+        subject_prefix=f"【{site_name}】验证你的邮箱",
         recipient_list=[user.email],
+        context={"link": link},
     )
 
 
@@ -300,13 +302,6 @@ def verify_email(request, token):
 def _base_url(request) -> str:
     scheme = "https" if request.is_secure() else "http"
     return f"{scheme}://{request.get_host()}"
-
-
-def _default_base_url() -> str:
-    from django.contrib.sites.models import Site
-
-    domain = Site.objects.get_current().domain
-    return f"http://{domain}"
 
 
 @login_required
