@@ -98,6 +98,17 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # ---- 业务应用（Phase 1 起）----
+    "options",
+    "accounts",
+    "players",
+    "textures",
+    "yggdrasil",
+    "moderation",
+    "notifications",
+    "invitation",
+    "oauth_bridge",
+    # ---- 第三方 ----
     "oauth2_provider",
 ]
 
