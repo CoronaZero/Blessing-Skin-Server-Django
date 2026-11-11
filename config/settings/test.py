@@ -2,7 +2,7 @@
 
 from .base import *  # noqa: F401,F403
 
-SECRET_KEY = "test-only-fixed-secret-key"
+SECRET_KEY = "test-only-fixed-secret-key-0123456789abcdef-32b"
 
 DATABASES = {
     "default": {
@@ -13,3 +13,7 @@ DATABASES = {
 
 # 邮件进内存 outbox，测试可断言
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+# Yggdrasil 节流默认关闭（限流专项测试用 override_settings 打开）
+YGG_RATE_LIMIT_SECONDS = 0
+YGG_MAX_BODY_BYTES = 1024 * 1024

@@ -181,4 +181,5 @@ class TestModeModules:
 
         module = importlib.reload(test_mod)
         assert module.DATABASES["default"]["NAME"] == ":memory:"
-        assert module.SECRET_KEY == "test-only-fixed-secret-key"
+        assert module.SECRET_KEY.startswith("test-only-fixed-secret-key")
+        assert len(module.SECRET_KEY) >= 32  # PyJWT HMAC 推荐最小长度
