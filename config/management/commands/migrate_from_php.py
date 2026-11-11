@@ -379,18 +379,37 @@ class Command(BaseCommand):
                     stats["notifications"] = len(legacy.rows(prefix + "notifications"))
                 transaction.set_rollback(True)  # 双保险：预检绝不落库
             else:
+                # ---- 依赖序（真实 InnoDB 即时 FK 检查下唯一可行顺序）----
+                # users → textures → players → closet → reports → notifications
+                self.migration_warnings = []
                 stats["users"] = self.migrate_users(safe_rows("users"))
-                stats["players"] = self.migrate_players(legacy, prefix)
-                stats["textures"] = self.migrate_textures(safe_rows("textures"))
-                stats["closet"] = self.migrate_closet(safe_rows("user_closet"))
-                stats["reports"] = self.migrate_reports(safe_rows("reports"))
+                valid_uids = set(User.objects.values_list("uid", flat=True))
+
+                stats["textures"] = self.migrate_textures(
+                    safe_rows("textures"), valid_uids
+                )
+                valid_tids = set(Texture.objects.values_list("tid", flat=True))
+
+                stats["players"] = self.migrate_players(
+                    legacy, prefix, valid_uids, valid_tids
+                )
+                stats["closet"] = self.migrate_closet(
+                    safe_rows("user_closet"), valid_uids, valid_tids
+                )
+                stats["reports"] = self.migrate_reports(
+                    safe_rows("reports"), valid_uids, valid_tids
+                )
                 stats["options"] = self.migrate_options(safe_rows("options"))
                 if legacy.has_table(prefix + "notifications"):
                     stats["notifications"] = self.migrate_notifications(
-                        legacy.rows(prefix + "notifications")
+                        legacy.rows(prefix + "notifications"), valid_uids
                     )
                 else:
                     self.stdout.write("（旧库无 notifications 表，跳过站内通知）")
+                if self.migration_warnings:
+                    self.stdout.write(self.style.WARNING("---- 引用完整性告警 ----"))
+                    for w in self.migration_warnings:
+                        self.stdout.write(self.style.WARNING(f"  {w}"))
 
         legacy.close()
 
@@ -431,7 +450,11 @@ class Command(BaseCommand):
             )
         return len(source_rows)
 
-    def migrate_players(self, legacy, prefix: str) -> int:
+    def warn(self, message: str) -> None:
+        """收集引用完整性告警（尾部统一输出，避免刷屏中断）。"""
+        self.migration_warnings.append(message)
+
+    def migrate_players(self, legacy, prefix: str, valid_uids: set, valid_tids: set) -> int:
         uuid_map = {}
         if legacy.has_table(prefix + "uuid"):
             for row in legacy.rows(prefix + "uuid"):
@@ -442,34 +465,53 @@ class Command(BaseCommand):
         players_rows = legacy.rows(prefix + "players") if legacy.has_table(
             prefix + "players"
         ) else []
+        migrated = 0
         for row in players_rows:
             # 列名两代兼容（真实服务器踩坑第三例）：
             # <2019_03_13 为 player_name，之后 rename 为 name（BS 6.x）
             name = row.get("name") or row.get("player_name")
+            pid = row.get("pid")
             if not name:
-                self.stdout.write(
-                    self.style.WARNING(
-                        f"跳过 pid={row.get('pid')}：players 行缺少角色名列"
-                    )
-                )
+                self.warn(f"跳过 players pid={pid}：缺少角色名列")
                 continue
+            if row.get("uid") not in valid_uids:
+                self.warn(f"跳过 players pid={pid}（{name}）：uid={row.get('uid')} 无对应用户")
+                continue
+            # 旧站无 FK 约束，材质引用可能悬空：保留角色、断链置空并告警
+            skin = row.get("tid_skin") or 0
+            cape = row.get("tid_cape") or 0
+            if skin and skin not in valid_tids:
+                self.warn(f"players pid={pid}（{name}）：tid_skin={skin} 无对应纹理，置空")
+                skin = None
+            if cape and cape not in valid_tids:
+                self.warn(f"players pid={pid}（{name}）：tid_cape={cape} 无对应纹理，置空")
+                cape = None
             Player.objects.update_or_create(
-                pid=row["pid"],
+                pid=pid,
                 defaults={
                     "uid_id": row["uid"],
                     "name": name,
                     "uuid": uuid_map.get(name) or generate_uuid_v4(),
-                    "tid_skin_id": row.get("tid_skin") or None,
-                    "tid_cape_id": row.get("tid_cape") or None,
+                    "tid_skin_id": skin or None,
+                    "tid_cape_id": cape or None,
                     "last_modified": _dt(row.get("last_modified")),
                 },
             )
-        return len(players_rows)
+            migrated += 1
+        return migrated
 
-    def migrate_textures(self, source_rows) -> int:
+    def migrate_textures(self, source_rows, valid_uids: set) -> int:
+        migrated = 0
         for row in source_rows:
+            tid = row.get("tid")
+            if row.get("uploader") not in valid_uids:
+                self.warn(
+                    f"跳过 textures tid={tid}（{row.get('name')}）："
+                    f"uploader={row.get('uploader')} 无对应用户"
+                )
+                continue
             Texture.objects.update_or_create(
-                tid=row["tid"],
+                tid=tid,
                 defaults={
                     "name": row["name"],
                     "type": row["type"],
@@ -481,21 +523,40 @@ class Command(BaseCommand):
                     "upload_at": _dt(row.get("upload_at")),
                 },
             )
-        return len(source_rows)
+            migrated += 1
+        return migrated
 
-    def migrate_closet(self, source_rows) -> int:
+    def migrate_closet(self, source_rows, valid_uids: set, valid_tids: set) -> int:
+        migrated = 0
         for row in source_rows:
+            owner = row.get("user_uid")
+            tid = row.get("texture_tid")
+            if owner not in valid_uids or tid not in valid_tids:
+                self.warn(
+                    f"跳过 user_closet（uid={owner}, tid={tid}）：引用悬空"
+                )
+                continue
             ClosetItem.objects.update_or_create(
-                owner_id=row["user_uid"],
-                texture_id=row["texture_tid"],
+                owner_id=owner,
+                texture_id=tid,
                 defaults={"item_name": row.get("item_name") or ""},
             )
-        return len(source_rows)
+            migrated += 1
+        return migrated
 
-    def migrate_reports(self, source_rows) -> int:
+    def migrate_reports(self, source_rows, valid_uids: set, valid_tids: set) -> int:
+        migrated = 0
         for row in source_rows:
+            rid = row.get("id")
+            if (
+                row.get("tid") not in valid_tids
+                or row.get("uploader") not in valid_uids
+                or row.get("reporter") not in valid_uids
+            ):
+                self.warn(f"跳过 reports id={rid}：引用悬空")
+                continue
             Report.objects.update_or_create(
-                id=row["id"],
+                id=rid,
                 defaults={
                     "texture_id": row["tid"],
                     "uploader_id": row["uploader"],
@@ -505,7 +566,8 @@ class Command(BaseCommand):
                     "report_at": _dt(row.get("report_at")),
                 },
             )
-        return len(source_rows)
+            migrated += 1
+        return migrated
 
     def migrate_options(self, source_rows) -> int:
         count = 0
@@ -516,27 +578,33 @@ class Command(BaseCommand):
                 count += 1
         return count
 
-    def migrate_notifications(self, source_rows) -> int:
+    def migrate_notifications(self, source_rows, valid_uids: set) -> int:
         """Laravel notifications：notifiable_id = 收件用户，data JSON 拆 title。
 
         update_or_create 键：(recipient, title, read_at) —— 历史数据去重语义，
         重跑不重复。created_at 为 auto_now_add，无法保留旧时间戳（可接受）。
         """
+        migrated = 0
         for row in source_rows:
+            recipient = row.get("notifiable_id")
+            if recipient not in valid_uids:
+                self.warn(f"跳过 notification（收件人 uid={recipient} 无对应用户）")
+                continue
             try:
                 data = json.loads(row.get("data") or "{}")
             except json.JSONDecodeError:
                 data = {}
             title = data.get("title") or data.get("subject") or row.get("type") or "通知"
             Notification.objects.update_or_create(
-                recipient_id=row["notifiable_id"],
+                recipient_id=recipient,
                 title=title,
                 read_at=_dt(row.get("read_at")),
                 defaults={
                     "content": data.get("body") or data.get("content") or "",
                 },
             )
-        return len(source_rows)
+            migrated += 1
+        return migrated
 
     def print_report(self, stats: dict, file_stats: dict | None = None, dry_run: bool = False):
         mode = "[dry-run] " if dry_run else ""

@@ -141,6 +141,15 @@ def build_php_site(tmp_path, *, textures_dir="storage/textures"):
     conn.execute(
         "INSERT INTO options (option_name, option_value) VALUES ('some_key', 'kept')"
     )
+    # ---- 悬空引用脏数据（PHP 版无 FK 约束，真实站几乎必然存在）----
+    conn.execute(
+        "INSERT INTO players (pid, uid, name, tid_skin, tid_cape, last_modified)"
+        " VALUES (2, 2, 'GhostCape', 1, 77, '2020-05-02 00:00:00')"  # tid_cape 悬空
+    )
+    conn.execute(
+        "INSERT INTO players (pid, uid, name, tid_skin, tid_cape, last_modified)"
+        " VALUES (3, 99, 'Orphan', 0, 0, '2020-05-03 00:00:00')"  # uid 悬空 → 跳过
+    )
     conn.commit()
     conn.close()
 
@@ -209,6 +218,43 @@ class TestEnvDrivenMigration:
         # 报告包含行数与文件完整性信息
         assert "users" in output
         assert "丢失" in output or "缺失" in output
+
+    def test_dangling_references_survive_migration(self, tmp_path, storage):
+        """悬空引用脏数据（第四例回归）：迁移不炸，按规则处理并告警。
+
+        fixture 含：tid_cape=77 悬空（角色保留、置空告警）、
+        uid=99 悬空（孤儿角色跳过）。
+        """
+        from players.models import Player
+
+        php = build_php_site(tmp_path)
+        output = run_env_migration(php["env_file"])
+
+        # 角色 GhostCape 保留，悬空披风引用被置空
+        ghost = Player.objects.get(name="GhostCape")
+        assert ghost.tid_cape_id is None
+        assert ghost.tid_skin_id == 1  # 有效引用保持
+        # 孤儿角色（uid=99 无用户）被跳过
+        assert not Player.objects.filter(name="Orphan").exists()
+        # 告警在报告中可见
+        assert "引用完整性告警" in output
+        assert "tid_cape=77" in output
+        assert "uid=99" in output
+
+    def test_migration_order_textures_before_players(self, tmp_path, storage):
+        """依赖序：users→textures→players（InnoDB 即时 FK 下唯一可行序）。
+
+        fixture 的 OldSteve.tid_skin=1 引用后搬的 textures.tid=1，
+        SQLite 延迟检查下「旧顺序」能蒙混过关，InnoDB 下必炸；
+        新顺序在两种引擎下都成立。
+        """
+        php = build_php_site(tmp_path)
+        run_env_migration(php["env_file"])
+        from players.models import Player
+
+        player = Player.objects.get(name="OldSteve")
+        assert player.tid_skin_id == 1
+        assert player.tid_cape_id == 2
 
     def test_missing_texture_reported_but_db_kept(self, tmp_path, storage):
         """DB 记录保留（引用不断），文件缺失仅报告。"""
