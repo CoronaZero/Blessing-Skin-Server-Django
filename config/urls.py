@@ -14,6 +14,7 @@ urlpatterns = [
     path("healthz", healthz, name="healthz"),
     path("", include("accounts.urls")),
     path("", include("textures.urls")),
+    path("", include("players.urls")),
     path("api/yggdrasil/", include("yggdrasil.urls")),
     path("admin/", admin.site.urls),
 ]

@@ -11,6 +11,7 @@ import hashlib
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
+from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.shortcuts import render
 from django.urls import reverse
@@ -295,3 +296,130 @@ def _default_base_url() -> str:
 
     domain = Site.objects.get_current().domain
     return f"http://{domain}"
+
+
+@login_required
+def profile_view(request):
+    """用户中心资料页：GET 渲染占位（Phase 5 前台替换）/ POST 修改资料。"""
+    if request.method == "POST":
+        return profile_submit(request)
+    return render(request, "accounts/profile.html")
+
+
+# ---- 用户中心：资料 / 通知 / 签到 ----
+
+
+@login_required
+@require_POST
+def profile_submit(request):
+    """修改资料（对照原版 handleProfile action 分派）。"""
+    action = request.POST.get("action", "")
+    user = request.user
+
+    if action == "nickname":
+        nickname = (request.POST.get("new_nickname") or "").strip()
+        if not nickname or len(nickname) > 32:
+            return json_response("昵称长度须为 1-32 个字符")
+        user.nickname = nickname
+        user.save(update_fields=["nickname"])
+        return json_response("昵称已更新", SUCCESS)
+
+    if action == "password":
+        current = request.POST.get("current_password", "")
+        new = request.POST.get("new_password", "")
+        if not user.verify_password(current):
+            return json_response("当前密码错误")
+        if len(new) < 8 or len(new) > 32:
+            return json_response("新密码长度须为 8-32 位")
+        user.set_password(new)
+        user.save(update_fields=["password"])
+        # 吊销全部登录会话之外的本会话继续有效（Django 语义：保持本会话）
+        from django.contrib.auth import update_session_auth_hash
+
+        update_session_auth_hash(request, user)
+        # Yggdrasil 令牌全撤销（对照原版改密吊销语义）
+        from yggdrasil.models import YggdrasilToken
+
+        YggdrasilToken.objects.filter(owner=user).delete()
+        return json_response("密码已更新", SUCCESS)
+
+    if action == "email":
+        email = (request.POST.get("email") or "").strip()
+        password = request.POST.get("password", "")
+        if "@" not in email:
+            return json_response("邮箱格式不正确")
+        from accounts.models import User
+
+        if User.objects.filter(email=email).exists():
+            return json_response("该邮箱已被使用")
+        if not user.verify_password(password):
+            return json_response("密码错误")
+        user.email = email
+        user.verified = False
+        user.save(update_fields=["email", "verified"])
+        return json_response("邮箱已更新，请重新验证", SUCCESS)
+
+    if action == "delete":
+        if user.is_admin():
+            return json_response("管理员账号不能删除")
+        if not user.verify_password(request.POST.get("password", "")):
+            return json_response("密码错误")
+        # 对照原版：删除级联（players 由 FK CASCADE 处理）
+        auth_logout(request)
+        user.delete()
+        return json_response("账号已注销", SUCCESS)
+
+    return json_response("未知的操作")
+
+
+@login_required
+@require_GET
+def notifications_list(request):
+
+    qs = request.user.notifications.all().order_by("-created_at")[:50]
+    data = [
+        {
+            "id": n.id,
+            "title": n.title,
+            "content": n.content,
+            "read": n.read_at is not None,
+            "created_at": n.created_at.isoformat(),
+        }
+        for n in qs
+    ]
+    return json_response("", SUCCESS, data)
+
+
+@login_required
+@require_POST
+def notification_read(request, notification_id: int):
+
+    n = request.user.notifications.filter(id=notification_id).first()
+    if n is None:
+        return json_response("通知不存在")
+    n.mark_as_read()
+    return json_response("已标记已读", SUCCESS)
+
+
+@login_required
+@require_POST
+def daily_sign(request):
+    """每日签到（对照原版 sign：隔天可签，积分 score_per_sign）。"""
+    user = request.user
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    now = timezone.now()
+    if user.last_sign_at and (now - user.last_sign_at) < timedelta(
+        hours=20
+    ):
+        return json_response("今天已经签到过了")
+    try:
+        award = int(Option.objects.get_value("score_per_sign") or 0)
+    except ValueError:
+        award = 0
+    user.score += award
+    user.last_sign_at = now
+    user.save(update_fields=["score", "last_sign_at"])
+    return json_response("签到成功", SUCCESS, {"score": user.score})

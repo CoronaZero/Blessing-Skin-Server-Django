@@ -205,3 +205,113 @@ def player_profile_json(request, player_name: str):
         return HttpResponseNotFound()
 
     return JsonResponse(player.to_profile_dict())
+
+
+# ---- 用户衣柜（对照原版 ClosetController）----
+
+
+@login_required
+@require_GET
+def closet_list(request):
+    items = request.user.closet.select_related("texture").order_by("-added_at")
+    data = [
+        {
+            "id": item.id,
+            "tid": item.texture.tid,
+            "name": item.item_name or item.texture.name,
+            "type": item.texture.type,
+            "hash": item.texture.hash,
+            "added_at": item.added_at.isoformat(),
+        }
+        for item in items
+    ]
+    return json_response("", SUCCESS, data)
+
+
+@login_required
+@require_POST
+def closet_add(request):
+    tid = request.POST.get("tid", "")
+    name = (request.POST.get("name") or "").strip()
+    try:
+        texture = Texture.objects.get(tid=int(tid))
+    except (ValueError, Texture.DoesNotExist):
+        return json_response("纹理不存在")
+
+    # 权限：公开或本人（对照原版）
+    if not texture.public and texture.uploader_id != request.user.uid:
+        return json_response("无权收藏该纹理")
+
+    if request.user.closet.filter(texture=texture).exists():
+        return json_response("该纹理已在衣柜中")
+
+    from options.models import Option as _Option
+
+    try:
+        cost = int(_Option.objects.get_value("score_per_closet_item") or 0)
+    except ValueError:
+        cost = 0
+    if cost > request.user.score:
+        return json_response("积分不足")
+    request.user.score -= cost
+    request.user.save(update_fields=["score"])
+
+    from .models import ClosetItem
+
+    ClosetItem.objects.create(owner=request.user, texture=texture, item_name=name)
+    return json_response("已加入衣柜", SUCCESS)
+
+
+@login_required
+def closet_collection(request):
+    """GET 列表 / POST 添加（同一 URL）。"""
+    if request.method == "GET":
+        return closet_list(request)
+    return closet_add(request)
+
+
+@login_required
+@require_POST
+def closet_rename(request, item_id: int):
+    item = request.user.closet.filter(id=item_id).first()
+    if item is None:
+        return json_response("衣柜项不存在")
+    item.item_name = (request.POST.get("name") or "").strip()[:255]
+    item.save(update_fields=["item_name"])
+    return json_response("已重命名", SUCCESS)
+
+
+@login_required
+@require_POST
+def closet_remove(request, item_id: int):
+    item = request.user.closet.filter(id=item_id).first()
+    if item is None:
+        return json_response("衣柜项不存在")
+    item.delete()
+    return json_response("已移出衣柜", SUCCESS)
+
+
+# ---- 举报（对照原版 ReportController@submit）----
+
+
+@login_required
+@require_POST
+def report_submit(request):
+    tid = request.POST.get("tid", "")
+    reason = (request.POST.get("reason") or "").strip()
+    if not reason:
+        return json_response("请填写举报理由")
+    try:
+        texture = Texture.objects.get(tid=int(tid))
+    except (ValueError, Texture.DoesNotExist):
+        return json_response("纹理不存在")
+
+    from moderation.models import Report
+
+    Report.objects.create(
+        texture=texture,
+        uploader=texture.uploader,
+        reporter=request.user,
+        reason=reason,
+    )
+    return json_response("举报已提交，感谢反馈", SUCCESS)

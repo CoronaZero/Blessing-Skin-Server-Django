@@ -39,4 +39,17 @@ urlpatterns = [
         name="reset_page",
     ),
     path("auth/verify/<str:token>", views.verify_email, name="verify"),
+    # ---- 用户中心 ----
+    path("user/profile", views.profile_view, name="profile"),
+    path(
+        "user/notifications",
+        views.notifications_list,
+        name="notifications",
+    ),
+    path(
+        "user/notifications/<int:notification_id>/read",
+        views.notification_read,
+        name="notification_read",
+    ),
+    path("user/sign", views.daily_sign, name="sign"),
 ]

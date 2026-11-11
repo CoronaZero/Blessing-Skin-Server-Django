@@ -13,4 +13,9 @@ urlpatterns = [
     path("avatar/<int:size>/<str:player_name>", views.serve_avatar, name="avatar"),
     # CustomSkinAPI R1 根路径兜底：/{player}.json（注册在根 urls最后）
     re_path(r"^(?P<player_name>[\w\-.]+)\.json$", views.player_profile_json, name="player_json"),
+    # ---- 用户中心：衣柜 / 举报 ----
+    path("user/closet", views.closet_collection, name="closet"),
+    path("user/closet/<int:item_id>/name", views.closet_rename, name="closet_rename"),
+    path("user/closet/<int:item_id>/remove", views.closet_remove, name="closet_remove"),
+    path("user/report", views.report_submit, name="report"),
 ]

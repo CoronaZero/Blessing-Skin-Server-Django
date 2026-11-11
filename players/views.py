@@ -1,2 +1,166 @@
+"""players 视图：用户角色管理。"""
 
-# Create your views here.
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_GET, require_POST
+
+from config.jsonapi import FAILURE, SUCCESS, json_response
+from options.models import Option
+from players.models import Player
+
+
+def _bool_option(name: str, default: str = "0") -> bool:
+    return (Option.objects.get_value(name) or default).lower() in ("1", "true", "on")
+
+
+def _int_option(name: str, default: int = 0) -> int:
+    try:
+        return int(Option.objects.get_value(name) or default)
+    except ValueError:
+        return default
+
+
+def validate_player_name(name: str) -> str | None:
+    """角色名规则（对照原版 player_name_rule 四档）。
+
+    默认 official；cjk/utf8 允许中文；custom 读正则 option。
+    返回错误消息或 None（合法）。
+    """
+    if not name:
+        return "角色名不能为空"
+    if len(name) > 50:
+        return "角色名过长"
+    rule = (Option.objects.get_value("player_name_rule") or "official").lower()
+
+    if rule == "utf8":
+        if any(c.isspace() for c in name):
+            return "角色名不能包含空白字符"
+        return None
+
+    import re
+
+    if rule == "official":
+        pattern = r"^[A-Za-z0-9_]+$"
+    elif rule == "cjk":
+        pattern = r"^[A-Za-z0-9_§\u4e00-\u9fff]+$"
+    elif rule == "custom":
+        pattern = Option.objects.get_value("custom_player_name_regexp") or ".*"
+    else:
+        pattern = r"^[A-Za-z0-9_]+$"
+    try:
+        if not re.match(pattern, name):
+            return "角色名不符合站点规则"
+    except re.error:
+        return "站点角色名正则配置错误"
+    return None
+
+
+@login_required
+@require_GET
+def list_players(request):
+    players = request.user.players.all().order_by("pid")
+    data = [
+        {
+            "pid": p.pid,
+            "name": p.name,
+            "last_modified": p.last_modified.isoformat(),
+            "tid_skin": p.tid_skin_id or 0,
+            "tid_cape": p.tid_cape_id or 0,
+        }
+        for p in players
+    ]
+    return json_response("", SUCCESS, data)
+
+
+@login_required
+@require_POST
+def add_player(request):
+    name = (request.POST.get("name") or "").strip()
+    if error := validate_player_name(name):
+        return json_response(error, FAILURE)
+
+    limit = _int_option("player_limit_per_user", 0)
+    if limit and request.user.players.count() >= limit:
+        return json_response(f"每人最多 {limit} 个角色", FAILURE)
+    if Player.objects.filter(name=name).exists():
+        return json_response("该角色名已被使用", FAILURE)
+
+    player = Player.objects.create(uid=request.user, name=name)
+    return json_response("角色创建成功", SUCCESS, {"pid": player.pid})
+
+
+@login_required
+def players_collection(request):
+    """GET 列表 / POST 新增（同一 URL）。"""
+    if request.method == "GET":
+        return list_players(request)
+    return add_player(request)
+
+
+@login_required
+@require_POST
+def delete_player(request, pid: int):
+    player = request.user.players.filter(pid=pid).first()
+    if player is None:
+        return json_response("角色不存在", FAILURE)
+    player.delete()
+    return json_response("角色已删除", SUCCESS)
+
+
+@login_required
+@require_POST
+def rename_player(request, pid: int):
+    player = request.user.players.filter(pid=pid).first()
+    if player is None:
+        return json_response("角色不存在", FAILURE)
+    name = (request.POST.get("name") or "").strip()
+    if error := validate_player_name(name):
+        return json_response(error, FAILURE)
+    if Player.objects.exclude(pid=pid).filter(name=name).exists():
+        return json_response("该角色名已被使用", FAILURE)
+    player.name = name
+    player.save(update_fields=["name", "last_modified"])
+    return json_response("角色已改名", SUCCESS)
+
+
+@login_required
+@require_POST
+def set_texture(request, pid: int, kind: str):
+    """设置/清除角色皮肤或披风（kind: skin/cape）。"""
+    if kind not in ("skin", "cape"):
+        return json_response("未知的材质类型", FAILURE)
+    player = request.user.players.filter(pid=pid).first()
+    if player is None:
+        return json_response("角色不存在", FAILURE)
+
+    tid = request.POST.get("tid")
+    if tid in (None, "", "0"):
+        setattr(player, f"tid_{kind}", None)
+        player.save(update_fields=[f"tid_{kind}"])
+        return json_response("已清除", SUCCESS)
+
+    from textures.models import Texture
+
+    try:
+        texture = Texture.objects.get(tid=int(tid))
+    except (ValueError, Texture.DoesNotExist):
+        return json_response("纹理不存在", FAILURE)
+
+    # 权限：公开纹理或本人上传（对照原版 can_set_texture 语义）
+    if not texture.public and texture.uploader_id != request.user.uid:
+        return json_response("无权使用该纹理", FAILURE)
+
+    setattr(player, f"tid_{kind}", texture)
+    player.save(update_fields=[f"tid_{kind}"])
+    return json_response("已应用", SUCCESS)
+
+
+@login_required
+@require_POST
+def set_texture_skin(request, pid: int):
+    return set_texture(request, pid, "skin")
+
+
+@login_required
+@require_POST
+def set_texture_cape(request, pid: int):
+    return set_texture(request, pid, "cape")

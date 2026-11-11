@@ -40,9 +40,10 @@ class TextureStorage:
 
     def save_bytes(self, hash_value: str, data: bytes) -> None:
         self._check(hash_value)
-        name = self.storage.save(hash_value, _BytesFile(hash_value, data))
-        if name != hash_value:  # 意外重名（理论不可能，hash 唯一）
-            raise RuntimeError(f"存储文件名异常：{name}")
+        if self.storage.exists(hash_value):
+            # 幂等：hash 相同内容必相同，直接覆盖
+            self.storage.delete(hash_value)
+        self.storage.save(hash_value, _BytesFile(hash_value, data))
 
     def read(self, hash_value: str) -> bytes:
         self._check(hash_value)
