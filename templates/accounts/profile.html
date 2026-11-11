@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}用户中心 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
@@ -32,7 +32,7 @@
   </aside>
 
   <section>
-    <div class="bs-card" id="sec-players">
+    <div class="bs-card" id="players">
       <div class="bs-card-body">
         <h1 class="bs-card-title">我的角色</h1>
         <div id="players-list" style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0"></div>
@@ -43,21 +43,21 @@
       </div>
     </div>
 
-    <div class="bs-card" style="margin-top:16px" id="sec-closet">
+    <div class="bs-card" style="margin-top:16px" id="closet">
       <div class="bs-card-body">
         <h1 class="bs-card-title">我的衣柜</h1>
         <div id="closet-list" class="bs-grid"></div>
       </div>
     </div>
 
-    <div class="bs-card" style="margin-top:16px" id="sec-notifications">
+    <div class="bs-card" style="margin-top:16px" id="notifications">
       <div class="bs-card-body">
         <h1 class="bs-card-title">站内通知</h1>
         <div id="notifications-list"></div>
       </div>
     </div>
 
-    <div class="bs-card" style="margin-top:16px" id="sec-profile">
+    <div class="bs-card" style="margin-top:16px" id="profile">
       <div class="bs-card-body">
         <h1 class="bs-card-title">资料设置</h1>
 

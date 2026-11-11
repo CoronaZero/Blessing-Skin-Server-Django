@@ -19,6 +19,23 @@ from .validation import validate_texture_image
 
 
 @login_required
+def upload_page(request):
+    """上传页（GET 渲染表单；POST 由同 URL 的 upload API 处理）。"""
+    from django.shortcuts import render
+
+    per_storage = Option.objects.get_value("score_per_storage") or "0"
+    score_hint = f"上传将按体积计分（每 KB {per_storage} 分）。" if per_storage != "0" else ""
+    return render(
+        request,
+        "textures/upload.html",
+        {
+            "site_name": Option.objects.get_value("site_name"),
+            "score_hint": score_hint,
+        },
+    )
+
+
+@login_required
 def skinlib_page(request):
     """皮肤库页面（登录后可见，对照原版）。"""
     from django.shortcuts import render

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}上传纹理 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
+
+{% block content %}
+<div style="max-width:520px;margin:24px auto">
+  <div class="bs-card">
+    <div class="bs-card-body">
+      <h1 class="bs-card-title">上传纹理</h1>
+      <div id="upload-alert" style="display:none" class="bs-alert"></div>
+
+      <form id="upload-form" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="bs-field">
+          <label for="f-name">名称</label>
+          <input class="bs-input" id="f-name" name="name" placeholder="给纹理起个名字"
+                 maxlength="50" required>
+        </div>
+
+        <div class="bs-field">
+          <label for="f-type">类型</label>
+          <select class="bs-select" id="f-type" name="type">
+            <option value="steve">皮肤（Steve 模型）</option>
+            <option value="alex">皮肤（Alex 模型，1:1）</option>
+            <option value="cape">披风</option>
+          </select>
+        </div>
+
+        <div class="bs-field">
+          <label for="f-public">
+            <input type="checkbox" id="f-public" name="public" value="1" checked
+                   style="margin-right:6px">
+            公开（他人可见；私密仅自己可用）
+          </label>
+        </div>
+
+        <div class="bs-field">
+          <label for="f-file">PNG 文件</label>
+          <input class="bs-input" id="f-file" name="file" type="file"
+                 accept="image/png" required>
+          <p style="font-size:12px;color:var(--bs-text-secondary);margin:6px 0 0">
+            皮肤 64×32 / 64×64（或其整数倍），披风 2:1 比例；
+            重复纹理会自动去重。{{ score_hint|default:"" }}
+          </p>
+        </div>
+
+        <button class="bs-btn bs-btn-primary" style="width:100%" type="submit" id="upload-submit">
+          上传
+        </button>
+      </form>
+
+      <p style="margin-top:14px;font-size:13px;text-align:center">
+        <a href="/skinlib">← 返回皮肤库</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_foot %}
+<script src="/static/js/upload.js"></script>
+{% endblock %}

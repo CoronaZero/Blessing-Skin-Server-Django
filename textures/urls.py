@@ -6,6 +6,16 @@ from . import views
 
 app_name = "textures"
 
+
+def _page_or_submit(page, submit):
+    def handler(request):
+        if request.method == "GET":
+            return page(request)
+        return submit(request)
+
+    return handler
+
+
 urlpatterns = [
     path(
         "skinlib",
@@ -18,7 +28,12 @@ urlpatterns = [
         name="texture_show",
     ),
     path("skinlib/search", views.search, name="search"),
-    path("skinlib/upload", views.upload, name="upload"),
+    # 同 URL：GET 渲染上传页 / POST 走上传 API
+    path(
+        "skinlib/upload",
+        _page_or_submit(views.upload_page, views.upload),
+        name="upload",
+    ),
     path("textures/<str:hash_value>", views.serve_texture, name="texture"),
     path("avatar/<int:size>/<str:player_name>", views.serve_avatar, name="avatar"),
     # CustomSkinAPI R1 根路径兜底：/{player}.json（注册在根 urls最后）

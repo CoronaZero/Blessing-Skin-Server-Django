@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}安装向导 - Blessing Skin{% endblock %}
 
 {% block navbar %}{% endblock %}
@@ -57,7 +57,7 @@
     const body = {};
     fd.forEach(function (v, k) { body[k] = v; });
 
-    const resp = await fetch("/setup", {
+    const resp = await fetch("/setup/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

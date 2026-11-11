@@ -40,6 +40,9 @@ urlpatterns = [
     ),
     path("auth/verify/<str:token>", views.verify_email, name="verify"),
     # ---- 用户中心 ----
+    # /user 是用户中心主页（导航栏/LOGIN_REDIRECT_URL 的目标，
+    # 渲染角色/衣柜/通知/资料四区）；/user/profile 保留原路径同视图
+    path("user", views.profile_view, name="user_center"),
     path("user/profile", views.profile_view, name="profile"),
     path(
         "user/notifications",
