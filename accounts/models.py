@@ -3,6 +3,10 @@
 对照 PHP 原版 users 表与 Cipher 家族（10 种算法）。
 """
 
+import hashlib
+import secrets
+from datetime import timedelta
+
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
@@ -137,3 +141,54 @@ class User(AbstractBaseUser, PermissionsMixin):
         except (AttributeError, Exception):
             return ""
         return first.name if first else ""
+
+
+class PasswordReset(models.Model):
+    """一次性密码重置令牌（安全修复③：替代原版可复用的签名 URL）。
+
+    - DB 存 token 哈希，泄露库 dump 无法构造有效链接
+    - used_at 落库后即失效，不可重复使用
+    - expires_at：有效期与原版一致（1 小时）
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="password_resets")
+    token_hash = models.CharField("令牌哈希", max_length=64, unique=True)
+    # 明文 token 仅在创建响应链路中暂存（发邮件），不落库
+    token = None
+    expires_at = models.DateTimeField("过期时间")
+    used_at = models.DateTimeField("使用时间", null=True, blank=True)
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "密码重置令牌"
+        verbose_name_plural = verbose_name
+
+    @classmethod
+    def issue(cls, user: "User") -> "PasswordReset":
+        """签发新令牌（旧令牌全部作废）。"""
+        cls.objects.filter(user=user).delete()
+        raw = secrets.token_urlsafe(32)
+        reset = cls.objects.create(
+            user=user,
+            token_hash=hashlib.sha256(raw.encode()).hexdigest(),
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        reset.token = raw  # 仅内存暂存，供邮件模板使用
+        return reset
+
+    @classmethod
+    def consume(cls, user: "User", token: str) -> bool:
+        """核销令牌：有效且未用未过期 → 标记并返回 True。"""
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        reset = cls.objects.filter(user=user, token_hash=token_hash).first()
+        if reset is None or reset.used_at is not None:
+            return False
+        if timezone.now() > reset.expires_at:
+            reset.delete()
+            return False
+        reset.used_at = timezone.now()
+        reset.save(update_fields=["used_at"])
+        return True
+
+    def is_expired(self) -> bool:
+        return timezone.now() > self.expires_at

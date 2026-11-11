@@ -9,9 +9,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": ":memory:",
     },
-    # 迁移命令测试用的旧库 alias（migrate_from_php 运行时覆盖 DSN）
-    "php_source": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
-    },
 }
+
+# 邮件进内存 outbox，测试可断言
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"

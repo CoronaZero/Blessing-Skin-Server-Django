@@ -100,6 +100,9 @@ DATABASES["php_source"] = {
 # 自定义用户模型（必须在首个迁移生成前指定）
 AUTH_USER_MODEL = "accounts.User"
 
+# 认证后端：email/角色名登录 + legacy 密码桥接
+AUTHENTICATION_BACKENDS = ["accounts.backends.EmailOrPlayerNameBackend"]
+
 # 密码校验链：新密码 Argon2 签发；历史 PHP 散列（bcrypt $2y$/无格式 MD5/SHA 系）兼容校验
 PASSWORD_HASHERS = [
     "accounts.hashers.PhpCompatPasswordHasher",
@@ -160,6 +163,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
+
+# ---- 邮件 ----
+# SMTP 参数（host/port/用户名等）存 Option 表，管理后台配置（Phase 6 表单），
+# 运行时按 option 动态构建 EmailBackend（见 accounts/mailer.py）。
+# settings 仅保留发件人默认值；未配置 SMTP 时用控制台后端（开发环境）。
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "noreply@blessing-skin.local"
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
