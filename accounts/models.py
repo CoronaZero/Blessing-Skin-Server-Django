@@ -6,6 +6,7 @@
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from django.utils import timezone
 
 from .hashers import (
     identify_legacy_hash,
@@ -70,7 +71,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_dark_mode = models.BooleanField("暗色模式", default=False)
     oauth_provider = models.CharField("OAuth 提供者", max_length=32, default="", blank=True)
     last_sign_at = models.DateTimeField("最后签到", null=True, blank=True)
-    register_at = models.DateTimeField("注册时间", auto_now_add=True)
+    register_at = models.DateTimeField("注册时间", default=timezone.now)
 
     is_active = True
     is_staff = models.BooleanField("后台访问", default=False)

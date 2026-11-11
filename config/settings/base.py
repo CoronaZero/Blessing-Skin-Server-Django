@@ -91,6 +91,12 @@ def _databases() -> dict:
 
 DATABASES = _databases()
 
+# 旧库迁移专用 alias（migrate_from_php 命令运行时覆盖为真实 DSN）
+DATABASES["php_source"] = {
+    "ENGINE": "django.db.backends.sqlite3",
+    "NAME": ":memory:",
+}
+
 # 自定义用户模型（必须在首个迁移生成前指定）
 AUTH_USER_MODEL = "accounts.User"
 
@@ -108,6 +114,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # ---- 项目包（管理命令等基础设施）----
+    "config",
     # ---- 业务应用（Phase 1 起）----
     "options",
     "accounts",
