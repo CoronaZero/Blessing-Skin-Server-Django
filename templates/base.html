@@ -45,6 +45,9 @@
   </footer>
 
   <script src="{% static 'js/base.js' %}"></script>
+  {% if bs_user_json %}
+  <script>window.BS_USER = {{ bs_user_json|safe }};</script>
+  {% endif %}
   {% block extra_foot %}{% endblock %}
 </body>
 </html>

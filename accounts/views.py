@@ -311,10 +311,30 @@ def _default_base_url() -> str:
 
 @login_required
 def profile_view(request):
-    """用户中心资料页：GET 渲染占位（Phase 5 前台替换）/ POST 修改资料。"""
+    """用户中心页：GET 渲染（含用户概要）/ POST 修改资料。"""
     if request.method == "POST":
         return profile_submit(request)
-    return render(request, "accounts/profile.html")
+    import json as _json
+
+    return render(
+        request,
+        "accounts/profile.html",
+        {
+            "site_name": Option.objects.get_value("site_name"),
+            "bs_user_json": _json.dumps(
+                {
+                    "nickname": request.user.nickname,
+                    "email": request.user.email,
+                    "score": request.user.score,
+                    "players": [
+                        {"pid": p.pid, "name": p.name, "uuid": p.uuid}
+                        for p in request.user.players.all()
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+        },
+    )
 
 
 # ---- 用户中心：资料 / 通知 / 签到 ----

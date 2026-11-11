@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}皮肤库 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+  <h1 class="bs-card-title" style="margin:0">皮肤库</h1>
+  <a class="bs-btn bs-btn-primary" href="?upload=1">上传皮肤</a>
+</div>
+
+<div class="bs-card" style="margin-bottom:20px">
+  <div class="bs-card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+    <input class="bs-input" id="search-keyword" placeholder="搜索名称…"
+           style="flex:1;min-width:180px" value="{{ keyword }}">
+
+    <select class="bs-select" id="search-category" style="width:auto">
+      <option value="skin" {% if category == 'skin' %}selected{% endif %}>皮肤</option>
+      <option value="cape" {% if category == 'cape' %}selected{% endif %}>披风</option>
+    </select>
+
+    <select class="bs-select" id="search-sort" style="width:auto">
+      <option value="time" {% if sort == 'time' %}selected{% endif %}>最新上传</option>
+      <option value="likes" {% if sort == 'likes' %}selected{% endif %}>最多收藏</option>
+      <option value="size" {% if sort == 'size' %}selected{% endif %}>体积最大</option>
+    </select>
+
+    <button class="bs-btn bs-btn-secondary" id="search-btn">搜索</button>
+  </div>
+</div>
+
+<div id="texture-grid" class="bs-grid" style="margin-bottom:24px"></div>
+
+<div id="grid-empty" style="display:none;text-align:center;color:var(--bs-text-secondary);padding:60px 0">
+  没有找到符合条件的纹理
+</div>
+
+<nav id="grid-pager" style="display:flex;gap:8px;justify-content:center;align-items:center">
+  <a class="bs-btn bs-btn-secondary" id="pager-prev">上一页</a>
+  <span id="pager-info" style="font-size:13px;color:var(--bs-text-secondary)"></span>
+  <a class="bs-btn bs-btn-secondary" id="pager-next">下一页</a>
+</nav>
+{% endblock %}
+
+{% block extra_foot %}
+<script src="/static/js/skinlib.js"></script>
+{% endblock %}

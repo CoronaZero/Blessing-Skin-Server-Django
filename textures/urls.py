@@ -7,6 +7,11 @@ from . import views
 app_name = "textures"
 
 urlpatterns = [
+    path(
+        "skinlib",
+        views.skinlib_page,
+        name="skinlib_page",
+    ),
     path("skinlib/search", views.search, name="search"),
     path("skinlib/upload", views.upload, name="upload"),
     path("textures/<str:hash_value>", views.serve_texture, name="texture"),

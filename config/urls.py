@@ -4,6 +4,8 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 
+from . import views
+
 
 def healthz(request):
     """容器存活探针。"""
@@ -12,6 +14,7 @@ def healthz(request):
 
 urlpatterns = [
     path("healthz", healthz, name="healthz"),
+    path("", views.home, name="home"),
     path("", include("accounts.urls")),
     path("", include("textures.urls")),
     path("", include("players.urls")),

@@ -15,6 +15,26 @@ from .rendering import AVATAR_SIZES, render_avatar, render_texture_response
 from .storage import TextureFileNotFoundError, texture_storage
 from .validation import validate_texture_image
 
+# ---- 页面 ----
+
+
+@login_required
+def skinlib_page(request):
+    """皮肤库页面（登录后可见，对照原版）。"""
+    from django.shortcuts import render
+
+    return render(
+        request,
+        "textures/skinlib.html",
+        {
+            "keyword": request.GET.get("keyword", ""),
+            "category": request.GET.get("category", "skin"),
+            "sort": request.GET.get("sort", "time"),
+            "site_name": Option.objects.get_value("site_name"),
+        },
+    )
+
+
 # ---- 皮肤库搜索（JSON 分页，对照原版 SkinlibController::search）----
 
 
