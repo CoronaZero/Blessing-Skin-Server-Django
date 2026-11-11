@@ -1,0 +1,77 @@
+# Blessing Skin Server (Django Edition) — Docker Compose 部署模板
+#
+# 用法：
+#   1. 修改下方「必改」三项（SECRET_KEY 与两个数据库密码）
+#   2. docker compose up -d
+#   3. 浏览器访问 http://<host>:8000/setup/ 完成安装向导
+#
+# 镜像默认拉取 ghcr；本机构建改用：build: .
+# 数据持久化：MySQL 库（命名卷）+ 皮肤文件（./data/textures）
+
+services:
+  blessing-skin:
+    image: ghcr.io/coronazero/blessing-skin-server-django:latest
+    # build: .                    # 本地构建时取消注释并注释上一行
+    container_name: blessing-skin
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # ---------- 必改 ----------
+      # 生成：python -c "import secrets;print(secrets.token_urlsafe(48))"
+      SECRET_KEY: "CHANGE-ME-GENERATE-A-REAL-KEY"
+      # 站点域名（逗号分隔）；本机调试可用 localhost
+      ALLOWED_HOSTS: "skin.example.com,localhost"
+      # ---------- 数据库（容器内经服务名互联，勿改 127.0.0.1）----------
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: blessing
+      DB_USERNAME: blessing
+      DB_PASSWORD: "CHANGE-ME-DB-PASSWORD"      # 须与下方 db 服务 MYSQL_PASSWORD 一致
+      # ---------- 可选 ----------
+      # SALT: "旧站 SALTED2* 算法的盐（仅 PHP 迁移场景需要）"
+      # TEXTURE_CACHE_MAX_AGE: "86400"
+    volumes:
+      - ./data/textures:/app/storage/textures   # 皮肤文件（可指向旧站目录，hash 兼容零搬动）
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request;urllib.request.urlopen(\"http://127.0.0.1:8000/healthz\")'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: mysql:8
+    container_name: blessing-skin-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: blessing
+      MYSQL_USER: blessing
+      MYSQL_PASSWORD: "CHANGE-ME-DB-PASSWORD"   # 须与上方应用 DB_PASSWORD 一致
+      MYSQL_ROOT_PASSWORD: "CHANGE-ME-ROOT-PASSWORD"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # 如需外置管理数据库，放开端口（注意防火墙）：
+    # ports:
+    #   - "127.0.0.1:3306:3306"
+
+volumes:
+  mysql-data:
+
+# ---------- SQLite 极简起步（不想跑 MySQL 时）----------
+# 删除整个 db 服务与 volumes 段，应用 environment 改为：
+#   DB_CONNECTION: sqlite
+#   DB_DATABASE: /app/data/db.sqlite3
+# 并将存储卷改为：
+#   volumes:
+#     - ./data:/app/data
+#     - ./data/textures:/app/storage/textures

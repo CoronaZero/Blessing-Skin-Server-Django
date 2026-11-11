@@ -9,6 +9,8 @@ install.lock
 staticfiles/
 media/
 storage/
+data/
+docker-compose.yml
 .git/
 .github/
 .env

@@ -93,7 +93,32 @@ python manage.py migrate_from_php --source "mysql://user:pass@host/dbname"
 
 ## 部署
 
-### Docker（推荐）
+### Docker Compose（推荐）
+
+仓库根提供了开箱即用的 [`docker-compose.yml`](docker-compose.yml)（应用 + MySQL 8，含健康检查与数据持久化）：
+
+```bash
+# 1. 编辑 docker-compose.yml，修改三处「必改」：
+#    SECRET_KEY（生成命令见下）、数据库密码（两处须一致）
+vi docker-compose.yml
+
+# 2. 启动（首次自动拉镜像）
+docker compose up -d
+
+# 3. 查看状态（healthy 为就绪）
+docker compose ps
+docker compose logs -f blessing-skin
+```
+
+首次访问 `http://<host>:8000/setup/` 完成安装向导。
+
+**升级**：`docker compose pull && docker compose up -d`（镜像启动时自动迁移数据库）。
+
+**备份**：纹理文件在 `./data/textures/`；MySQL 数据在命名卷 `mysql-data`（`docker run --rm -v blessing-skin-server-django_mysql-data:/data -v $PWD:/backup alpine tar czf /backup/mysql-data.tgz /data`）。
+
+**SQLite 极简起步**：不想跑 MySQL 时，按 [`docker-compose.yml`](docker-compose.yml) 尾部注释裁剪——删除 `db` 服务、`DB_CONNECTION` 改 `sqlite`、挂载 `./data` 目录。
+
+### Docker 单容器
 
 ```bash
 docker run -d --name blessing-skin \
