@@ -83,13 +83,29 @@ MySQL/PgSQL 驱动（`mysqlclient` / `psycopg`）按需安装，未列入默认�
 
 ## 数据迁移（从 PHP 版）
 
+**方式一（推荐）：指定 PHP 站点 `.env`，一键完整迁移（数据 + 皮肤文件）**
+
+```bash
+# 预检（不写入任何数据、不复制任何文件，查看行数与文件完整性报告）
+python manage.py migrate_from_php --env /path/to/php-site/.env --dry-run
+
+# 正式迁移
+python manage.py migrate_from_php --env /path/to/php-site/.env
+```
+
+自动从 `.env` 读取：数据库连接（`DB_*`）、密码盐（`SALT`，`SALTED2*` 历史用户登录依赖）、皮肤目录（`TEXTURES_DIR` 或默认 `<站点>/storage/textures`）。数据库逐表搬运后，**将用户上传的皮肤文件全部物理复制到新站存储目录**（如 `./data/textures/`，不引用旧站路径），逐文件 sha256 校验，缺失/损坏文件输出清单（数据库记录保留，角色引用不断链）。重跑幂等。
+
+> Docker 部署时：把 PHP 站点目录挂进容器执行，如
+> `docker compose exec blessing-skin python manage.py migrate_from_php --env /mnt/php-site/.env`
+> （compose 中给 blessing-skin 服务临时加一行 `- /path/to/php-site:/mnt/php-site:ro`）
+
+**方式二：仅迁移数据库（手拼 DSN）**
+
 ```bash
 python manage.py migrate_from_php --source "mysql://user:pass@host/dbname"
 ```
 
-只读接入旧库逐表搬运：用户（密码散列原样保留，登录时自动校验升级）、角色+UUID 映射、纹理（hash 不变 → **皮肤文件零搬动**，新站直接指向原存储目录）、衣柜、举报、选项、OAuth 客户端凭据、站内通知。事务化、可重跑（业务键 upsert），结束后输出行数比对报告。已签发 token 不迁移（用户重新授权一次）。
-
-皮肤文件目录通过 `TEXTURE_STORAGE_ROOT` 环境变量指向原目录（默认 `./storage/textures`）。
+两种方式均：用户密码散列原样保留（登录时自动校验并升级 Argon2）、角色 + UUID 映射并入、衣柜/举报/选项搬运、事务化可重跑、行数比对报告。已签发 token 不迁移（用户重新授权一次）。
 
 ## 部署
 

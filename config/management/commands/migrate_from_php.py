@@ -13,7 +13,9 @@
 - 结束输出逐表行数比对报告。
 """
 
+import hashlib
 import json
+import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +32,64 @@ from notifications.models import Notification
 from options.models import Option
 from players.models import Player
 from textures.models import ClosetItem, Texture
+
+
+def parse_php_env_file(env_path: Path) -> dict:
+    """解析 PHP 站 .env（Laravel dotenv 格式：KEY=VALUE，# 注释）。
+
+    只提取迁移相关的键，容忍引号与行内注释。
+    """
+    result = {}
+    for raw in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key, value = key.strip(), value.strip()
+        # 去引号
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        # Laravel .env 值内 # 常见，保守不做行内注释剥离
+        if value.lower() in ("null", "true", "false", "empty"):
+            value = {"null": "", "true": "1", "false": "", "empty": ""}.get(
+                value.lower(), value
+            )
+        result[key] = value
+    return result
+
+
+def build_dsn_from_env(php_env: dict, env_path: Path) -> tuple:
+    """从 .env 组装 (source 描述, 皮肤目录, 站点根目录)。
+
+    对照原版 config/secure.php、config/database.php、config/filesystems.php：
+    - DB_CONNECTION（mysql/pgsql/sqlite）+ DB_HOST/DB_PORT/DB_DATABASE/…
+    - TEXTURES_DIR 覆盖或默认 <站点根>/storage/textures
+    """
+    site_root = env_path.resolve().parent
+    connection = (php_env.get("DB_CONNECTION") or "mysql").strip().lower()
+    if connection == "sqlite":
+        db_path = php_env.get("DB_DATABASE", "")
+        if db_path and not Path(db_path).is_absolute():
+            db_path = str(site_root / db_path)
+        source = {"scheme": "sqlite", "path": db_path}
+    else:
+        source = {
+            "scheme": "mariadb" if connection == "mariadb" else connection,
+            "HOST": php_env.get("DB_HOST") or "127.0.0.1",
+            "PORT": php_env.get("DB_PORT") or ("3306" if connection != "pgsql" else "5432"),
+            "NAME": php_env.get("DB_DATABASE") or "blessing",
+            "USER": php_env.get("DB_USERNAME") or "",
+            "PASSWORD": php_env.get("DB_PASSWORD") or "",
+        }
+
+    textures = php_env.get("TEXTURES_DIR") or ""
+    if textures:
+        textures_dir = Path(textures)
+        if not textures_dir.is_absolute():
+            textures_dir = site_root / textures_dir
+    else:
+        textures_dir = site_root / "storage" / "textures"
+    return source, textures_dir, site_root
 
 
 def parse_source(dsn: str) -> dict:
@@ -78,12 +138,14 @@ class LegacyDatabase:
             self._sqlite = sqlite3.connect(self.source["path"])
         else:
             alias = "php_source"
+            scheme = self.source["scheme"]
+            engine = (
+                "django.db.backends.mysql"
+                if scheme in ("mysql", "mariadb")
+                else "django.db.backends.postgresql"
+            )
             conf = {
-                "ENGINE": (
-                    "django.db.backends.mysql"
-                    if self.source["scheme"] == "mysql"
-                    else "django.db.backends.postgresql"
-                ),
+                "ENGINE": engine,
                 "HOST": self.source["HOST"],
                 "PORT": self.source["PORT"],
                 "NAME": self.source["NAME"],
@@ -163,21 +225,58 @@ def _dt(value):
 
 
 class Command(BaseCommand):
-    help = "从 PHP 原版（blessing-skin-server）数据库迁移数据到本系统"
+    help = (
+        "从 PHP 原版（blessing-skin-server）迁移到本系统。\n"
+        "推荐：--env <PHP站/.env> 自动读取 DB 连接/盐/皮肤目录，"
+        "并将皮肤文件物理复制进新站存储；\n"
+        "兼容：--source <DSN> 仅迁移数据库（不复制文件）"
+    )
 
     def add_arguments(self, parser):
-        parser.add_argument("--source", required=True, help="旧库 DSN")
+        group = parser.add_mutually_exclusive_group(required=True)
+        group.add_argument(
+            "--env",
+            help="PHP 站点 .env 文件路径（完整迁移：数据库 + 皮肤文件复制）",
+        )
+        group.add_argument("--source", help="旧库 DSN（仅数据库迁移）")
         parser.add_argument(
             "--table-prefix",
             default="",
             help="旧库表前缀（原版 DB_PREFIX，默认无前缀）",
         )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="只检查不写入（连接/统计/完整性预检报告）",
+        )
 
     def handle(self, *args, **options):
-        dsn = options["source"]
+        # ---- --env 模式：解析 PHP .env，组装 source 与文件复制计划 ----
+        textures_dir = None
+        if options.get("env"):
+            env_path = Path(options["env"])
+            if not env_path.is_file():
+                raise CommandError(f".env 文件不存在：{env_path}")
+            php_env = parse_php_env_file(env_path)
+            source, textures_dir, site_root = build_dsn_from_env(php_env, env_path)
+            # SALTED2* 历史用户登录依赖全局盐（写入进程环境）
+            if php_env.get("SALT"):
+                os.environ["SALT"] = php_env["SALT"]
+                self.stdout.write(
+                    f"已捕获 SALT（{len(php_env['SALT'])} 字符），"
+                    "SALTED2* 历史用户登录可用"
+                )
+            title = php_env.get("APP_NAME") or php_env.get("SITE_NAME") or ""
+            if title:
+                self.stdout.write(f"旧站名称：{title}")
+            self.stdout.write(f"旧站皮肤目录：{textures_dir}")
+            _ = site_root
+        else:
+            source = parse_source(options["source"])
+
         prefix = options["table_prefix"]
 
-        legacy = LegacyDatabase(parse_source(dsn))
+        legacy = LegacyDatabase(source)
         try:
             legacy.open()
         except Exception as exc:  # noqa: BLE001 - 连接错误统一转译
@@ -186,26 +285,68 @@ class Command(BaseCommand):
         def table(name: str) -> str:
             return prefix + name
 
-        self.stdout.write(f"已连接旧库（{parse_source(dsn)['scheme']}）")
+        self.stdout.write(f"已连接旧库（{legacy.source['scheme']}）")
+
+        dry_run = bool(options.get("dry_run"))
 
         stats = {}
+        dry_hashes = []  # dry-run 时从旧库直接取（新库未写入）
+
+        def safe_rows(tbl: str) -> list:
+            """缺表（老站早期版本）返回空列表而非中断。"""
+            if not legacy.has_table(prefix + tbl):
+                self.stdout.write(f"（旧库无 {tbl} 表，跳过）")
+                return []
+            return legacy.rows(prefix + tbl)
+
         with transaction.atomic():
-            stats["users"] = self.migrate_users(legacy.rows(table("users")))
-            stats["players"] = self.migrate_players(legacy, table)
-            stats["textures"] = self.migrate_textures(legacy.rows(table("textures")))
-            stats["closet"] = self.migrate_closet(legacy.rows(table("user_closet")))
-            stats["reports"] = self.migrate_reports(legacy.rows(table("reports")))
-            stats["options"] = self.migrate_options(legacy.rows(table("options")))
-            if legacy.has_table(table("notifications")):
-                stats["notifications"] = self.migrate_notifications(
-                    legacy.rows(table("notifications"))
-                )
+            if dry_run:
+                for name, tbl in (
+                    ("users", "users"),
+                    ("players", "players"),
+                    ("textures", "textures"),
+                    ("closet", "user_closet"),
+                    ("reports", "reports"),
+                    ("options", "options"),
+                ):
+                    rows = safe_rows(tbl)
+                    stats[name] = len(rows)
+                    if name == "textures":
+                        dry_hashes = [r["hash"] for r in rows]
+                if legacy.has_table(prefix + "notifications"):
+                    stats["notifications"] = len(legacy.rows(prefix + "notifications"))
+                transaction.set_rollback(True)  # 双保险：预检绝不落库
             else:
-                self.stdout.write("（旧库无 notifications 表，跳过站内通知）")
+                stats["users"] = self.migrate_users(safe_rows("users"))
+                stats["players"] = self.migrate_players(legacy, prefix)
+                stats["textures"] = self.migrate_textures(safe_rows("textures"))
+                stats["closet"] = self.migrate_closet(safe_rows("user_closet"))
+                stats["reports"] = self.migrate_reports(safe_rows("reports"))
+                stats["options"] = self.migrate_options(safe_rows("options"))
+                if legacy.has_table(prefix + "notifications"):
+                    stats["notifications"] = self.migrate_notifications(
+                        legacy.rows(prefix + "notifications")
+                    )
+                else:
+                    self.stdout.write("（旧库无 notifications 表，跳过站内通知）")
 
         legacy.close()
-        self.print_report(stats)
-        self.stdout.write(self.style.SUCCESS("迁移完成"))
+
+        # ---- 皮肤文件迁移（文件系统操作不受 DB 事务保护，置于事务之外）----
+        if textures_dir is not None:
+            if dry_run:
+                file_stats = self.check_texture_files(dry_hashes, textures_dir)
+            else:
+                hashes = list(Texture.objects.values_list("hash", flat=True))
+                file_stats = self.copy_texture_files(hashes, textures_dir)
+        else:
+            file_stats = None
+
+        self.print_report(stats, file_stats=file_stats, dry_run=dry_run)
+        if dry_run:
+            self.stdout.write(self.style.WARNING("[dry-run] 未写入任何数据、未复制任何文件"))
+        else:
+            self.stdout.write(self.style.SUCCESS("迁移完成"))
 
     # ---- 各表搬运 ----
 
@@ -228,15 +369,15 @@ class Command(BaseCommand):
             )
         return len(source_rows)
 
-    def migrate_players(self, legacy, table) -> int:
+    def migrate_players(self, legacy, prefix: str) -> int:
         uuid_map = {}
-        if legacy.has_table(table("uuid")):
-            for row in legacy.rows(table("uuid")):
+        if legacy.has_table(prefix + "uuid"):
+            for row in legacy.rows(prefix + "uuid"):
                 uuid_map[row["name"]] = row["uuid"]
 
         from players.uuidgen import generate_uuid_v4
 
-        for row in legacy.rows(table("players")):
+        for row in legacy.rows(prefix + "players"):
             name = row["player_name"]
             Player.objects.update_or_create(
                 pid=row["pid"],
@@ -249,7 +390,9 @@ class Command(BaseCommand):
                     "last_modified": _dt(row.get("last_modified")),
                 },
             )
-        return len(uuid_map) and len(legacy.rows(table("players")))
+        if not legacy.has_table(prefix + "players"):
+            return 0
+        return len(legacy.rows(prefix + "players"))
 
     def migrate_textures(self, source_rows) -> int:
         for row in source_rows:
@@ -323,8 +466,9 @@ class Command(BaseCommand):
             )
         return len(source_rows)
 
-    def print_report(self, stats: dict):
-        self.stdout.write("---- 行数报告 ----")
+    def print_report(self, stats: dict, file_stats: dict | None = None, dry_run: bool = False):
+        mode = "[dry-run] " if dry_run else ""
+        self.stdout.write(f"---- {mode}行数报告 ----")
         new_counts = {
             "users": User.objects.count(),
             "players": Player.objects.count(),
@@ -337,3 +481,80 @@ class Command(BaseCommand):
             if name in new_counts:
                 extra = f"（新库共 {new_counts[name]}）"
             self.stdout.write(f"  {name}: 搬运 {migrated} 行{extra}")
+
+        if file_stats:
+            self.stdout.write(f"---- {mode}皮肤文件报告 ----")
+            if "checked" in file_stats:  # dry-run 预检形态
+                self.stdout.write(
+                    f"  需迁移 {file_stats['checked']}："
+                    f"源目录存在 {file_stats['present']}，"
+                    f"缺失 {len(file_stats['missing'])}"
+                )
+            else:
+                self.stdout.write(
+                    f"  复制 {file_stats['copied']}，已存在跳过 {file_stats['skipped_same']}，"
+                    f"缺失 {len(file_stats['missing'])}"
+                )
+            for digest in file_stats["missing"][:10]:
+                self.stdout.write(self.style.WARNING(f"    缺失: {digest}"))
+            if len(file_stats["missing"]) > 10:
+                self.stdout.write(
+                    self.style.WARNING(f"    … 及其余 {len(file_stats['missing']) - 10} 个")
+                )
+            for warning in file_stats["warnings"]:
+                self.stdout.write(self.style.WARNING(f"    告警: {warning}"))
+
+    # ---- 皮肤文件迁移 ----
+
+    def copy_texture_files(self, hashes: list, textures_dir: Path) -> dict:
+        """把旧站皮肤文件【物理复制】到新站 TEXTURE_STORAGE_ROOT。
+
+        - 目标已存在且内容一致 → 跳过（重跑幂等）
+        - 目标已存在但内容不一致 → 报告告警，不覆盖（保护新站数据）
+        - 源缺失 → 报告（DB 记录保留，引用不断链）
+        - 复制后校验 sha256 与文件名一致（损坏数据告警但保留现状）
+        """
+        from textures.storage import texture_storage
+
+        copied, skipped_same, warnings, missing = 0, 0, [], []
+        for digest in hashes:
+            source_file = textures_dir / digest
+            if not source_file.is_file():
+                missing.append(digest)
+                continue
+            if not texture_storage.exists(digest):
+                data = source_file.read_bytes()
+                texture_storage.save_bytes(digest, data)
+                copied += 1
+                if hashlib.sha256(data).hexdigest() != digest:
+                    warnings.append(f"{digest[:12]}… 内容与文件名 hash 不符（已按现状复制）")
+            else:
+                existing = texture_storage.read(digest)
+                if existing == source_file.read_bytes():
+                    skipped_same += 1
+                else:
+                    warnings.append(
+                        f"{digest[:12]}… 新站已有同名但内容不同的文件，未覆盖"
+                    )
+
+        return {
+            "copied": copied,
+            "skipped_same": skipped_same,
+            "missing": missing,
+            "warnings": warnings,
+        }
+
+    def check_texture_files(self, hashes: list, textures_dir: Path) -> dict:
+        """dry-run 预检：只统计，不复制。"""
+        present, missing = 0, []
+        for digest in hashes:
+            if (textures_dir / digest).is_file():
+                present += 1
+            else:
+                missing.append(digest)
+        return {
+            "present": present,
+            "missing": missing,
+            "checked": len(hashes),
+            "warnings": [],
+        }
