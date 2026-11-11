@@ -26,8 +26,11 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY --chown=blessing:blessing . .
 
-# 静态文件收集（whitenoise 托管）
-RUN python manage.py collectstatic --no-input && \
+# 静态文件收集（whitenoise 托管）。
+# 构建期仅需一次性占位密钥让 settings 加载（collectstatic 不签名任何内容，
+# 不落盘不进运行时）；运行时 SECRET_KEY 由部署方经环境变量注入。
+RUN SECRET_KEY=build-time-placeholder-for-collectstatic \
+    python manage.py collectstatic --no-input && \
     chown -R blessing:blessing /app
 
 USER blessing

@@ -127,6 +127,11 @@ OAUTH2_PROVIDER = {
     # password grant 已验证可用（Phase 0），保持默认启用
     "APPLICATION_MODEL": "oauth2_provider.Application",
     "PKCE_REQUIRED": False,  # 原 Passport 无 PKCE 要求
+    # RFC 9700 BCP：关闭本站未使用的 implicit grant（DOT 4.0 起的合规默认）
+    "COMPLIANT_BCP_RFC9700_IMPLICIT_GRANT": True,
+    # RFC 9700 §2.4 建议弃用 password grant；本站核心需求仍需保留
+    # （对照原版 Passport 客户端生态），仅显式确认此决策
+    "COMPLIANT_BCP_RFC9700_RESOURCE_OWNER_PKCE": False,
 }
 
 INSTALLED_APPS = [
