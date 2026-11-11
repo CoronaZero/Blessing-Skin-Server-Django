@@ -1,2 +1,138 @@
+"""accounts 应用：自定义用户模型与多算法密码兼容层。
 
-# Create your models here.
+对照 PHP 原版 users 表与 Cipher 家族（10 种算法）。
+"""
+
+from django.contrib.auth.hashers import check_password
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.db import models
+
+from .hashers import (
+    identify_legacy_hash,
+    verify_php_argon2,
+    verify_php_bcrypt,
+)
+
+
+class UserManager(BaseUserManager):
+    """email 即用户名（对照原版登录标识 semantcs：邮箱或角色名）。"""
+
+    use_in_migrations = True
+
+    def _create_user(self, email, nickname, password, **extra_fields):
+        if not email:
+            raise ValueError("必须提供 email")
+        email = self.normalize_email(email)
+        user = self.model(email=email, nickname=nickname or "", **extra_fields)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
+        user.save(using=self._db)
+        return user
+
+    def create_user(self, email, nickname="", password=None, **extra_fields):
+        extra_fields.setdefault("permission", User.Permission.NORMAL)
+        return self._create_user(email, nickname, password, **extra_fields)
+
+    def create_superuser(self, email, nickname="", password=None, **extra_fields):
+        extra_fields.setdefault("permission", User.Permission.SUPER_ADMIN)
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        return self._create_user(email, nickname, password, **extra_fields)
+
+
+class User(AbstractBaseUser, PermissionsMixin):
+    """对照 PHP 原版 users 表。
+
+    字段重设计：去除 authme 遗留（realname/username/regdate），
+    新增 oauth_provider（Phase 7 OAuth 绑定表的前置字段）。
+    """
+
+    class Permission(models.IntegerChoices):
+        BANNED = -1, "封禁"
+        NORMAL = 0, "普通用户"
+        ADMIN = 1, "管理员"
+        SUPER_ADMIN = 2, "超级管理员"
+
+    uid = models.AutoField("UID", primary_key=True)
+    email = models.EmailField("邮箱", unique=True, max_length=100)
+    nickname = models.CharField("昵称", max_length=50, default="")
+    password = models.CharField("密码散列", max_length=255)
+    score = models.IntegerField("积分", default=0)
+    avatar = models.IntegerField("头像纹理 ID", default=0)
+    ip = models.CharField("注册 IP", max_length=45, default="")
+    permission = models.IntegerField(
+        "权限", choices=Permission.choices, default=Permission.NORMAL
+    )
+    verified = models.BooleanField("邮箱已验证", default=False)
+    locale = models.CharField("语言偏好", max_length=10, default="")
+    is_dark_mode = models.BooleanField("暗色模式", default=False)
+    oauth_provider = models.CharField("OAuth 提供者", max_length=32, default="", blank=True)
+    last_sign_at = models.DateTimeField("最后签到", null=True, blank=True)
+    register_at = models.DateTimeField("注册时间", auto_now_add=True)
+
+    is_active = True
+    is_staff = models.BooleanField("后台访问", default=False)
+
+    objects = UserManager()
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["nickname"]
+
+    class Meta:
+        verbose_name = "用户"
+        verbose_name_plural = verbose_name
+
+    def is_admin(self) -> bool:
+        return self.permission >= self.Permission.ADMIN
+
+    def verify_password(self, raw: str) -> bool:
+        """多算法校验，对照原版 HasPassword::verifyPassword。
+
+        分派顺序：
+        1. Django 原生格式（bcrypt$/argon2$/pbkdf2$ 封装）→ Django hasher 链
+        2. PHP 裸 bcrypt（$2y$/$2a$/$2b$）→ bcrypt 库直校验
+        3. PHP 裸 argon2（$argon2i$ 等）→ argon2-cffi 直校验
+        4. 无格式 legacy 散列（MD5/SHA 系 32/64/128 hex）→ 按长度尝试候选
+        """
+        stored = self.password
+        if not stored:
+            return False
+        # Django 封装格式：算法名开头（bcrypt$/argon2$/pbkdf2_sha256$...）
+        head = stored.split("$", 1)[0]
+        if head in ("bcrypt", "argon2", "pbkdf2_sha256", "pbkdf2_sha1", "scrypt"):
+            return check_password(raw, stored)
+        if stored.startswith("$2"):
+            return verify_php_bcrypt(raw, stored)
+        if stored.startswith("$argon2"):
+            return verify_php_argon2(raw, stored)
+        candidates = identify_legacy_hash(stored)
+        if candidates:
+            return any(h().verify(raw, stored) for h in candidates)
+        return False
+
+    def change_password(self, raw: str) -> None:
+        """对照原版 changePassword：新密码统一用 Django Argon2 签发。"""
+        self.set_password(raw)
+
+    def get_full_name(self):
+        return self.nickname or self.email
+
+    def get_short_name(self):
+        return self.nickname or self.email
+
+    def __str__(self):
+        return f"{self.nickname} <{self.email}>" if self.nickname else self.email
+
+    @property
+    def player_name(self) -> str:
+        """首个角色名（对照原版 player_name accessor）；无角色时为空。
+
+        players 反向关系未建立（players app 模型缺失/未迁移）时安全返回空。
+        """
+        try:
+            first = self.players.first()
+        except (AttributeError, Exception):
+            return ""
+        return first.name if first else ""

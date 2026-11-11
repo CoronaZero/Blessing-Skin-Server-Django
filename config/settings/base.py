@@ -91,6 +91,16 @@ def _databases() -> dict:
 
 DATABASES = _databases()
 
+# 自定义用户模型（必须在首个迁移生成前指定）
+AUTH_USER_MODEL = "accounts.User"
+
+# 密码校验链：新密码 Argon2 签发；历史 PHP 散列（bcrypt $2y$/无格式 MD5/SHA 系）兼容校验
+PASSWORD_HASHERS = [
+    "accounts.hashers.PhpCompatPasswordHasher",
+    "django.contrib.auth.hashers.BCryptPasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+]
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",

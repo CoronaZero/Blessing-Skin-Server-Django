@@ -3,6 +3,8 @@ Django==5.2.19
 django-oauth-toolkit==3.4.1
 django-storages==1.14.6
 gunicorn==27.0.0
+argon2-cffi==25.1.0
+bcrypt==5.0.0
 Pillow==13.0.0
 python-dotenv==1.2.4
 uvicorn==0.54.0
