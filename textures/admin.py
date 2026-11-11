@@ -7,7 +7,10 @@ from .models import ClosetItem, Texture
 
 @admin.register(Texture)
 class TextureAdmin(admin.ModelAdmin):
-    list_display = ("tid", "name", "type", "hash_short", "size", "uploader", "public", "likes", "upload_at")
+    list_display = (
+        "tid", "name", "type", "hash_short", "size",
+        "uploader", "public", "likes", "upload_at",
+    )
     search_fields = ("name", "hash", "uploader__email")
     list_filter = ("type", "public", "upload_at")
     list_select_related = ("uploader",)

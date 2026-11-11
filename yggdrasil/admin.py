@@ -7,7 +7,10 @@ from .models import YggdrasilLog, YggdrasilToken
 
 @admin.register(YggdrasilToken)
 class YggdrasilTokenAdmin(admin.ModelAdmin):
-    list_display = ("owner", "client_token", "is_valid", "is_refreshable", "created_at", "profile_id")
+    list_display = (
+        "owner", "client_token", "is_valid",
+        "is_refreshable", "created_at", "profile_id",
+    )
     search_fields = ("owner__email", "access_token", "client_token")
     list_select_related = ("owner",)
     readonly_fields = ("access_token", "created_at")
