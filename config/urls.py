@@ -13,5 +13,6 @@ def healthz(request):
 urlpatterns = [
     path("healthz", healthz, name="healthz"),
     path("", include("accounts.urls")),
+    path("", include("textures.urls")),
     path("admin/", admin.site.urls),
 ]
