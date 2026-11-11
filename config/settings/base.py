@@ -110,6 +110,25 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
 ]
 
+# ---- OAuth2（DOT，对照原版 Laravel Passport 语义）----
+OAUTH2_PROVIDER = {
+    # 原版 Passport scope 模型（插件 + 核心默认）
+    "SCOPES": {
+        "User.Read": "读取用户信息",
+        "Player.ReadWrite": "管理角色",
+        "PlayerProfile.Read": "读取角色档案",
+        "Closet.Read": "读取衣柜",
+        "Closet.ReadWrite": "管理衣柜",
+        "Notification.Read": "读取通知",
+    },
+    "DEFAULT_SCOPES": ["User.Read"],
+    "ACCESS_TOKEN_EXPIRE_SECONDS": 3600 * 24 * 7,  # 与原版 token 有效期一致
+    "REQUEST_APPROVAL_PROMPT": "auto",
+    # password grant 已验证可用（Phase 0），保持默认启用
+    "APPLICATION_MODEL": "oauth2_provider.Application",
+    "PKCE_REQUIRED": False,  # 原 Passport 无 PKCE 要求
+}
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -129,6 +148,7 @@ INSTALLED_APPS = [
     "notifications",
     "invitation",
     "oauth_bridge",
+    "setup",
     # ---- 第三方 ----
     "oauth2_provider",
 ]

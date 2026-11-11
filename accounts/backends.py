@@ -24,6 +24,8 @@ class EmailOrPlayerNameBackend:
             make_password("dummy-timing-equalizer")
             return None
 
+        if not user.is_active:  # DOT validate_user 通道（is_active=False 拒绝）
+            return None
         if user.permission == User.Permission.BANNED:
             return None
         if not user.verify_password(password):

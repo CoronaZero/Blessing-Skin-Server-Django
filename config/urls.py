@@ -15,9 +15,12 @@ def healthz(request):
 urlpatterns = [
     path("healthz", healthz, name="healthz"),
     path("", views.home, name="home"),
+    path("setup/", include("setup.urls")),
     path("", include("accounts.urls")),
     path("", include("textures.urls")),
     path("", include("players.urls")),
+    # OAuth2（对照原版 Passport /oauth/token 等端点）
+    path("oauth/", include("oauth2_provider.urls", namespace="oauth2_provider")),
     path("api/yggdrasil/", include("yggdrasil.urls")),
     path("admin/", admin.site.urls),
 ]

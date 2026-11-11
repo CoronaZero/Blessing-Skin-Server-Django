@@ -77,7 +77,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_sign_at = models.DateTimeField("最后签到", null=True, blank=True)
     register_at = models.DateTimeField("注册时间", default=timezone.now)
 
-    is_active = True
+    # Django auth 体系字段：is_active 持久化（BANNED 派生语义）；
+    # is_staff 独立控制 Admin 访问（superuser 由 permission=SUPER_ADMIN 对应）
+    is_active = models.BooleanField("启用", default=True)
     is_staff = models.BooleanField("后台访问", default=False)
 
     objects = UserManager()
