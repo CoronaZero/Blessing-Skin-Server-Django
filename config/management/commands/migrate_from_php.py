@@ -133,25 +133,47 @@ class LegacyDatabase:
         self._alias_conn = None
 
     # ---- 连接 ----
+    def build_django_config(self) -> dict:
+        """构造 Django DATABASES 配置并补全 ConnectionHandler 的默认键。
+
+        真实服务器踩坑（KeyError: 'TIME_ZONE'）：运行期注入动态
+        alias 时连接管理器已初始化（configure_settings 只在进程
+        启动时对 settings.DATABASES 跑一次），裸 conf 不会被补全，
+        DatabaseWrapper.__init__ 读取 TIME_ZONE 等键即炸。
+        键清单照抄 django.db.utils.ConnectionHandler.configure_settings
+        （Django 5.2 源码核对）。
+        """
+        scheme = self.source["scheme"]
+        engine = (
+            "django.db.backends.mysql"
+            if scheme in ("mysql", "mariadb")
+            else "django.db.backends.postgresql"
+        )
+        conf = {
+            "ENGINE": engine,
+            "HOST": self.source["HOST"],
+            "PORT": self.source["PORT"],
+            "NAME": self.source["NAME"],
+            "USER": self.source["USER"],
+            "PASSWORD": self.source["PASSWORD"],
+        }
+        # ---- Django 5.2 configure_settings 默认键补全 ----
+        conf.setdefault("ATOMIC_REQUESTS", False)
+        conf.setdefault("AUTOCOMMIT", True)
+        conf.setdefault("CONN_MAX_AGE", 0)
+        conf.setdefault("CONN_HEALTH_CHECKS", False)
+        conf.setdefault("OPTIONS", {})
+        conf.setdefault("TIME_ZONE", None)
+        for key in ("NAME", "USER", "PASSWORD", "HOST", "PORT"):
+            conf.setdefault(key, "")
+        return conf
+
     def open(self):
         if self.source["scheme"] == "sqlite":
             self._sqlite = sqlite3.connect(self.source["path"])
         else:
             alias = "php_source"
-            scheme = self.source["scheme"]
-            engine = (
-                "django.db.backends.mysql"
-                if scheme in ("mysql", "mariadb")
-                else "django.db.backends.postgresql"
-            )
-            conf = {
-                "ENGINE": engine,
-                "HOST": self.source["HOST"],
-                "PORT": self.source["PORT"],
-                "NAME": self.source["NAME"],
-                "USER": self.source["USER"],
-                "PASSWORD": self.source["PASSWORD"],
-            }
+            conf = self.build_django_config()
             settings.DATABASES[alias] = conf
             connections.databases[alias] = conf
             self._alias_conn = connections[alias]
@@ -494,13 +516,17 @@ class Command(BaseCommand):
     def print_report(self, stats: dict, file_stats: dict | None = None, dry_run: bool = False):
         mode = "[dry-run] " if dry_run else ""
         self.stdout.write(f"---- {mode}行数报告 ----")
-        new_counts = {
-            "users": User.objects.count(),
-            "players": Player.objects.count(),
-            "textures": Texture.objects.count(),
-            "closet": ClosetItem.objects.count(),
-            "reports": Report.objects.count(),
-        }
+        # 新库计数仅在真实迁移后有意义；dry-run 严禁触新库
+        #（真实场景：服务器未建表先跑预检）
+        new_counts = {}
+        if not dry_run:
+            new_counts = {
+                "users": User.objects.count(),
+                "players": Player.objects.count(),
+                "textures": Texture.objects.count(),
+                "closet": ClosetItem.objects.count(),
+                "reports": Report.objects.count(),
+            }
         for name, migrated in stats.items():
             extra = ""
             if name in new_counts:

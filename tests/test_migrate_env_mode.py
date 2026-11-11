@@ -304,3 +304,74 @@ class TestEnvDrivenMigration:
         run_env_migration(php["env_file"])
         assert User.objects.count() == 2
         assert Texture.objects.count() == 3
+
+
+class TestMysqlAliasConfig:
+    """真实服务器踩坑回归：MySQL 注入路径的配置完整性。
+
+    本地无 MySQL，测试无法真连——用 DatabaseWrapper(conf) 构造
+    复现 KeyError: 'TIME_ZONE'（wrapper __init__ 读取 settings_dict
+    的全部默认键，与 ensure_connection 前置阶段相同）。
+    """
+
+    def _legacy(self, scheme="mysql"):
+        from config.management.commands.migrate_from_php import LegacyDatabase
+
+        return LegacyDatabase({
+            "scheme": scheme, "HOST": "h", "PORT": "3306",
+            "NAME": "n", "USER": "u", "PASSWORD": "p",
+        })
+
+    def test_build_django_config_has_django_required_defaults(self):
+        """注入配置补全 Django 5.2 configure_settings 的全部默认键。"""
+        conf = self._legacy().build_django_config()
+        assert conf["TIME_ZONE"] is None
+        assert conf["AUTOCOMMIT"] is True
+        assert conf["ATOMIC_REQUESTS"] is False
+        assert conf["CONN_MAX_AGE"] == 0
+        assert conf["CONN_HEALTH_CHECKS"] is False
+        assert conf["OPTIONS"] == {}
+
+    def test_database_wrapper_constructible_from_config(self):
+        """关键回归：配置可构造 DatabaseWrapper（不真连）。
+
+        修复前：注入裸 conf → wrapper.__init__ KeyError 'TIME_ZONE'
+        （真实服务器 migrate_from_php --env MySQL 路径报错）。
+        """
+        from django.db.backends.mysql.base import DatabaseWrapper
+
+        conf = self._legacy().build_django_config()
+        wrapper = DatabaseWrapper(conf, alias="php_source_test")
+        assert wrapper.settings_dict["TIME_ZONE"] is None
+
+    def test_pgsql_config_also_complete(self):
+        """pgsql 路径配置同样补全（驱动按需安装，只验配置不构造 wrapper）。"""
+        conf = self._legacy("pgsql").build_django_config()
+        assert conf["ENGINE"] == "django.db.backends.postgresql"
+        assert conf["TIME_ZONE"] is None
+        assert conf["NAME"] == "n"
+        assert conf["OPTIONS"] == {}
+
+    def test_dry_run_report_needs_no_new_site_tables(self):
+        """dry-run 全程不触新站库（未建表也能预检）。
+
+        print_report 在 dry-run 下不得查询新库 counts
+        （真实场景：服务器先跑 dry-run 后才 migrate）。
+        """
+        from unittest.mock import patch
+
+        from config.management.commands.migrate_from_php import Command
+
+        cmd = Command()
+        with (
+            patch.object(User.objects, "count", side_effect=AssertionError("不该查新库")),
+            patch.object(Player.objects, "count", side_effect=AssertionError("不该查新库")),
+            patch.object(Texture.objects, "count", side_effect=AssertionError("不该查新库")),
+        ):
+            from io import StringIO
+
+            cmd.stdout = StringIO()
+            cmd.print_report({"users": 10, "textures": 5}, file_stats=None, dry_run=True)
+            output = cmd.stdout.getvalue()
+        assert "10" in output
+        assert "新库共" not in output  # dry-run 不展示新库计数
