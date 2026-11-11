@@ -12,6 +12,11 @@ urlpatterns = [
         views.skinlib_page,
         name="skinlib_page",
     ),
+    path(
+        "skinlib/show",
+        views.texture_show_page,
+        name="texture_show",
+    ),
     path("skinlib/search", views.search, name="search"),
     path("skinlib/upload", views.upload, name="upload"),
     path("textures/<str:hash_value>", views.serve_texture, name="texture"),

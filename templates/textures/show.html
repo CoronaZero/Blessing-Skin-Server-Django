@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ texture.name }} - {{ site_name|default:"Blessing Skin" }}{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:auto 1fr;gap:28px">
+
+  <!-- 3D 预览（皮肤类纹理） -->
+  {% if texture.type != "cape" %}
+  <div class="bs-card">
+    <div class="bs-card-body" style="text-align:center">
+      <canvas id="viewer-canvas" width="280" height="360"
+              data-skin="/textures/{{ texture.hash }}"
+              data-model="{% if texture.type == 'alex' %}slim{% else %}default{% endif %}"></canvas>
+      <p style="font-size:12px;color:var(--bs-text-secondary);margin:8px 0 0">
+        拖动旋转 · 滚轮缩放
+      </p>
+    </div>
+  </div>
+  {% else %}
+  <div class="bs-card">
+    <div class="bs-card-body" style="text-align:center">
+      <img src="/textures/{{ texture.hash }}" alt="{{ texture.name }}"
+           style="image-rendering:pixelated;border-radius:6px">
+      <p style="font-size:12px;color:var(--bs-text-secondary)">披风预览</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <div>
+    <h1 style="margin:0 0 8px;font-size:22px">{{ texture.name }}</h1>
+    <p style="margin:0 0 20px;color:var(--bs-text-secondary);font-size:13px">
+      {{ texture.get_type_display }} · {{ texture.size }} KB ·
+      上传者 {{ texture.uploader.nickname }} · ♥ {{ texture.likes }}
+    </p>
+    {% if texture.description %}
+    <div class="bs-card" style="margin-bottom:16px">
+      <div class="bs-card-body" style="font-size:14px">{{ texture.description }}</div>
+    </div>
+    {% endif %}
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      {% if user.is_authenticated %}
+      <button class="bs-btn bs-btn-primary" id="closet-btn" data-tid="{{ texture.tid }}">
+        加入衣柜
+      </button>
+      {% endif %}
+      <a class="bs-btn bs-btn-secondary"
+         href="/textures/{{ texture.hash }}" download="{{ texture.hash }}.png">
+        下载
+      </a>
+      {% if user.is_authenticated %}
+      <button class="bs-btn bs-btn-secondary" id="report-btn" data-tid="{{ texture.tid }}">
+        举报
+      </button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_foot %}
+<script src="{% static 'vendor/skinview3d.bundle.js' %}"></script>
+<script src="{% static 'js/skin-viewer.js' %}"></script>
+<script src="{% static 'js/texture-detail.js' %}"></script>
+{% endblock %}

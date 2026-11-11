@@ -35,6 +35,27 @@ def skinlib_page(request):
     )
 
 
+@login_required
+def texture_show_page(request):
+    """纹理详情页（3D 预览 + 收藏/下载/举报）。"""
+    from django.shortcuts import get_object_or_404, render
+
+    texture = get_object_or_404(
+        Texture.objects.select_related("uploader"), tid=request.GET.get("tid", 0)
+    )
+    # 私密纹理仅上传者可见
+    if not texture.public and texture.uploader_id != request.user.uid:
+        from django.http import HttpResponseNotFound
+
+        return HttpResponseNotFound()
+
+    return render(
+        request,
+        "textures/show.html",
+        {"texture": texture, "site_name": Option.objects.get_value("site_name")},
+    )
+
+
 # ---- 皮肤库搜索（JSON 分页，对照原版 SkinlibController::search）----
 
 
