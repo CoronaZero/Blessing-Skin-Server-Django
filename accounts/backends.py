@@ -19,7 +19,6 @@ class EmailOrPlayerNameBackend:
         user = self._find_user(identification)
         if user is None:
             # 恒定时间：对不存在的用户也执行一次哈希计算，防时序枚举
-            User().verify_password
             from django.contrib.auth.hashers import make_password
 
             make_password("dummy-timing-equalizer")

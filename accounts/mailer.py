@@ -37,7 +37,8 @@ def send_option_mail(subject, message, recipient_list):
     """用 option 配置的 SMTP 发送纯文本邮件。"""
     from django.core.mail import send_mail
 
-    from_addr = (Option.objects.get_value("mail_from_address") or "").strip() or settings.DEFAULT_FROM_EMAIL
+    configured = (Option.objects.get_value("mail_from_address") or "").strip()
+    from_addr = configured or settings.DEFAULT_FROM_EMAIL
     return send_mail(
         subject=subject,
         message=message,

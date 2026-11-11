@@ -163,6 +163,9 @@ class PasswordReset(models.Model):
         verbose_name = "密码重置令牌"
         verbose_name_plural = verbose_name
 
+    def __str__(self):
+        return f"reset-token({self.user_id})"
+
     @classmethod
     def issue(cls, user: "User") -> "PasswordReset":
         """签发新令牌（旧令牌全部作废）。"""

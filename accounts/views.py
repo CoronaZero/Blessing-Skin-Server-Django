@@ -62,7 +62,8 @@ def login_submit(request):
         if not verify_captcha(request.POST.get("captcha"), ip=ip):
             return json_response("请完成人机验证")
 
-    enumeration_protected = (Option.objects.get_value("login_enumeration_protection") or "").lower() in ("1", "on", "true")
+    enum_flag = Option.objects.get_value("login_enumeration_protection") or ""
+    enumeration_protected = enum_flag.lower() in ("1", "on", "true")
 
     user = authenticate(request, username=identification, password=password)
     if user is None:
