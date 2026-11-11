@@ -6,7 +6,7 @@
 
 Blessing Skin Server 的 **Django 重写版**：一个 Minecraft 皮肤站，让玩家上传/分享皮肤与披风，通过内嵌的 Yggdrasil API（authlib-injector 生态）为启动器与服务器提供登录认证与材质分发，内置 3D 皮肤实时预览。
 
-原版（PHP/Laravel）见同目录 `blessing-skin-server-php`，官方插件仓库见 `blessing-skin-plugins`。本项目逐功能对照原版行为重写，并完成安全加固与结构重设计。
+原版（PHP/Laravel）见 <https://github.com/bs-community/blessing-skin-server> ，官方插件仓库见 <https://github.com/bs-community/blessing-skin-plugins> 。本项目逐功能对照原版行为重写，并完成安全加固与结构重设计。
 
 ## 功能总览
 
