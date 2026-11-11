@@ -197,11 +197,35 @@ class LegacyDatabase:
         columns = [col[0] for col in cursor.description]
         return [dict(zip(columns, row, strict=False)) for row in cursor.fetchall()]
 
+    # 方言化标识符引用（真实服务器踩坑：MySQL 默认模式双引号是字符串
+    # 字面量，SELECT * FROM "users" 语法错误；PostgreSQL 才用双引号）
+    # MySQL_SCHEMA_LIMIT / PGSQL_SCHEMA_LIMIT：限定当前库，防 1Panel 等
+    # 多库共存环境里其他库的同名表被误判存在
+    MYSQL_IDENTIFIER_QUOTE = "`"
+    PGSQL_IDENTIFIER_QUOTE = '"'
+    _HAS_TABLE_MYSQL = (
+        "SELECT COUNT(*) FROM information_schema.tables"
+        " WHERE table_name = %s AND table_schema = DATABASE()"
+    )
+    _HAS_TABLE_PGSQL = (
+        "SELECT COUNT(*) FROM information_schema.tables"
+        " WHERE table_name = %s AND table_schema = current_schema()"
+    )
+
+    def quote_table(self, table: str) -> str:
+        """按 scheme 生成正确的标识符引用。"""
+        if self._sqlite is not None:
+            return table  # sqlite 表名来自白名单+管理员前缀，裸引用
+        if self.source["scheme"] in ("mysql", "mariadb"):
+            return f"`{table}`"  # MySQL/MariaDB 默认模式必须反引号
+        return f'"{table}"'  # PostgreSQL ANSI 双引号
+
     def rows(self, table: str) -> list[dict]:
         if self._sqlite is not None:
             return self._fetch_all(self._cursor(), f"SELECT * FROM {table}", [])
-        # MySQL/PgSQL：information_schema 适配的引号
-        return self._fetch_all(self._cursor(), f'SELECT * FROM "{table}"', [])
+        return self._fetch_all(
+            self._cursor(), f"SELECT * FROM {self.quote_table(table)}", []
+        )
 
     def has_table(self, table: str) -> bool:
         cursor = self._cursor()
@@ -209,21 +233,12 @@ class LegacyDatabase:
             cursor.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
             )
-        elif self.source["scheme"] == "mysql":
-            cursor.execute(
-                "SELECT COUNT(*) FROM information_schema.tables"
-                " WHERE table_name = %s",
-                [table],
-            )
-            return bool(cursor.fetchone()[0])
+            return bool(cursor.fetchone())
+        if self.source["scheme"] in ("mysql", "mariadb"):
+            cursor.execute(self._HAS_TABLE_MYSQL, [table])
         else:
-            cursor.execute(
-                "SELECT COUNT(*) FROM information_schema.tables"
-                " WHERE table_name = %s",
-                [table],
-            )
-            return bool(cursor.fetchone()[0])
-        return bool(cursor.fetchone())
+            cursor.execute(self._HAS_TABLE_PGSQL, [table])
+        return bool(cursor.fetchone()[0])
 
 
 def _dt(value):

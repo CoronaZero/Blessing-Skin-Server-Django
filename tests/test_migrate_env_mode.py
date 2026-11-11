@@ -375,3 +375,42 @@ class TestMysqlAliasConfig:
             output = cmd.stdout.getvalue()
         assert "10" in output
         assert "新库共" not in output  # dry-run 不展示新库计数
+
+
+class TestSqlDialects:
+    """MySQL 方言回归（真实服务器踩坑第二例，不连库验证 SQL 生成）。
+
+    MariaDB 默认模式下双引号是字符串字面量：SELECT * FROM "users"
+    语法错误（1064）；MySQL/MariaDB 必须反引号，PostgreSQL 用双引号。
+    """
+
+    def _legacy(self, scheme):
+        from config.management.commands.migrate_from_php import LegacyDatabase
+
+        return LegacyDatabase({
+            "scheme": scheme, "HOST": "h", "PORT": "1",
+            "NAME": "n", "USER": "u", "PASSWORD": "p",
+        })
+
+    def test_mysql_table_quoted_with_backticks(self):
+        legacy = self._legacy("mysql")
+        assert legacy.quote_table("users") == "`users`"
+
+    def test_mariadb_table_quoted_with_backticks(self):
+        assert self._legacy("mariadb").quote_table("players") == "`players`"
+
+    def test_pgsql_table_quoted_with_double_quotes(self):
+        assert self._legacy("pgsql").quote_table("users") == '"users"'
+
+    def test_has_table_limited_to_current_schema(self):
+        """information_schema 限定当前库——防多库环境同名表误判。
+
+        1Panel 等多站点共存实例上，其他库的 users 表会令裸
+        table_name 匹配误判存在。
+        """
+        mysql_sql = self._legacy("mysql")._HAS_TABLE_MYSQL
+        assert "table_schema = DATABASE()" in mysql_sql
+        pg_sql = self._legacy("pgsql")._HAS_TABLE_PGSQL
+        assert "table_schema = current_schema()" in pg_sql
+        # 参数化占位保留（表名防注入）
+        assert "%s" in mysql_sql and "%s" in pg_sql
