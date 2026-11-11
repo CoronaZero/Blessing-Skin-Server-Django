@@ -21,5 +21,8 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      - name: Check migrations complete
+        run: python manage.py makemigrations --check --dry-run
+
       - name: Test (SQLite)
         run: pytest -v
