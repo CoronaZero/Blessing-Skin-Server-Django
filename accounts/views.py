@@ -369,6 +369,8 @@ def user_dashboard(request):
             "bs_user_json": _bs_user_json(request.user),
             "recent_notifications": recent_notifications,
             "announcement": announcement,
+            "can_sign": can_sign,
+            "next_sign_time": next_sign_time,
         },
     )
 
