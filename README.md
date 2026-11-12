@@ -184,6 +184,7 @@ gunicorn config.wsgi -b 0.0.0.0:8000 -w 4
 ```bash
 python manage.py import_textures /path/to/pngs --public            # <名>.png / <名>.alex.png / <名>.cape.png
 python manage.py import_textures /path/to/pngs --dry-run           # 预检
+python manage.py import_textures /path/to/pngs --uploader 爱莉      # 指定归属用户（邮箱或昵称；昵称模糊匹配须唯一，默认第一位管理员）
 ```
 
 ## 开发约定

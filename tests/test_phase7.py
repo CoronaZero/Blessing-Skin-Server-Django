@@ -176,3 +176,126 @@ class TestImportTextures:
         directory = self._dir(tmp_path / "empty", {})
         output = self._run(directory)
         assert "没有 PNG" in output
+
+
+class TestImportUploaderSelection:
+    """--uploader 参数：邮箱/昵称精确、昵称模糊唯一、多/零命中诊断。"""
+
+    def _dir(self, tmp_path, files: dict):
+        tmp_path.mkdir(parents=True, exist_ok=True)
+        for name, data in files.items():
+            tmp_path.joinpath(name).write_bytes(data)
+        return str(tmp_path)
+
+    def _run(self, *args):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command("import_textures", *args, stdout=out)
+        return out.getvalue()
+
+    def _seed(self):
+        User.objects.create_user(
+            email="boss@x.com", nickname="站点管理员", password="password8",
+            permission=User.Permission.ADMIN,
+        )
+        User.objects.create_user(
+            email="girl@x.com", nickname="爱莉", password="password8"
+        )
+        User.objects.create_user(
+            email="mirai@x.com", nickname="爱莉克丝酱", password="password8"
+        )
+
+    def test_uploader_by_email_exact(self, tmp_path, settings):
+        from django.core.files.storage import FileSystemStorage
+
+        settings.TEXTURE_STORAGE_ROOT = str(tmp_path / "s")
+        from textures import storage as storage_mod
+
+        storage_mod.texture_storage._storage = FileSystemStorage(
+            location=str(tmp_path / "s")
+        )
+        self._seed()
+        directory = self._dir(tmp_path / "pngs", {"皮肤.png": png_bytes((64, 32))})
+        output = self._run(directory, "--uploader", "girl@x.com")
+
+        assert "girl@x.com" in output
+        from textures.models import Texture
+
+        assert Texture.objects.get(name="皮肤").uploader.email == "girl@x.com"
+
+    def test_uploader_by_nickname_exact(self, tmp_path, settings):
+        from django.core.files.storage import FileSystemStorage
+
+        settings.TEXTURE_STORAGE_ROOT = str(tmp_path / "s")
+        from textures import storage as storage_mod
+
+        storage_mod.texture_storage._storage = FileSystemStorage(
+            location=str(tmp_path / "s")
+        )
+        self._seed()
+        directory = self._dir(tmp_path / "pngs", {"皮肤.png": png_bytes((64, 32))})
+        output = self._run(directory, "--uploader", "爱莉")
+
+        assert "爱莉" in output
+        from textures.models import Texture
+
+        assert Texture.objects.get(name="皮肤").uploader.email == "girl@x.com"
+
+    def test_uploader_nickname_fuzzy_unique(self, tmp_path, settings):
+        """「爱莉克丝」不精确等于任何昵称，但模糊唯一命中「爱莉克丝酱」。"""
+        from django.core.files.storage import FileSystemStorage
+
+        settings.TEXTURE_STORAGE_ROOT = str(tmp_path / "s")
+        from textures import storage as storage_mod
+
+        storage_mod.texture_storage._storage = FileSystemStorage(
+            location=str(tmp_path / "s")
+        )
+        self._seed()
+        directory = self._dir(tmp_path / "pngs", {"皮肤.png": png_bytes((64, 32))})
+        self._run(directory, "--uploader", "爱莉克丝")
+
+        from textures.models import Texture
+
+        assert Texture.objects.get(name="皮肤").uploader.email == "mirai@x.com"
+
+    def test_uploader_multiple_matches_rejected(self, tmp_path):
+        """「爱莉」已精确命中故不走模糊——用「莉」验证多命中报错并列候选。"""
+        from django.core.management import CommandError
+
+        self._seed()
+        directory = self._dir(tmp_path / "pngs", {"皮肤.png": png_bytes((64, 32))})
+        with pytest.raises(CommandError) as exc:
+            self._run(directory, "--uploader", "莉")
+        assert "2 位用户" in str(exc.value)
+        assert "girl@x.com" in str(exc.value)
+        assert "mirai@x.com" in str(exc.value)
+
+    def test_uploader_no_match_rejected(self, tmp_path):
+        from django.core.management import CommandError
+
+        self._seed()
+        directory = self._dir(tmp_path / "pngs", {"皮肤.png": png_bytes((64, 32))})
+        with pytest.raises(CommandError, match="未找到匹配的用户"):
+            self._run(directory, "--uploader", "不存在的家伙")
+
+    def test_default_uploader_is_first_admin(self, tmp_path, settings):
+        from django.core.files.storage import FileSystemStorage
+
+        settings.TEXTURE_STORAGE_ROOT = str(tmp_path / "s")
+        from textures import storage as storage_mod
+
+        storage_mod.texture_storage._storage = FileSystemStorage(
+            location=str(tmp_path / "s")
+        )
+        self._seed()
+        directory = self._dir(tmp_path / "pngs", {"皮肤.png": png_bytes((64, 32))})
+        output = self._run(directory)
+
+        assert "boss@x.com" in output
+        from textures.models import Texture
+
+        assert Texture.objects.get(name="皮肤").uploader.email == "boss@x.com"

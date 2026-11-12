@@ -1,15 +1,17 @@
-"""批量导入纹理：python manage.py import_textures <目录> [--uploader email]。
+"""批量导入纹理：python manage.py import_textures <目录> [--uploader 邮箱或昵称]。
 
 对照原 batch-import 插件语义：
 - 扫描目录中的 PNG，按文件名归并同名 steve/alex/cape（后缀约定）
 - 走完整校验消毒管线（同上传 API）
-- 上传者默认第一位管理员
+- --uploader 支持邮箱或昵称指定归属用户：先精确匹配，
+  昵称模糊匹配时要求唯一命中；缺省时默认第一位管理员
 """
 
 import math
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db.models import Q
 
 from accounts.models import User
 from textures.models import Texture
@@ -17,12 +19,41 @@ from textures.storage import texture_storage
 from textures.validation import validate_texture_image
 
 
+def _resolve_uploader(raw: str):
+    """解析上传者：邮箱（不区分大小写）→ 昵称精确 → 昵称模糊唯一。
+
+    返回 (user, error)；error 非 None 时 user 为 None，
+    多命中时提示候选以便改用邮箱精确指定。
+    """
+    raw = raw.strip()
+    exact = User.objects.filter(
+        Q(email__iexact=raw) | Q(nickname=raw)
+    ).first()
+    if exact:
+        return exact, None
+
+    matched = User.objects.filter(nickname__icontains=raw)
+    count = matched.count()
+    if count == 1:
+        return matched.first(), None
+    if count == 0:
+        return None, f"未找到匹配的用户（邮箱或昵称）：{raw}"
+    sample = "、".join(f"{u.nickname} <{u.email}>" for u in matched[:5])
+    return None, (
+        f"昵称「{raw}」匹配到 {count} 位用户，请改用邮箱精确指定。"
+        f"候选：{sample}"
+    )
+
+
 class Command(BaseCommand):
     help = "从目录批量导入纹理（对照原 batch-import 插件）"
 
     def add_arguments(self, parser):
         parser.add_argument("directory", help="包含 PNG 文件的目录")
-        parser.add_argument("--uploader", default="", help="上传者邮箱（默认第一位管理员）")
+        parser.add_argument(
+            "--uploader", default="",
+            help="上传者邮箱或昵称（昵称模糊匹配须唯一；默认第一位管理员）",
+        )
         parser.add_argument("--public", action="store_true", help="导入为公开纹理")
         parser.add_argument("--dry-run", action="store_true", help="只检查不写入")
 
@@ -37,7 +68,9 @@ class Command(BaseCommand):
             return
 
         if options["uploader"]:
-            uploader = User.objects.filter(email=options["uploader"]).first()
+            uploader, error = _resolve_uploader(options["uploader"])
+            if uploader is None:
+                raise CommandError(error)
         else:
             uploader = (
                 User.objects.filter(permission__gte=User.Permission.ADMIN)
@@ -90,4 +123,4 @@ class Command(BaseCommand):
         if options["dry_run"]:
             summary = "[dry-run] " + summary
         self.stdout.write(self.style.SUCCESS(summary))
-        self.stdout.write(f"上传者：{uploader.email}")
+        self.stdout.write(f"上传者：{uploader.nickname} <{uploader.email}>")
