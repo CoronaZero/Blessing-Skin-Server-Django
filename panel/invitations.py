@@ -1,4 +1,4 @@
-"""面板邀请码管理页视图。"""
+﻿"""面板邀请码管理页视图。"""
 
 from django.core.paginator import Paginator
 from django.shortcuts import render
@@ -7,10 +7,10 @@ from django.views.decorators.http import require_GET, require_POST
 from config.jsonapi import SUCCESS, json_response
 from invitation.models import InvitationCode
 
-from .guards import super_admin_required
+from .guards import admin_required
 
 
-@super_admin_required
+@admin_required
 @require_GET
 def invitations_page(request):
     qs = InvitationCode.objects.select_related("used_by").order_by("-generated_at")
@@ -30,7 +30,7 @@ def invitations_page(request):
     )
 
 
-@super_admin_required
+@admin_required
 @require_POST
 def invitations_generate(request):
     """批量生成邀请码（默认 10 个）。"""

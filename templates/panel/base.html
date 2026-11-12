@@ -35,12 +35,12 @@
         <ul class="pm-nav">
           <li><a href="/admin/" {% if active == 'dashboard' %}class="active"{% endif %}>概览</a></li>
           <li><a href="/admin/users" {% if active == 'users' %}class="active"{% endif %}>用户</a></li>
+          <li><a href="/admin/players" {% if active == 'players' %}class="active"{% endif %}>角色</a></li>
           <li><a href="/admin/textures" {% if active == 'textures' %}class="active"{% endif %}>皮肤库</a></li>
           <li><a href="/admin/reports" {% if active == 'reports' %}class="active"{% endif %}>举报</a></li>
-          <li><a href="/admin/players" {% if active == 'players' %}class="active"{% endif %}>角色</a></li>
+          <li><a href="/admin/invitations" {% if active == 'invitations' %}class="active"{% endif %}>邀请码</a></li>
           {% if is_super %}
           <li><a href="/admin/options" {% if active == 'options' %}class="active"{% endif %}>站点选项</a></li>
-          <li><a href="/admin/invitations" {% if active == 'invitations' %}class="active"{% endif %}>邀请码</a></li>
           {% endif %}
         </ul>
       </aside>

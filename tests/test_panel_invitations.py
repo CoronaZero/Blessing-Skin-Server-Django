@@ -1,4 +1,4 @@
-"""面板邀请码管理测试（定向）。"""
+﻿"""面板邀请码管理测试（定向）。"""
 
 import pytest
 
@@ -33,10 +33,17 @@ class TestInvitationsPanel:
         assert resp.json()["code"] == 0
         assert InvitationCode.objects.count() == 100
 
-    def test_plain_admin_forbidden(self, client):
+    def test_plain_admin_can_manage(self, client):
         User.objects.create_user(
             email="ad@x.com", nickname="ad", password="password8",
             permission=User.Permission.ADMIN,
         )
         client.login(username="ad@x.com", password="password8")
+        assert client.get("/admin/invitations").status_code == 200
+        resp = client.post("/admin/invitations/generate", {"amount": "5"})
+        assert resp.json()["code"] == 0
+
+    def test_normal_user_rejected(self, client):
+        User.objects.create_user(email="n@x.com", nickname="n", password="x")
+        client.force_login(User.objects.get(email="n@x.com"))
         assert client.get("/admin/invitations").status_code == 404
