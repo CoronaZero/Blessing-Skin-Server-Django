@@ -164,3 +164,24 @@ class TestV3RenameUuid:
         assert resp.json()["code"] == 0
         player.refresh_from_db()
         assert player.uuid == old_uuid
+
+
+# ---- skinDomains 归一（客户端 URI.getHost：小写、无端口）----
+
+
+class TestSkinDomainsNormalize:
+    def test_entries_lowercased_and_port_stripped(self, client, db, settings):
+        settings.ALLOWED_HOSTS = ["*"]
+        Option.objects.set("ygg_skin_domain", " Example.COM:8443 , *.Foo.CN ")
+        resp = client.get(BASE + "/", HTTP_HOST="Skin.Example.COM:8443")
+        domains = resp.json()["skinDomains"]
+        assert "example.com" in domains
+        assert "*.foo.cn" in domains
+        assert "skin.example.com" in domains  # 当前 host 去端口小写
+        assert all(d == d.lower() and ":" not in d for d in domains)
+
+    def test_duplicate_entries_collapsed(self, client, db, settings):
+        settings.ALLOWED_HOSTS = ["*"]
+        Option.objects.set("ygg_skin_domain", "TESTserver:8000,testserver")
+        resp = client.get(BASE + "/", HTTP_HOST="testserver")
+        assert resp.json()["skinDomains"].count("testserver") == 1

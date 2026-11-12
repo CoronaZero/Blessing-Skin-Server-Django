@@ -58,27 +58,38 @@ def _log(request, action, user=None, player=None, params=None):
 # ---- 根端点（authlib-injector 发现）----
 
 
+def _normalize_domain(entry: str) -> str:
+    """域名归一：小写 + 剥离端口（客户端按 URI.getHost() 匹配，规范 L762-769）。"""
+    from urllib.parse import urlparse
+
+    entry = (entry or "").strip().lower()
+    if not entry:
+        return ""
+    return (urlparse("//" + entry).hostname or entry).lower()
+
+
 @require_GET
 def hello(request):
     """站点元数据（对照原版 ConfigController@hello）。"""
 
     server_name = Option.objects.get_value("site_name") or "Blessing Skin"
-    # 材质域名白名单（规范 L762）：配置域名 + 当前 host + site_url host 合并
-    skin_domains = [
-        d.strip()
-        for d in (Option.objects.get_value("ygg_skin_domain") or "").split(",")
-        if d.strip()
-    ]
-    current = request.get_host()
-    if current not in skin_domains:
-        skin_domains.append(current)
+    # 材质域名白名单（规范 L762-769）：配置域名 + 当前 host + site_url host 合并。
+    # 客户端按 URI.getHost() 匹配（小写、无端口、大小写敏感），故统一归一。
+    skin_domains: list[str] = []
+
+    def add_domain(entry: str) -> None:
+        norm = _normalize_domain(entry)
+        if norm and norm not in skin_domains:
+            skin_domains.append(norm)
+
+    for d in (Option.objects.get_value("ygg_skin_domain") or "").split(","):
+        add_domain(d)
+    add_domain(request.get_host())
     site_url = (Option.objects.get_value("site_url") or "").strip()
     if site_url:
         from urllib.parse import urlparse
 
-        host = urlparse(site_url).hostname
-        if host and host not in skin_domains:
-            skin_domains.append(host)
+        add_domain(urlparse(site_url).hostname or "")
 
     # 公钥：优先 ygg_public_key；缺失时从 ygg_private_key 实时派生
     # （原版即如此——数据库只存私钥，公钥 openssl 实时导出）
