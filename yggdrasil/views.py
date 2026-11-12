@@ -552,6 +552,7 @@ def upload_texture(request, uuid: str, type_: str):
         return HttpResponse(status=204)
 
     # multipart 时 body 非 PNG，跳过原始 body 体积检查（文件大小已由框架限制）
+    file_name = ""
     if not request.FILES.get("file"):
         if err := check_body_size(request):
             return err
@@ -568,6 +569,7 @@ def upload_texture(request, uuid: str, type_: str):
         if request.method == "POST":
             uploaded = request.FILES.get("file")
             data = uploaded.read() if uploaded else b""
+            file_name = getattr(uploaded, "name", "") or ""
             model = request.POST.get("model") or model
         else:
             # Django 仅自动解析 POST 的 multipart；PUT 手动解析
@@ -582,6 +584,7 @@ def upload_texture(request, uuid: str, type_: str):
             post, files = parser.parse()
             uploaded = files.get("file")
             data = uploaded.read() if uploaded else b""
+            file_name = getattr(uploaded, "name", "") or ""
             model = post.get("model") or model
     if type_ == "skin" and model == "slim":
         texture_type = "alex"
@@ -590,22 +593,54 @@ def upload_texture(request, uuid: str, type_: str):
     if not result.valid:
         return error_response(400, "IllegalArgumentException", result.error)
 
-    from textures.models import Texture
+    from textures.models import ClosetItem, Texture
+
+    # 材质备注名：multipart 文件名去 .png 尾缀（原版 L112-113、规范 L733）；
+    # 裸 body 上传无文件名，回落角色名
+    name = (file_name.removesuffix(".png") if file_name else player.name)[:50]
+
+    def _opt_int(key: str, fallback: int = 0) -> int:
+        try:
+            return int(Option.objects.get_value(key) or fallback)
+        except ValueError:
+            return fallback
 
     texture = Texture.objects.filter(hash=result.digest, uploader=user).first()
     if texture is None:
         import math
 
         size_kb = math.ceil(len(result.normalized) / 1024)
+        # 计分对照原版 L174-178：私密材质存储费 private_score_per_storage
+        # + 衣柜费 score_per_closet_item；不足 → 403
+        cost = _opt_int("private_score_per_storage") * size_kb + _opt_int(
+            "score_per_closet_item"
+        )
+        if cost > user.score:
+            return error_response(403, "ForbiddenOperationException", "积分不足")
         texture = Texture.objects.create(
-            name=player.name,
+            name=name,
             type=texture_type,
             hash=result.digest,
             size=size_kb,
             uploader=user,
             public=False,
+            likes=1,  # 原版上传即自收藏（L189）
         )
         texture_storage.save_bytes(result.digest, result.normalized)
+        if cost:
+            user.score -= cost
+            user.save(update_fields=["score"])
+        ClosetItem.objects.create(owner=user, texture=texture, item_name=name)
+    else:
+        # 已有同 hash 材质（本人上传）：不在衣柜则补入；
+        # 原版 L164-172 此分支仅校验积分不扣减，忠实移植
+        if not user.closet.filter(texture=texture).exists():
+            per_closet = _opt_int("score_per_closet_item")
+            if per_closet > user.score:
+                return error_response(
+                    403, "ForbiddenOperationException", "积分不足"
+                )
+            ClosetItem.objects.create(owner=user, texture=texture, item_name=name)
 
     setattr(player, f"tid_{type_}", texture)
     player.save(update_fields=[f"tid_{type_}"])

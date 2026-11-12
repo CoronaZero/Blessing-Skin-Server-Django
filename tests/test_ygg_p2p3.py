@@ -375,3 +375,130 @@ class TestP2PanelKeyManagement:
         html = c.get("/admin/options/yggdrasil").content.decode()
         assert "2048 位" in html
         assert "重新生成 4096 位密钥对" in html
+
+
+# ---- P2-25: 上传材质计分/衣柜/命名（对照 ProfileController.php:100-203）----
+
+
+def _storage_tmp(tmp_path, settings):
+    from django.core.files.storage import FileSystemStorage
+
+    settings.TEXTURE_STORAGE_ROOT = str(tmp_path / "t")
+    from textures import storage as sm
+
+    sm.texture_storage._storage = FileSystemStorage(
+        location=settings.TEXTURE_STORAGE_ROOT
+    )
+
+
+class TestP2UploadScoring:
+    def _multipart(self, png: bytes, filename: str):
+        boundary = "BSSP2Boundary"
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+            "Content-Type: image/png\r\n\r\n"
+        ).encode() + png + f"\r\n--{boundary}--\r\n".encode()
+        return body, f"multipart/form-data; boundary={boundary}"
+
+    def _upload(self, client, tokens, uuid, png, filename="skin.png"):
+        body, ctype = self._multipart(png, filename)
+        return client.put(
+            f"{BASE}/api/user/profile/{uuid}/skin",
+            data=body,
+            content_type=ctype,
+            headers={"Authorization": f"Bearer {tokens['accessToken']}"},
+        )
+
+    def test_new_upload_scores_and_closets(self, client, seeded, tmp_path, settings):
+        from options.models import Option
+
+        _storage_tmp(tmp_path, settings)
+        Option.objects.set("private_score_per_storage", "2")
+        Option.objects.set("score_per_closet_item", "3")
+        seeded.score = 100
+        seeded.save()
+        tokens = authenticate(client)
+        uuid = tokens["selectedProfile"]["id"]
+
+        resp = self._upload(client, tokens, uuid, png_bytes((64, 32)), "my_skin.png")
+        assert resp.status_code == 204, resp.content.decode()[:200]
+
+        from textures.models import ClosetItem, Texture
+
+        texture = Texture.objects.get(name="my_skin")
+        assert texture.likes == 1  # 上传即自收藏（原版 L189）
+        assert texture.public is False
+        assert ClosetItem.objects.filter(
+            owner=seeded, texture=texture, item_name="my_skin"
+        ).exists()
+        seeded.refresh_from_db()
+        assert seeded.score == 95  # 存储费 2*1KB + 衣柜费 3
+
+    def test_insufficient_score_403(self, client, seeded, tmp_path, settings):
+        from options.models import Option
+
+        _storage_tmp(tmp_path, settings)
+        Option.objects.set("private_score_per_storage", "2")
+        seeded.score = 1
+        seeded.save()
+        tokens = authenticate(client)
+        uuid = tokens["selectedProfile"]["id"]
+
+        resp = self._upload(client, tokens, uuid, png_bytes((64, 32)))
+        assert resp.status_code == 403
+        assert "积分不足" in resp.json()["errorMessage"]
+
+        from textures.models import Texture
+
+        assert not Texture.objects.exists()
+        seeded.refresh_from_db()
+        assert seeded.score == 1
+
+    def test_duplicate_readds_closet_without_charge(
+        self, client, seeded, tmp_path, settings
+    ):
+        from options.models import Option
+
+        _storage_tmp(tmp_path, settings)
+        Option.objects.set("score_per_closet_item", "3")
+        seeded.score = 10
+        seeded.save()
+        tokens = authenticate(client)
+        uuid = tokens["selectedProfile"]["id"]
+        png = png_bytes((64, 32))
+
+        assert self._upload(client, tokens, uuid, png, "first.png").status_code == 204
+        seeded.refresh_from_db()
+        assert seeded.score == 7
+
+        # 移出衣柜后重新上传同图：复用材质行，补入衣柜但不扣分（原版 L164-172）
+        from textures.models import ClosetItem
+
+        ClosetItem.objects.filter(owner=seeded).delete()
+        resp = self._upload(client, tokens, uuid, png, "second.png")
+        assert resp.status_code == 204
+        from textures.models import Texture
+
+        assert Texture.objects.count() == 1
+        # 补入衣柜用本次文件名去 .png（原版 replaceLast）
+        assert ClosetItem.objects.get(owner=seeded).item_name == "second"
+        seeded.refresh_from_db()
+        assert seeded.score == 7
+
+    def test_raw_body_name_falls_back_to_player(
+        self, client, seeded, tmp_path, settings
+    ):
+        _storage_tmp(tmp_path, settings)
+        tokens = authenticate(client)
+        uuid = tokens["selectedProfile"]["id"]
+        resp = client.put(
+            f"{BASE}/api/user/profile/{uuid}/skin",
+            data=png_bytes((64, 32)),
+            content_type="image/png",
+            headers={"Authorization": f"Bearer {tokens['accessToken']}"},
+        )
+        assert resp.status_code == 204
+        from textures.models import Texture
+
+        assert Texture.objects.get().name == "Steve"
