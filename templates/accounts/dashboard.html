@@ -2,6 +2,12 @@
 {% block title %}用户中心 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
+{% if not user.verified %}
+<div class="bs-alert bs-alert-error" style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px">
+  <span><b>你的邮箱尚未验证</b> —— 验证前无法使用完整功能，请到收件箱查收验证邮件（含垃圾箱）。</span>
+  <button class="bs-btn bs-btn-primary" id="resend-vf-btn" style="white-space:nowrap">重新发送验证邮件</button>
+</div>
+{% endif %}
 <div style="display:grid;grid-template-columns:260px 1fr;gap:20px">
 
   <aside>
@@ -71,4 +77,16 @@
 
 {% block extra_foot %}
 <script src="/static/js/user_dashboard.js"></script>
+<script>
+(function () {
+  const btn = document.getElementById("resend-vf-btn");
+  if (!btn) return;
+  btn.addEventListener("click", async function () {
+    btn.disabled = true;
+    const r = await window.bsPost("/user/resend-verification");
+    window.bsToast(r.message, r.code === 0 ? "success" : "error");
+    setTimeout(function () { btn.disabled = false; }, 3000);
+  });
+})();
+</script>
 {% endblock %}

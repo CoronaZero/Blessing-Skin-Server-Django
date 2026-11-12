@@ -49,5 +49,6 @@ urlpatterns = [
         name="notification_read",
     ),
     path("user/sign", views.daily_sign, name="sign"),
+    path("user/resend-verification", views.resend_verification, name="resend_verification"),
     path("user/announcement", views.announcement_page, name="announcement"),
 ]

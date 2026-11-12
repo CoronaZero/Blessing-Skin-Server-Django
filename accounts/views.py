@@ -515,6 +515,21 @@ def announcement_page(request):
 
 
 @login_required
+@require_POST
+def resend_verification(request):
+    """重发邮箱验证邮件（每用户 60s 冷却）。"""
+    user = request.user
+    if user.verified:
+        return json_response("邮箱已验证，无需重发")
+    cooldown_key = "resend_vf:" + str(user.uid)
+    if cache.get(cooldown_key):
+        return json_response("发送过于频繁，请 1 分钟后再试")
+    _send_verification_mail(user)
+    cache.set(cooldown_key, 1, 60)
+    return json_response("验证邮件已发送，请查收（含垃圾箱）", SUCCESS)
+
+
+@login_required
 def daily_sign(request):
     """每日签到（对照原版 sign：隔天可签，积分 score_per_sign）。"""
     user = request.user
