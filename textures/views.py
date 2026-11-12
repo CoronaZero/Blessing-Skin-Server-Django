@@ -64,11 +64,10 @@ def texture_show_page(request):
         Texture.objects.select_related("uploader"), tid=request.GET.get("tid", 0)
     )
     # 私密纹理仅上传者与管理员可见（越权审计：普通用户改 tid 访问他人私密 → 404，已有测试锁定）
-    if (
-        not texture.public
-        and texture.uploader_id != request.user.uid
-        and not request.user.is_admin()
-    ):
+    can_manage = (
+        texture.uploader_id == request.user.uid or request.user.is_admin()
+    )
+    if not texture.public and not can_manage:
         from django.http import HttpResponseNotFound
 
         return HttpResponseNotFound()
@@ -76,8 +75,114 @@ def texture_show_page(request):
     return render(
         request,
         "textures/show.html",
-        {"texture": texture, "site_name": Option.objects.get_value("site_name")},
+        {
+            "texture": texture,
+            "site_name": Option.objects.get_value("site_name"),
+            "can_manage": can_manage,
+            "is_admin": request.user.is_admin(),
+        },
     )
+
+
+# ---- 材质管理（上传者/管理员，对照原版 SkinlibController rename/privacy/delete）----
+
+
+def _manage_guard(request, tid: int):
+    """取纹理并校验管理权限；返回 (texture, error_response)。
+
+    管理权 = 上传者本人或管理员（与原版 can_* Filter 默认语义、
+    本项目面板权限一致）。
+    """
+    texture = Texture.objects.select_related("uploader").filter(tid=tid).first()
+    if texture is None:
+        return None, json_response("纹理不存在")
+    if texture.uploader_id != request.user.uid and not request.user.is_admin():
+        return None, json_response("无权操作该纹理")
+    return texture, None
+
+
+def _opt_int(key: str, fallback: int = 0) -> int:
+    try:
+        return int(Option.objects.get_value(key) or fallback)
+    except ValueError:
+        return fallback
+
+
+@login_required
+@require_POST
+def texture_privacy(request, tid: int):
+    """切换公开/私密（对照原版 privacy，含积分差价）。
+
+    差价公式（原版 SkinlibController.php:365-374）：
+      diff = size * (private_score_per_storage - score_per_storage)
+             * (当前公开 ? -1 : +1)   # 加到上传者积分上的增量
+    转私（原状态公开）另收回上传奖励（原版 take_back_scores_after_deletion
+    默认 true，未暴露选项，按默认行为执行）；积分不足（score+diff<0）→ 拒绝。
+    转公开前若已存在同 hash 公开纹理 → code=2 + tid（与上传重复语义一致）。
+    """
+    texture, err = _manage_guard(request, tid)
+    if err:
+        return err
+
+    uploader = texture.uploader
+    if texture.public:
+        diff = (
+            -texture.size
+            * (_opt_int("private_score_per_storage") - _opt_int("score_per_storage"))
+            - _opt_int("score_award_per_texture")
+        )
+        if uploader.score + diff < 0:
+            return json_response("积分不足，无法设为私密")
+        uploader.score += diff
+        uploader.save(update_fields=["score"])
+        texture.public = False
+        texture.save(update_fields=["public"])
+        return json_response("已设为私密", SUCCESS)
+
+    # 私密 → 公开：查同 hash 公开纹理（原版 L376-383；本模型 hash 全局
+    # 唯一、正常不可触发，保留为防御分支——约束变化时自动生效）
+    duplicated = (
+        Texture.objects.filter(hash=texture.hash, public=True)
+        .exclude(tid=texture.tid)
+        .first()
+    )
+    if duplicated:
+        return json_response("重复的纹理", SPECIAL, {"tid": duplicated.tid})
+
+    # 转公开返还差价（原版 take_back 语义：公开材质不收私密存储费）
+    uploader.score += texture.size * (
+        _opt_int("private_score_per_storage") - _opt_int("score_per_storage")
+    )
+    uploader.save(update_fields=["score"])
+    texture.public = True
+    texture.save(update_fields=["public"])
+    return json_response("已设为公开", SUCCESS)
+
+
+@login_required
+@require_POST
+def texture_rename(request, tid: int):
+    """重命名（对照原版 rename；名称长度对齐模型列 50）。"""
+    texture, err = _manage_guard(request, tid)
+    if err:
+        return err
+    name = (request.POST.get("name") or "").strip()[:50]
+    if not name:
+        return json_response("名称不能为空")
+    texture.name = name
+    texture.save(update_fields=["name"])
+    return json_response("已重命名", SUCCESS)
+
+
+@login_required
+@require_POST
+def texture_remove(request, tid: int):
+    """删除材质（上传者/管理员；清理佩戴/衣柜/举报引用）。"""
+    texture, err = _manage_guard(request, tid)
+    if err:
+        return err
+    texture.delete_with_cleanup()
+    return json_response("已删除", SUCCESS)
 
 
 # ---- 皮肤库搜索（JSON 分页，对照原版 SkinlibController::search）----

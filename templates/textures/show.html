@@ -31,7 +31,9 @@
     <h1 style="margin:0 0 8px;font-size:22px">{{ texture.name }}</h1>
     <p style="margin:0 0 20px;color:var(--bs-text-secondary);font-size:13px">
       {{ texture.get_type_display }} · {{ texture.size }} KB ·
-      上传者 {{ texture.uploader.nickname }} · ♥ {{ texture.likes }}
+      上传者 {{ texture.uploader.nickname }} · ♥ {{ texture.likes }} ·
+      {% if texture.public %}<span style="color:var(--bs-success)">公开</span>
+      {% else %}<span style="color:var(--bs-warning)">私密</span>{% endif %}
     </p>
     {% if texture.description %}
     <div class="bs-card" style="margin-bottom:16px">
@@ -52,6 +54,19 @@
       {% if user.is_authenticated %}
       <button class="bs-btn bs-btn-secondary" id="report-btn" data-tid="{{ texture.tid }}">
         举报
+      </button>
+      {% endif %}
+      {% if can_manage %}
+      <button class="bs-btn bs-btn-secondary" id="privacy-btn" data-tid="{{ texture.tid }}">
+        {% if texture.public %}设为私密{% else %}设为公开{% endif %}
+      </button>
+      <button class="bs-btn bs-btn-secondary" id="rename-btn"
+              data-tid="{{ texture.tid }}" data-name="{{ texture.name }}">
+        重命名
+      </button>
+      <button class="bs-btn bs-btn-secondary" id="delete-btn" data-tid="{{ texture.tid }}"
+              style="color:var(--bs-danger)">
+        删除
       </button>
       {% endif %}
     </div>

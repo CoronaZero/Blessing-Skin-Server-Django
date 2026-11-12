@@ -28,6 +28,22 @@ urlpatterns = [
         name="texture_show",
     ),
     path("skinlib/search", views.search, name="search"),
+    # 材质详情页管理（上传者/管理员）
+    path(
+        "skinlib/texture/<int:tid>/privacy",
+        views.texture_privacy,
+        name="texture_privacy",
+    ),
+    path(
+        "skinlib/texture/<int:tid>/name",
+        views.texture_rename,
+        name="texture_rename",
+    ),
+    path(
+        "skinlib/texture/<int:tid>/remove",
+        views.texture_remove,
+        name="texture_remove",
+    ),
     # 同 URL：GET 渲染上传页 / POST 走上传 API
     path(
         "skinlib/upload",
