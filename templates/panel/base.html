@@ -1,56 +1,62 @@
-﻿<!doctype html>
+<!doctype html>
 {% load static %}
-<html lang="zh-CN">
+<html lang="zh-CN" data-bs-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}管理面板{% endblock %} - {{ site_name }}</title>
+  <title>{% block title %}管理面板{% endblock %} - {{ site_name_or_default }}</title>
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap-icons.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
-  <style>
-    .pm-layout { display: grid; grid-template-columns: 220px 1fr; gap: 20px; }
-    .pm-nav { list-style: none; margin: 0; padding: 8px; }
-    .pm-nav a { display: flex; align-items: center; gap: 8px; padding: 10px 12px;
-      border-radius: 8px; color: var(--bs-text-secondary); font-size: 14px; }
-    .pm-nav a.active, .pm-nav a:hover { background: var(--bs-primary-light); color: var(--bs-primary); }
-    .pm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .pm-table th, .pm-table td { padding: 9px 10px; border-bottom: 1px solid var(--bs-border); text-align: left; }
-    .pm-table th { color: var(--bs-text-secondary); font-weight: 500; font-size: 12px; }
-  </style>
   {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <nav class="bs-navbar">
-    <div class="bs-container bs-navbar-inner">
-      <a class="bs-navbar-brand" href="/admin/">管理面板</a>
-      <div class="bs-navbar-nav"></div>
-      <div>
-        <a href="/" style="font-size:13px;color:var(--bs-text-secondary)">← 返回站点</a>
+  <nav class="navbar navbar-expand-lg sticky-top border-bottom shadow-sm">
+    <div class="container-fluid px-3">
+      <a class="navbar-brand fw-bold" href="/admin/" style="color:var(--bs-primary)">
+        <i class="bi bi-speedometer2 me-1"></i>管理面板
+      </a>
+      <div class="d-flex align-items-center gap-2 ms-auto">
+        <button class="btn btn-link text-secondary p-1" id="theme-toggle" type="button"
+                title="切换夜间/日间模式" aria-label="切换夜间/日间模式">
+          <i class="bi bi-moon-stars" id="theme-icon" style="font-size:1.05rem"></i>
+        </button>
+        <a href="/" class="small text-secondary text-decoration-none">
+          <i class="bi bi-arrow-left me-1"></i>返回站点
+        </a>
+        <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="offcanvas"
+                data-bs-target="#pm-sidebar" aria-controls="pm-sidebar" aria-label="打开菜单">
+          <span class="navbar-toggler-icon"></span>
+        </button>
       </div>
     </div>
   </nav>
 
-  <main class="bs-container" style="padding-top:24px;padding-bottom:48px">
-    <div class="pm-layout">
-      <aside class="bs-card" style="align-self:start">
-        <ul class="pm-nav">
-          <li><a href="/admin/" {% if active == 'dashboard' %}class="active"{% endif %}>概览</a></li>
-          <li><a href="/admin/users" {% if active == 'users' %}class="active"{% endif %}>用户</a></li>
-          <li><a href="/admin/players" {% if active == 'players' %}class="active"{% endif %}>角色</a></li>
-          <li><a href="/admin/textures" {% if active == 'textures' %}class="active"{% endif %}>皮肤库</a></li>
-          <li><a href="/admin/reports" {% if active == 'reports' %}class="active"{% endif %}>举报</a></li>
-          <li><a href="/admin/invitations" {% if active == 'invitations' %}class="active"{% endif %}>邀请码</a></li>
-          {% if is_super %}
-          <li><a href="/admin/options" {% if active == 'options' %}class="active"{% endif %}>站点选项</a></li>
-          <li><a href="/admin/yggdrasil/logs" {% if active == 'yggdrasil_logs' %}class="active"{% endif %}>Yggdrasil 日志</a></li>
-          {% endif %}
-        </ul>
+  <div class="container-fluid px-3 py-4">
+    <div class="row">
+      <aside class="col-lg-2 d-none d-lg-block">
+        <div class="card side-nav p-2 sticky-top" style="top:76px">
+          {% include "panel/_nav.html" %}
+        </div>
       </aside>
-      <section>
+      <main class="col-lg-10">
         {% block content %}{% endblock %}
-      </section>
+      </main>
     </div>
-  </main>
+  </div>
 
+  <!-- 竖屏手机侧栏抽屉 -->
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="pm-sidebar" style="max-width:260px">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">管理面板</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="关闭"></button>
+    </div>
+    <div class="offcanvas-body side-nav p-2">
+      {% include "panel/_nav.html" %}
+    </div>
+  </div>
+
+  <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
   <script src="{% static 'js/base.js' %}"></script>
   <script src="{% static 'js/panel.js' %}"></script>
   {% block extra_foot %}{% endblock %}

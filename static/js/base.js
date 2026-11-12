@@ -1,4 +1,4 @@
-/* 全局交互脚本：JSON API 调用约定、消息条、暗色模式 */
+/* 全局交互脚本：JSON API 调用约定、消息条、夜间/日间模式 */
 
 (function () {
   "use strict";
@@ -43,12 +43,12 @@
       container = document.createElement("div");
       container.className = "bs-toast-container";
       container.style.cssText =
-        "position:fixed;top:68px;right:16px;z-index:100;display:flex;flex-direction:column;gap:8px;";
+        "position:fixed;top:68px;right:16px;z-index:1090;display:flex;flex-direction:column;gap:8px;";
       document.body.appendChild(container);
     }
     const el = document.createElement("div");
     el.className = "bs-alert bs-alert-" + (kind || "success");
-    el.style.cssText = "min-width:220px;box-shadow:var(--bs-shadow);margin:0;";
+    el.style.cssText = "min-width:220px;box-shadow:var(--bs-box-shadow);margin:0;";
     el.textContent = message;
     container.appendChild(el);
     setTimeout(function () {
@@ -56,23 +56,35 @@
     }, 3600);
   };
 
-  // ---- 暗色模式（后端 is_dark_mode → data-theme）----
+  // ---- 夜间/日间模式（BS5 data-bs-theme；localStorage 持久化，
+  //      未设置时跟随系统 prefers-color-scheme）----
   function applyTheme(dark) {
-    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    document.documentElement.setAttribute(
+      "data-bs-theme", dark ? "dark" : "light"
+    );
+    const icon = document.getElementById("theme-icon");
+    if (icon) {
+      icon.className = dark ? "bi bi-sun" : "bi bi-moon-stars";
+    }
   }
   window.bsApplyTheme = applyTheme;
 
-  // ---- 顶栏头像下拉（退出登录入口）----
-  document.addEventListener("click", function (e) {
-    const dropdown = document.getElementById("nav-dropdown");
-    const avatar = document.getElementById("nav-avatar");
-    if (!dropdown || !avatar) return;
-    if (e.target === avatar) {
-      dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
-    } else if (!dropdown.contains(e.target)) {
-      dropdown.style.display = "none";
-    }
-  });
+  (function initTheme() {
+    const saved = localStorage.getItem("bs-theme");
+    const dark =
+      saved !== null
+        ? saved === "dark"
+        : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(dark);
+    document.getElementById("theme-toggle")?.addEventListener("click", function () {
+      const next =
+        document.documentElement.getAttribute("data-bs-theme") !== "dark";
+      applyTheme(next);
+      localStorage.setItem("bs-theme", next ? "dark" : "light");
+    });
+  })();
+
+  // ---- 顶栏下拉菜单的退出登录（BS5 dropdown 自管开合）----
   document.addEventListener("DOMContentLoaded", function () {
     const logoutBtn = document.getElementById("nav-logout");
     if (logoutBtn) {
