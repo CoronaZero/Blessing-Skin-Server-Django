@@ -1,0 +1,51 @@
+{% extends "panel/base.html" %}
+{% block title %}邀请码管理{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <h1 style="margin:0;font-size:20px">邀请码管理</h1>
+  <form id="inv-gen" style="display:flex;gap:8px">
+    {% csrf_token %}
+    <input class="bs-input" name="amount" type="number" value="10" min="1" max="100"
+           style="width:80px">
+    <button class="bs-btn bs-btn-primary" type="submit">生成</button>
+  </form>
+</div>
+
+<div class="bs-card">
+  <div class="bs-card-body" style="overflow-x:auto">
+    <table class="pm-table">
+      <tr><th>邀请码</th><th>状态</th><th>使用者</th><th>使用时间</th><th>生成时间</th></tr>
+      {% for inv in page_obj %}
+      <tr>
+        <td><code style="font-size:12px;user-select:all">{{ inv.code }}</code></td>
+        <td>
+          {% if inv.used_by %}<span style="color:var(--bs-danger)">已使用</span>
+          {% else %}<span style="color:var(--bs-success)">可用</span>{% endif %}
+        </td>
+        <td>{{ inv.used_by.nickname|default:"—" }}</td>
+        <td>{{ inv.used_at|date:"Y-m-d H:i"|default:"—" }}</td>
+        <td>{{ inv.generated_at|date:"Y-m-d H:i" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:var(--bs-text-secondary);padding:24px">
+        暂无邀请码，点击右上角「生成」创建
+      </td></tr>
+      {% endfor %}
+    </table>
+    {% include "panel/_pager.html" %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_foot %}
+<script>
+(function () {
+  document.getElementById("inv-gen").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const r = await window.bsPost("/admin/invitations/generate", new FormData(this));
+    window.bsToast(r.message, r.code === 0 ? "success" : "error");
+    if (r.code === 0) setTimeout(function () { location.reload(); }, 700);
+  });
+})();
+</script>
+{% endblock %}

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 {% load static %}
 <html lang="zh-CN">
 <head>
@@ -39,6 +39,7 @@
           <li><a href="/admin/reports" {% if active == 'reports' %}class="active"{% endif %}>举报</a></li>
           {% if is_super %}
           <li><a href="/admin/options" {% if active == 'options' %}class="active"{% endif %}>站点选项</a></li>
+          <li><a href="/admin/invitations" {% if active == 'invitations' %}class="active"{% endif %}>邀请码</a></li>
           {% endif %}
         </ul>
       </aside>

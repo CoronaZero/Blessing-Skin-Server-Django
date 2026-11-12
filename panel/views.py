@@ -21,6 +21,7 @@ from textures.models import ClosetItem, Texture
 
 from .captcha_test import captcha_test  # noqa: F401  re-export for urls
 from .guards import _is_super, admin_required, super_admin_required
+from .invitations import invitations_generate, invitations_page  # noqa: F401
 from .mail_test import mail_test  # noqa: F401  re-export for urls
 from .registry import OPTION_REGISTRY
 
