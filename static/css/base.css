@@ -39,6 +39,11 @@
   .app-navbar {
     position: relative;
   }
+  /* 汉堡按钮触碰区 44px 远大于 24px 图标本体，与右侧头像视觉过近；
+     加右移让汉堡与头像拉开一档呼吸距离（gap-2 基础上再 +6px） */
+  .app-navbar .navbar-toggler {
+    margin-right: 6px;
+  }
 }
 
 /* ---- 旧组件类兼容层（过渡期）---- */
