@@ -5,6 +5,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ request.site_name }}{% endblock %} - {{ request.site_name }}</title>
+  <script>
+    /* 主题预置（防白闪）：CSS 加载前先读到偏好设置 data-bs-theme */
+    (function () {
+      try {
+        var s = localStorage.getItem("bs-theme");
+        var dark = s !== null
+          ? s === "dark"
+          : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (dark) { document.documentElement.setAttribute("data-bs-theme", "dark"); }
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap-icons.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
@@ -12,10 +24,10 @@
 </head>
 <body>
   {% block navbar %}
-  <nav class="navbar navbar-expand-lg sticky-top border-bottom shadow-sm" id="site-navbar">
+  <nav class="navbar navbar-expand-lg app-navbar sticky-top border-bottom shadow-sm" id="site-navbar">
     <div class="container">
-      <a class="navbar-brand fw-bold" href="/" style="color:var(--bs-primary)">
-        <svg class="bs-icon" style="width:22px;height:22px" aria-hidden="true">
+      <a class="navbar-brand fw-bold text-truncate" href="/" style="color:var(--bs-primary)">
+        <svg class="bs-icon d-none d-sm-inline" style="width:22px;height:22px" aria-hidden="true">
           <use href="{% static 'icons/home.svg' %}#"></use>
         </svg>
         {{ request.site_name_or_default }}
@@ -25,44 +37,53 @@
               aria-label="切换导航">
         <span class="navbar-toggler-icon"></span>
       </button>
+
+      {# 右侧控件始终在顶栏：手机上不藏进汉堡菜单（dropdown 移出 collapse，# 修复展开容器内定位错位）#}
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-link text-secondary p-1" id="theme-toggle" type="button"
+                title="切换夜间/日间模式" aria-label="切换夜间/日间模式">
+          <i class="bi bi-moon-stars" id="theme-icon" style="font-size:1.05rem"></i>
+        </button>
+        {% if user.is_authenticated %}
+        <div class="dropdown">
+          <img id="nav-avatar" alt="头像" data-bs-toggle="dropdown" aria-expanded="false"
+               src="{% if user.players.first %}/avatar/64/{{ user.players.first.name }}.png{% else %}{% static 'icons/user.svg' %}{% endif %}"
+               class="rounded" style="width:32px;height:32px;cursor:pointer;background:var(--bs-primary-light)">
+          <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width:180px">
+            <li>
+              <h6 class="dropdown-header">
+                {{ user.nickname }}<br>
+                <small class="text-body-secondary">{{ user.email|truncatechars:24 }}</small>
+              </h6>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="/user">
+              <i class="bi bi-person me-1"></i>用户中心</a></li>
+            {% if user.is_admin %}
+            <li><a class="dropdown-item" href="/admin/">
+              <i class="bi bi-gear me-1"></i>管理面板</a></li>
+            {% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li><button class="dropdown-item text-danger" id="nav-logout" type="button">
+              <i class="bi bi-box-arrow-right me-1"></i>退出登录</button></li>
+          </ul>
+        </div>
+        {% else %}
+          <a class="btn btn-primary btn-sm" href="/auth/login">登录</a>
+          <a class="btn btn-outline-primary btn-sm d-none d-sm-inline-block" href="/auth/register">注册</a>
+        {% endif %}
+      </div>
+
       <div class="collapse navbar-collapse" id="site-nav">
         <ul class="navbar-nav me-auto gap-1">
           <li class="nav-item"><a class="nav-link" href="/skinlib">皮肤库</a></li>
           {% if user.is_authenticated %}
             <li class="nav-item"><a class="nav-link" href="/user">用户中心</a></li>
             <li class="nav-item"><a class="nav-link" href="/user/players">我的角色</a></li>
+          {% else %}
+            <li class="nav-item d-sm-none"><a class="nav-link" href="/auth/register">注册新账号</a></li>
           {% endif %}
         </ul>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-          <button class="btn btn-link text-secondary p-1" id="theme-toggle" type="button"
-                  title="切换夜间/日间模式" aria-label="切换夜间/日间模式">
-            <i class="bi bi-moon-stars" id="theme-icon" style="font-size:1.05rem"></i>
-          </button>
-          {% if user.is_authenticated %}
-          <div class="dropdown">
-            <img id="nav-avatar" alt="头像" data-bs-toggle="dropdown" aria-expanded="false"
-                 src="{% if user.players.first %}/avatar/64/{{ user.players.first.name }}.png{% else %}{% static 'icons/user.svg' %}{% endif %}"
-                 class="rounded" style="width:32px;height:32px;cursor:pointer;background:var(--bs-primary-light)">
-            <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width:170px">
-              <li class="px-3 py-2 small text-secondary">
-                {{ user.nickname }}<br>{{ user.email|truncatechars:24 }}
-              </li>
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="/user">
-                <i class="bi bi-person me-1"></i>用户中心</a></li>
-              {% if user.is_admin %}
-              <li><a class="dropdown-item" href="/admin/">
-                <i class="bi bi-gear me-1"></i>管理面板</a></li>
-              {% endif %}
-              <li><button class="dropdown-item text-danger" id="nav-logout" type="button">
-                <i class="bi bi-box-arrow-right me-1"></i>退出登录</button></li>
-            </ul>
-          </div>
-          {% else %}
-            <a class="btn btn-primary btn-sm" href="/auth/login">登录</a>
-            <a class="btn btn-outline-primary btn-sm" href="/auth/register">注册</a>
-          {% endif %}
-        </div>
       </div>
     </div>
   </nav>

@@ -33,6 +33,14 @@
   --bs-primary-light: #10294d;
 }
 
+/* ---- 顶栏吸附策略：仅桌面吸附（lg 及以上）。
+   竖屏手机屏高有限，sticky 顶栏持续占屏 —— 小屏随页面滚走 ---- */
+@media (max-width: 991.98px) {
+  .app-navbar {
+    position: relative;
+  }
+}
+
 /* ---- 旧组件类兼容层（过渡期）---- */
 
 .bs-navbar { background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); }

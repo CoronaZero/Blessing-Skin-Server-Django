@@ -5,13 +5,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}管理面板{% endblock %} - {{ site_name_or_default }}</title>
+  <script>
+    /* 主题预置（防白闪）：CSS 加载前先读到偏好设置 data-bs-theme */
+    (function () {
+      try {
+        var s = localStorage.getItem("bs-theme");
+        var dark = s !== null
+          ? s === "dark"
+          : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (dark) { document.documentElement.setAttribute("data-bs-theme", "dark"); }
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap-icons.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg sticky-top border-bottom shadow-sm">
+  <nav class="navbar navbar-expand-lg app-navbar sticky-top border-bottom shadow-sm">
     <div class="container-fluid px-3">
       <a class="navbar-brand fw-bold" href="/admin/" style="color:var(--bs-primary)">
         <i class="bi bi-speedometer2 me-1"></i>管理面板
