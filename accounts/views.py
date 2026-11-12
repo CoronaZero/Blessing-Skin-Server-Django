@@ -70,12 +70,11 @@ def login_submit(request):
 
     ip = _client_ip(request)
     fails_key = "login_fails:" + hashlib.sha256(ip.encode()).hexdigest()
-    fails = cache.get(fails_key, 0)
 
-    # 连续失败 > 3 时强制验证码（对照原版 login_fails 逻辑）
-    if fails > 3:
-        if not verify_captcha(request.POST.get("captcha"), ip=ip):
-            return json_response("请完成人机验证")
+    # 验证码 provider 启用时无条件强制（verify_captcha 在关闭时返回 True，
+    # 不影响无验证码站点；此前仅 fails>3 才校验，启用了 widget 却可绕过）
+    if not verify_captcha(request.POST.get("captcha"), ip=ip):
+        return json_response("请完成人机验证")
 
     enum_flag = Option.objects.get_value("login_enumeration_protection") or ""
     enumeration_protected = enum_flag.lower() in ("1", "on", "true")
@@ -89,7 +88,7 @@ def login_submit(request):
             exists = _user_exists(identification)
             message = "该账号不存在" if not exists else "密码错误"
             code = SPECIAL if not exists else FAILURE
-        cache.set(fails_key, fails + 1, 3600)
+        cache.set(fails_key, cache.get(fails_key, 0) + 1, 3600)
         return json_response(message, code)
 
     if user.permission == User.Permission.BANNED:
