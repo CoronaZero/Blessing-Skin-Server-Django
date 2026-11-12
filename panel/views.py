@@ -17,7 +17,7 @@ from moderation.models import Report
 from notifications.models import Notification
 from options.models import Option
 from players.models import Player
-from textures.models import ClosetItem, Texture
+from textures.models import Texture
 from yggdrasil.models import YggdrasilLog
 
 from .captcha_test import captcha_test  # noqa: F401  re-export for urls
@@ -165,7 +165,6 @@ def textures(request):
 @admin_required
 @require_POST
 def texture_action(request, tid: int):
-    from textures.storage import texture_storage
 
     target = Texture.objects.filter(tid=tid).first()
     if target is None:
@@ -183,17 +182,7 @@ def texture_action(request, tid: int):
         target.save(update_fields=["name"])
         return json_response("已重命名", SUCCESS)
     if action == "delete":
-        Player.objects.filter(tid_skin=target).update(tid_skin=None)
-        Player.objects.filter(tid_cape=target).update(tid_cape=None)
-        ClosetItem.objects.filter(texture=target).delete()
-        Report.objects.filter(texture=target).delete()
-        hash_value = target.hash
-        target.delete()
-        if not Texture.objects.filter(hash=hash_value).exists():
-            try:
-                texture_storage.delete(hash_value)
-            except Exception:  # noqa: BLE001
-                pass
+        target.delete_with_cleanup()
         return json_response("已删除", SUCCESS)
     return json_response("未知操作", FAILURE)
 

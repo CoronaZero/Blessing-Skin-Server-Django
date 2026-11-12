@@ -51,6 +51,32 @@ class Texture(models.Model):
         user_model = get_user_model()
         return user_model.objects.filter(closet__texture=self)
 
+    def delete_with_cleanup(self) -> None:
+        """删除纹理并清理全部引用（佩戴角色/衣柜/举报）。
+
+        对照原版 SkinlibController@delete + 本项目面板删除语义：
+        - 角色佩戴置空（皮肤/披风任一引用该纹理）
+        - 衣柜与举报级联清理
+        - 同 hash 无其他行时连带删除物理文件
+        """
+        from players.models import Player
+
+        from .storage import texture_storage
+
+        Player.objects.filter(tid_skin=self).update(tid_skin=None)
+        Player.objects.filter(tid_cape=self).update(tid_cape=None)
+        ClosetItem.objects.filter(texture=self).delete()
+        from moderation.models import Report
+
+        Report.objects.filter(texture=self).delete()
+        hash_value = self.hash
+        self.delete()
+        if not Texture.objects.filter(hash=hash_value).exists():
+            try:
+                texture_storage.delete(hash_value)
+            except Exception:  # noqa: BLE001 - 文件已缺失时静默（与面板语义一致）
+                pass
+
 
 class ClosetItem(models.Model):
     """衣柜（对照原版 user_closet 中间表，重设计为显式模型）。
