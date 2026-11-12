@@ -71,11 +71,27 @@
   {% endif %}
 
   {% if current_section == 'services' %}
-  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
-    <button class="bs-btn bs-btn-secondary" id="pm-captcha-test" type="button">
-      测试验证码配置连通性
-    </button>
-    <span id="pm-captcha-result" style="font-size:13px;color:var(--bs-text-secondary)"></span>
+  <div class="bs-card" style="margin-bottom:16px">
+    <div class="bs-card-body">
+      <h2 style="font-size:15px;margin:0 0 12px">连通性测试</h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="bs-btn bs-btn-secondary" id="pm-captcha-test" type="button">
+          测试验证码
+        </button>
+        <span id="pm-captcha-result" style="font-size:13px;color:var(--bs-text-secondary)"></span>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
+        <input class="bs-input" id="pm-mail-dest" type="email"
+               placeholder="测试邮件收件邮箱" style="max-width:260px">
+        <button class="bs-btn bs-btn-secondary" id="pm-mail-test" type="button">
+          发送测试邮件
+        </button>
+        <span id="pm-mail-result" style="font-size:13px;color:var(--bs-text-secondary)"></span>
+      </div>
+      <p style="font-size:12px;color:var(--bs-text-secondary);margin:12px 0 0">
+        发送前会先保存当前页 SMTP 配置，随后用最新配置投递。
+      </p>
+    </div>
   </div>
   {% endif %}
 
@@ -122,6 +138,41 @@
     const r = await window.bsPost("/admin/options/save", fd);
     window.bsToast(r.message, r.code === 0 ? "success" : "error");
   });
+
+  const mailBtn = document.getElementById("pm-mail-test");
+  if (mailBtn) {
+    mailBtn.addEventListener("click", async function () {
+      const result = document.getElementById("pm-mail-result");
+      const dest = document.getElementById("pm-mail-dest").value.trim();
+      if (!dest) {
+        result.textContent = "请先填写收件邮箱";
+        result.style.color = "var(--bs-danger)";
+        return;
+      }
+      result.textContent = "正在发送…";
+      result.style.color = "var(--bs-text-secondary)";
+      mailBtn.disabled = true;
+      try {
+        // 先保存当前 SMTP 配置，再用最新配置投递
+        const form = document.getElementById("pm-options");
+        const fd = new FormData(form);
+        document.querySelectorAll("input[type='checkbox'][data-bool]").forEach(function (cb) {
+          if (!cb.checked) fd.set(cb.name, "0");
+        });
+        await window.bsPost("/admin/options/save", fd);
+        const probe = new FormData();
+        probe.set("email", dest);
+        const r = await window.bsPost("/admin/options/mail-test", probe);
+        result.textContent = r.message;
+        result.style.color = r.code === 0 ? "var(--bs-success)" : "var(--bs-danger)";
+      } catch (err) {
+        result.textContent = "发送失败：" + err;
+        result.style.color = "var(--bs-danger)";
+      } finally {
+        mailBtn.disabled = false;
+      }
+    });
+  }
 })();
 </script>
 {% endblock %}
