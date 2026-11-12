@@ -78,13 +78,8 @@ class SkinRenderer:
         hd = skin.width // 64
         is_new = skin.width == skin.height
         skin = self._clean_background(skin, hd)
-        if is_new:  # 1.8 层合并（原版 quick fix）
-            overlay = skin.crop((0, 32, 56, 48))
-            skin.alpha_composite(overlay, (0, 16))
-            overlay = skin.crop((0, 48, 16, 64))
-            skin.alpha_composite(overlay, (16, 48))
-            overlay = skin.crop((48, 48, 64, 64))
-            skin.alpha_composite(overlay, (32, 48))
+        if is_new:  # 1.8 外层合并（坐标按 hd 缩放，见方法注释）
+            skin = self._merge_overlays(skin, hd)
 
         px = skin.load()
         poly = {
@@ -113,6 +108,29 @@ class SkinRenderer:
         return self._display(poly, bbox)
 
     # ---- 部件生成 ----
+
+    @staticmethod
+    def _merge_overlays(skin: Image.Image, hd: int) -> Image.Image:
+        """1.8 双层布局的外层合成到底层位（原版 quick fix）。
+
+        本渲染器身体部件仅从底层位取色，故把外层内容按盒体对应关系
+        合成到底层区域：右腿/躯干/右臂外层 (0,32)-(56,48) 上移 16 贴
+        到底层行；左腿外层右移 16 贴到左腿底层；左臂外层左移 16。
+        坐标均按 hd 缩放：HD 皮肤的各区域是 64 基准布局的 hd 倍放大，
+        不乘 hd 会把外层贴到头部等无关区域（HD 预览错位主因）。
+        """
+        regions = (
+            ((0, 32, 56, 48), (0, 16)),
+            ((0, 48, 16, 64), (16, 48)),
+            ((48, 48, 64, 64), (32, 48)),
+        )
+        for (x0, y0, x1, y1), (dx, dy) in regions:
+            overlay = skin.crop(
+                (x0 * hd, y0 * hd, x1 * hd, y1 * hd)
+            )
+            skin.alpha_composite(overlay, (dx * hd, dy * hd))
+        return skin
+
     def _clean_background(self, skin: Image.Image, hd: int) -> Image.Image:
         """原版 makeBackgroundTransparent：角落纯色块 → 视为背景抠透明。"""
         px = skin.load()
@@ -261,15 +279,24 @@ class SkinRenderer:
                     px[28 * hd + i, (20 * hd - 1) - k]))
 
     def _gen_arm(self, poly, px, hd, is_alex, is_new, right: bool):
-        aw = (3 if is_alex else 4) * hd
-        ox = -4 * hd if right else 8 * hd  # right: x-4..0；left: x8..12
+        """手臂盒体生成。
+
+        UV 布局（box 展开，front 锂 (44,20) 右臂 / (36,52) 左臂）：
+        横向 outer(u-d) | front(u) | inner(u+w) | back(u+w+d)，
+        侧面宽为深度 d=4，正/背/顶/底宽为臂宽 w（Alex 3 / Steve 4）。
+        盒体 x 尺寸同为 w：Alex 细臂盒宽 3*hd（原实现硬编码 4*hd，
+        会导致内侧面悬空 1*hd 且手臂整体偏移）。
+        """
+        aw = (3 if is_alex else 4) * hd  # 臂宽（纹理像素）
+        ox = -aw if right else 8 * hd  # right: x-aw..0；left: x8..8+aw 贴躯干
         piece = "rightArm" if right else "leftArm"
-        v = self._vox(ox, ox + 4 * hd, 8 * hd, 20 * hd, 0, 4 * hd)
+        v = self._vox(ox, ox + aw, 8 * hd, 20 * hd, 0, 4 * hd)
         # front/back（旧皮肤左臂从右臂镜像取色，坐标为 PHP 原式）
         for i in range(aw):
             for j in range(12 * hd):
                 if right:
-                    cb = px[(51 if is_alex else 56) * hd - 1 - i, 20 * hd + j]
+                    # back 区：Alex [51,54)、Steve [52,56)，翻转取色
+                    cb = px[((54 if is_alex else 56) * hd - 1) - i, 20 * hd + j]
                     cf = px[44 * hd + i, 20 * hd + j]
                 elif is_alex:
                     cb = px[43 * hd + i, 52 * hd + j]
@@ -287,15 +314,18 @@ class SkinRenderer:
                     self._quad(v, (ox + i, 8 * hd + j, 4 * hd), (ox + i + 1, 8 * hd + j, 4 * hd),
                                (ox + i + 1, 8 * hd + j + 1, 4 * hd),
                                (ox + i, 8 * hd + j + 1, 4 * hd)), cf))
-        # right/left
+        # right/left（侧面宽恒为深度 4*hd）
         for j in range(12 * hd):
             for k in range(4 * hd):
                 if right:
-                    cr = px[(47 if is_alex else 40) * hd + k, 20 * hd + j]
-                    cl = px[((40 if is_alex else 52) * hd - 1) - k, 20 * hd + j]
+                    # 外侧：Steve/Alex 同为 (40,20) 起
+                    cr = px[40 * hd + k, 20 * hd + j]
+                    # 内侧：Alex [47,51)、Steve [48,52)，翻转
+                    cl = px[((51 if is_alex else 52) * hd - 1) - k, 20 * hd + j]
                 elif is_alex:
                     cr = px[32 * hd + k, 52 * hd + j]
-                    cl = px[43 * hd - k, 52 * hd + j]
+                    # 左臂内侧 [39,43)，翻转右缘 42（原 43 会吃进 back 首列）
+                    cl = px[42 * hd - k, 52 * hd + j]
                 elif is_new:
                     cr = px[32 * hd + k, 52 * hd + j]
                     cl = px[43 * hd - k, 52 * hd + j]
@@ -306,9 +336,9 @@ class SkinRenderer:
                     self._quad(v, (ox, 8 * hd + j, k), (ox, 8 * hd + j, k + 1),
                                (ox, 8 * hd + j + 1, k + 1), (ox, 8 * hd + j + 1, k)), cr))
                 poly[piece]["left"].append(_Poly(
-                    self._quad(v, (ox + 4 * hd, 8 * hd + j, k), (ox + 4 * hd, 8 * hd + j, k + 1),
-                               (ox + 4 * hd, 8 * hd + j + 1, k + 1),
-                               (ox + 4 * hd, 8 * hd + j + 1, k)), cl))
+                    self._quad(v, (ox + aw, 8 * hd + j, k), (ox + aw, 8 * hd + j, k + 1),
+                               (ox + aw, 8 * hd + j + 1, k + 1),
+                               (ox + aw, 8 * hd + j + 1, k)), cl))
         # top/bottom
         for i in range(aw):
             for k in range(4 * hd):
