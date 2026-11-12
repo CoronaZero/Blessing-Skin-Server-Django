@@ -50,30 +50,40 @@ def check_content_type(request) -> HttpResponse | None:
     return None
 
 
-RATE_LIMIT_DEFAULT_SECONDS = 1.2  # 原版默认 1000ms
+RATE_LIMIT_DEFAULT_SECONDS = 1.0  # 原版 ygg_rate_limit 默认 1000ms
 
 
-def throttle_by_ip(request) -> HttpResponse | None:
-    """IP 维度节流（对照原版 Throttle，键从 username 改为 IP+端点）。
+def throttle_by_ip(request, username=None) -> HttpResponse | None:
+    """节流：IP+端点 基键 + 登录尝试附 username 维度（规范 L492：
+    限制应针对用户而非仅客户端 IP；username 截断防刷爆）。
 
-    原版缺陷（静态审查中危②）：username 是攻击者可控任意串，
-    可构造无限缓存键撑爆存储；IP 键下伪造用户名不再产生新键。
+    限速触发时返回 403（规范 L95：短时间内多次失败被禁止登录）。
     """
-    seconds = getattr(
-        settings, "YGG_RATE_LIMIT_SECONDS", RATE_LIMIT_DEFAULT_SECONDS
-    )
+    raw = getattr(settings, "YGG_RATE_LIMIT_SECONDS", None)
+    if raw is not None:
+        seconds = raw
+    else:
+        try:
+            from options.models import Option
+
+            seconds = float(Option.objects.get_value("ygg_rate_limit") or 1000) / 1000.0
+        except Exception:
+            seconds = RATE_LIMIT_DEFAULT_SECONDS
     if seconds <= 0:
         return None
 
     ip = _client_ip(request)
-    key = "ygg_throttle:" + hashlib.sha256(f"{ip}:{request.path}".encode()).hexdigest()
+    ident = f"{ip}:{request.path}"
+    if username:
+        ident += ":" + str(username)[:64]
+    key = "ygg_throttle:" + hashlib.sha256(ident.encode()).hexdigest()
     now = time_ms()
     last = cache.get(key)
     if last is not None:
         retry_after = seconds * 1000 - (now - last)
         if retry_after > 0:
             resp = error_response(
-                429, "ForbiddenOperationException",
+                403, "ForbiddenOperationException",
                 f"请求过于频繁，请 {round(retry_after / 1000, 1)} 秒后再试",
             )
             resp["Retry-After"] = str(int(retry_after // 1000) + 1)

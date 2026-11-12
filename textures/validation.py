@@ -1,4 +1,4 @@
-"""纹理文件校验：格式/尺寸/比例（对照原版 SkinlibController::upload 链）。"""
+﻿"""纹理文件校验：格式/尺寸/比例（对照原版 SkinlibController::upload 链）。"""
 
 import hashlib
 import io
@@ -33,7 +33,9 @@ def validate_texture_image(data: bytes, texture_type: str) -> ValidationResult:
 
     width, height = img.size
     max_width = 8192
-    if width > max_width:
+    max_height = 8192
+    # 规范 L391-397：先查尺寸拒绝过大图（PNG Bomb），width/height 都查
+    if width > max_width or height > max_height:
         return ValidationResult(
             valid=False, error=f"图片宽度超过上限（{max_width}px）"
         )

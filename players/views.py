@@ -1,4 +1,4 @@
-"""players 视图：用户角色管理。"""
+﻿"""players 视图：用户角色管理。"""
 
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET, require_POST
@@ -6,6 +6,8 @@ from django.views.decorators.http import require_GET, require_POST
 from config.jsonapi import FAILURE, SUCCESS, json_response
 from options.models import Option
 from players.models import Player
+
+from .uuidgen import generate_uuid_by_option
 
 
 def _bool_option(name: str, default: str = "0") -> bool:
@@ -120,7 +122,9 @@ def add_player(request):
     if Player.objects.filter(name=name).exists():
         return json_response("该角色名已被使用", FAILURE)
 
-    player = Player.objects.create(uid=request.user, name=name)
+    player = Player(uid=request.user, name=name)
+    player.uuid = generate_uuid_by_option(name)
+    player.save()
     apply_default_textures(player)
     return json_response("角色创建成功", SUCCESS, {"pid": player.pid})
 

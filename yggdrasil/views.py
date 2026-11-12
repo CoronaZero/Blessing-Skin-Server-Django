@@ -58,14 +58,22 @@ def hello(request):
     """站点元数据（对照原版 ConfigController@hello）。"""
 
     server_name = Option.objects.get_value("site_name") or "Blessing Skin"
+    # 材质域名白名单（规范 L762）：配置域名 + 当前 host + site_url host 合并
     skin_domains = [
         d.strip()
         for d in (Option.objects.get_value("ygg_skin_domain") or "").split(",")
         if d.strip()
     ]
-    if not skin_domains:
+    current = request.get_host()
+    if current not in skin_domains:
+        skin_domains.append(current)
+    site_url = (Option.objects.get_value("site_url") or "").strip()
+    if site_url:
+        from urllib.parse import urlparse
 
-        skin_domains = [request.get_host()]
+        host = urlparse(site_url).hostname
+        if host and host not in skin_domains:
+            skin_domains.append(host)
 
     # 公钥：优先 ygg_public_key；缺失时从 ygg_private_key 实时派生
     # （原版即如此——数据库只存私钥，公钥 openssl 实时导出）
@@ -85,20 +93,31 @@ def hello(request):
                 ).decode()
             except (ValueError, TypeError):
                 public_key = ""
-    return _json_ok({
+    # 关闭注册时移除 register 链接（原版 ConfigController.php:96-98）
+    links = {"homepage": f"{request.scheme}://{request.get_host()}/"}
+    if (Option.objects.get_value("disable_registration") or "0") not in ("1", "true", "on"):
+        links["register"] = f"{request.scheme}://{request.get_host()}/auth/register"
+    resp = _json_ok({
         "meta": {
             "serverName": server_name,
             "implementationName": "blessing-skin-django",
             "implementationVersion": "0.1.0",
-            "links": {
-                "homepage": f"{request.scheme}://{request.get_host()}/",
-                "register": f"{request.scheme}://{request.get_host()}/auth/register",
-            },
+            "links": links,
             "feature.non_email_login": True,
         },
         "skinDomains": skin_domains,
         "signaturePublickey": public_key,
     })
+    # ALI（规范 L822-833）：ygg_enable_ali 开关（默认开）
+    enable_ali = (Option.objects.get_value("ygg_enable_ali") or "1") in ("1", "true", "on")
+    if enable_ali:
+        resp["X-Authlib-Injector-API-Location"] = "/api/yggdrasil/"
+    return resp
+
+
+def get_public_keys(request):
+    """minecraftservices/publickeys（原版 routes.php:38）。"""
+    return _json_ok({"profileKeys": []})
 
 
 # ---- authenticate ----
@@ -111,9 +130,6 @@ def authenticate(request):
         return body_err
     if ctype_err := check_content_type(request):
         return ctype_err
-    if throttle_err := throttle_by_ip(request):
-        return throttle_err
-
     payload = _body(request)
     username = (payload.get("username") or "").strip()
     password = payload.get("password") or ""
@@ -122,6 +138,10 @@ def authenticate(request):
         return error_response(
             400, "IllegalArgumentException", "账号或密码为空"
         )
+
+    # 规范 L492：限制针对用户而非仅 IP；先查 username 维度节流（403）
+    if throttle_err := throttle_by_ip(request, username=username):
+        return throttle_err
 
     user = _find_user(username)
     if user is None or not user.verify_password(password):
@@ -209,6 +229,8 @@ def _find_user(identification: str) -> User | None:
 @csrf_exempt
 @require_http_methods(["POST"])
 def refresh(request):
+    if ctype_err := check_content_type(request):
+        return ctype_err
     if err := check_body_size(request):
         return err
     payload = _body(request)
@@ -272,6 +294,8 @@ def refresh(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def validate(request):
+    if ctype_err := check_content_type(request):
+        return ctype_err
     payload = _body(request)
     access_token = payload.get("accessToken") or ""
     client_token = payload.get("clientToken")
@@ -289,6 +313,8 @@ def validate(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def invalidate(request):
+    if ctype_err := check_content_type(request):
+        return ctype_err
     payload = _body(request)
     access_token = payload.get("accessToken") or ""
     deleted, _ = YggdrasilToken.objects.filter(access_token=access_token).delete()
@@ -299,11 +325,13 @@ def invalidate(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def signout(request):
-    if throttle_err := throttle_by_ip(request):
-        return throttle_err
+    if ctype_err := check_content_type(request):
+        return ctype_err
     payload = _body(request)
     username = (payload.get("username") or "").strip()
     password = payload.get("password") or ""
+    if throttle_err := throttle_by_ip(request, username=username):
+        return throttle_err
 
     user = _find_user(username)
     if user is None or not user.verify_password(password):

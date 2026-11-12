@@ -1,4 +1,4 @@
-"""Yggdrasil API 协议测试（TDD 先行）。
+﻿"""Yggdrasil API 协议测试（TDD 先行）。
 
 对照 yggdrasil-api 插件协议端点（authlib-injector 规范）：
 - POST /api/yggdrasil/authserver/authenticate
@@ -135,7 +135,7 @@ class TestAuthenticate:
             resp = api(client, "post", "/authserver/authenticate", {
                 "username": "y@x.com", "password": "wrong-2",
             })
-            assert resp.status_code == 429
+            assert resp.status_code == 403  # 规范 L95：限速 403
 
     def test_request_body_size_limit(self, client, seeded):
         """请求体大小上限（安全修复：防内存耗尽 DoS）。"""

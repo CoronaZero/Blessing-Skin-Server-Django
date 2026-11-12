@@ -1,10 +1,10 @@
-"""players 应用：Minecraft 角色模型与 UUID 生成。"""
+﻿"""players 应用：Minecraft 角色模型与 UUID 生成。"""
 
 from django.db import models
 
 from accounts.models import User
 
-from .uuidgen import generate_uuid_v4
+from .uuidgen import generate_uuid_by_option
 
 
 class Player(models.Model):
@@ -16,7 +16,7 @@ class Player(models.Model):
     )
     name = models.CharField("角色名", max_length=50, unique=True)
     uuid = models.CharField(
-        "UUID", max_length=32, unique=True, default=generate_uuid_v4, editable=False
+        "UUID", max_length=32, unique=True, default=generate_uuid_by_option, editable=False
     )
     tid_skin = models.ForeignKey(
         "textures.Texture",

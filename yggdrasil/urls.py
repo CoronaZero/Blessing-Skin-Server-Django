@@ -1,4 +1,4 @@
-"""yggdrasil 路由（对照原版 routes.php 全端点）。"""
+﻿"""yggdrasil 路由（对照原版 routes.php 全端点）。"""
 
 from django.urls import path
 
@@ -8,6 +8,7 @@ app_name = "yggdrasil"
 
 urlpatterns = [
     path("", views.hello, name="hello"),
+    path("minecraftservices/publickeys", views.get_public_keys, name="publickeys"),
     path("authserver/authenticate", views.authenticate, name="authenticate"),
     path("authserver/refresh", views.refresh, name="refresh"),
     path("authserver/validate", views.validate, name="validate"),
