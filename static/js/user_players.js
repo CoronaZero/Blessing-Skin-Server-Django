@@ -37,8 +37,8 @@
         '<img src="/avatar/128/' + encodeURIComponent(p.name) + '.png"' +
         '     style="width:72px;height:72px;border-radius:10px">' +
         '<div style="font-weight:600;margin-top:8px">' + escapeHtml(p.name) + "</div>" +
-        '<div style="font-size:12px;color:var(--bs-text-secondary);margin-top:2px">UUID ' +
-        escapeHtml(p.uuid.slice(0, 12)) + "…</div>" +
+        '<div style="font-size:12px;color:var(--bs-text-secondary);margin-top:2px">PID ' +
+        escapeHtml(String(p.pid)) + "</div>" +
         '<div style="display:flex;gap:8px;justify-content:center;margin-top:10px">' +
         '<a class="bs-btn bs-btn-primary" style="padding:5px 14px;font-size:13px"' +
         '   href="/user/players/' + p.pid + '">管理</a>' +
