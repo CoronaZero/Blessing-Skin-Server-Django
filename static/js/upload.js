@@ -58,6 +58,10 @@
       height: 280,
       skin: dataUrl,
     });
+    // alex 模型须显式指定 slim，否则一律按宽臂渲染（与详情页预览一致）
+    if (typeSelect.value === "alex") {
+      viewer.loadSkin(dataUrl, { model: "slim" });
+    }
     viewer.autoRotate = true;
     viewer.zoom = 0.75;
     viewer.animation = new skinview3d.IdleAnimation();

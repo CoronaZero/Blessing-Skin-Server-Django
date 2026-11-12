@@ -128,6 +128,12 @@ class TestCorePagesSmoke:
         assert f'window.BS_DEFAULT_SKIN = {{"url": "/textures/{alex.hash}"' in html
         assert '"model": "slim"' in html
 
+    def test_upload_preview_alex_uses_slim_model(self):
+        """上传页 alex 类型预览必须显式 loadSkin(slim)（否则宽臂渲染）。"""
+        js = Path("static/js/upload.js").read_text(encoding="utf-8")
+        assert 'typeSelect.value === "alex"' in js
+        assert 'viewer.loadSkin(dataUrl, { model: "slim" })' in js
+
 
 class TestSiteNameRendering:
     """站点名渲染回归（真实事故：BS5 改造后模板误用 request.site_name——
