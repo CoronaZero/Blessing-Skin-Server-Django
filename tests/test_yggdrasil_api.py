@@ -84,9 +84,31 @@ class TestHello:
         parsed = serialization.load_pem_public_key(emitted.encode())
         assert parsed.public_numbers() == key.public_key().public_numbers()
 
-    def test_hello_empty_when_no_key_at_all(self, client, db):
+    def test_hello_generates_key_when_missing(self, client, db):
+        """无密钥（PHP 迁移旧站未启用插件）→ 惰性生成，不返回空串。
+
+        空串 signaturePublickey 会令 authlib-injector 客户端解析失败、
+        启动器直接退出，必须保证返回合法 PEM（客户端 KeyUtils 严格校验）。
+        """
+        from cryptography.hazmat.primitives import serialization
+
+        from options.models import Option
+
+        assert Option.objects.get_value("ygg_private_key") is None
+
         resp = client.get(BASE + "/")
-        assert resp.json()["signaturePublickey"] == ""
+        emitted = resp.json()["signaturePublickey"]
+        assert emitted.startswith("-----BEGIN PUBLIC KEY-----")
+
+        # 生成持久化，且公钥与私钥配对
+        pem = Option.objects.get_value("ygg_private_key")
+        key = serialization.load_pem_private_key(pem.encode(), password=None)
+        assert key.key_size == 4096
+        parsed = serialization.load_pem_public_key(emitted.encode())
+        assert parsed.public_numbers() == key.public_key().public_numbers()
+
+        # 第二次请求沿用既有密钥（不重新生成）
+        assert client.get(BASE + "/").json()["signaturePublickey"] == emitted
 
 
 # ---- authenticate ----

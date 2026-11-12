@@ -91,8 +91,8 @@ def hello(request):
 
         add_domain(urlparse(site_url).hostname or "")
 
-    # 公钥：优先 ygg_public_key；缺失时从 ygg_private_key 实时派生
-    # （原版即如此——数据库只存私钥，公钥 openssl 实时导出）
+    # 公钥：惰性确保密钥存在后派生（原版数据库只存私钥，公钥 openssl 实时导出）
+    _ensure_signing_key()
     public_key = _public_key_pem()
     # 关闭注册时移除 register 链接（原版 ConfigController.php:96-98）
     links = {"homepage": f"{request.scheme}://{request.get_host()}/"}
@@ -112,6 +112,39 @@ def hello(request):
     # ALI 头由全站中间件统一附加（ApiIndicationMiddleware，对照原版
     # AddApiIndicationHeader）；此处不再单独设置，避免双来源分叉。
     return resp
+
+
+def _ensure_signing_key() -> None:
+    """确保签名私钥存在：缺失时生成 4096 位 RSA 密钥对。
+
+    P0（authlib 客户端兼容性）：客户端 APIMetadata 解析要求
+    signaturePublickey 为合法 PEM——空串会令 KeyUtils 抛异常、启动器
+    直接退出。PHP 原版在启用 yggdrasil-api 插件时生成密钥，从旧站
+    迁移（未启用过插件）则缺密钥，须在此惰性补齐。
+    使用 create（而非 update_or_create）避免并发覆盖既有密钥。
+    """
+    if (Option.objects.get_value("ygg_private_key") or "").strip():
+        return
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from django.db import IntegrityError
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
+    private_pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+    public_pem = key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode()
+    try:
+        Option.objects.create(name="ygg_private_key", value=private_pem)
+        Option.objects.create(name="ygg_public_key", value=public_pem)
+    except IntegrityError:
+        # 并发下另一请求已生成，沿用其结果
+        pass
 
 
 def _public_key_pem() -> str:
