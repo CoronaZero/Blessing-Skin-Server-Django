@@ -120,14 +120,18 @@ def submit(request):
 
 
 def _generate_ygg_keypair():
-    """生成 2048 位 RSA 密钥对：私钥签材质，公钥入发现端点（对照原版）。"""
+    """生成 4096 位 RSA 密钥对：私钥签材质，公钥入发现端点。
+
+    位数对照原版 ygg_generate_rsa_keys（helpers.php:10）与
+    ConfigController::getPrivateKey 的 4096 下限校验。
+    """
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
 
     if Option.objects.get_value("ygg_private_key"):
         return
 
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
     private_pem = key.private_bytes(
         serialization.Encoding.PEM,
         serialization.PrivateFormat.PKCS8,
