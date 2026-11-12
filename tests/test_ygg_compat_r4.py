@@ -245,3 +245,82 @@ class TestRefreshForeignProfile:
         })
         assert resp.status_code == 403
         assert resp.json()["error"] == "ForbiddenOperationException"
+
+
+# ---- P2-7: PUT multipart 不受 1MiB body 限制，文件本体上限 4MiB ----
+
+
+class TestMultipartUploadSize:
+    def _multipart(self, png: bytes, filename="skin.png"):
+        boundary = "BSSR4Boundary"
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+            "Content-Type: image/png\r\n\r\n"
+        ).encode() + png + f"\r\n--{boundary}--\r\n".encode()
+        return body, f"multipart/form-data; boundary={boundary}"
+
+    def _auth(self, client):
+        user = User.objects.create_user(
+            email="big@x.com", nickname="big", password="password8", verified=True
+        )
+        Player.objects.create(uid=user, name="BigGuy")
+        tokens = auth(client, username="big@x.com")
+        return tokens, tokens["selectedProfile"]["id"]
+
+    def test_hd_skin_over_1mib_accepted(self, client, db, tmp_path, settings):
+        from django.core.files.storage import FileSystemStorage
+
+        settings.TEXTURE_STORAGE_ROOT = str(tmp_path / "t")
+        from textures import storage as sm
+
+        sm.texture_storage._storage = FileSystemStorage(
+            location=settings.TEXTURE_STORAGE_ROOT
+        )
+        tokens, uuid_ = self._auth(client)
+
+        # 1024x512（64/32 倍数、ratio 2）随机噪声 PNG ≈ 2MiB：
+        # 大于旧 1MiB body 限制、小于 4MiB 文件上限
+        import random
+
+        rng = random.Random(42)
+        img = Image.new("RGBA", (1024, 512))
+        img.putdata([
+            (rng.randrange(256), rng.randrange(256), rng.randrange(256), 255)
+            for _ in range(1024 * 512)
+        ])
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        png = buf.getvalue()
+        assert 1024 * 1024 < len(png) < 4 * 1024 * 1024, "构造 1~4MiB PNG 前置断言"
+
+        body, ctype = self._multipart(png)
+        resp = client.put(
+            f"{BASE}/api/user/profile/{uuid_}/skin",
+            data=body,
+            content_type=ctype,
+            headers={"Authorization": f"Bearer {tokens['accessToken']}"},
+        )
+        assert resp.status_code == 204, resp.content.decode()[:200]
+
+    def test_over_4mib_rejected(self, client, db):
+        tokens, uuid_ = self._auth(client)
+        body, ctype = self._multipart(b"\x89PNG\r" + b"x" * (5 * 1024 * 1024))
+        resp = client.put(
+            f"{BASE}/api/user/profile/{uuid_}/skin",
+            data=body,
+            content_type=ctype,
+            headers={"Authorization": f"Bearer {tokens['accessToken']}"},
+        )
+        assert resp.status_code == 413
+
+    def test_raw_body_still_limited(self, client, db):
+        """裸 body（非 multipart）仍走 YGG_MAX_BODY_BYTES。"""
+        tokens, uuid_ = self._auth(client)
+        resp = client.put(
+            f"{BASE}/api/user/profile/{uuid_}/skin",
+            data=b"x" * (2 * 1024 * 1024),
+            content_type="image/png",
+            headers={"Authorization": f"Bearer {tokens['accessToken']}"},
+        )
+        assert resp.status_code == 413

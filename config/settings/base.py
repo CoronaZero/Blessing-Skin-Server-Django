@@ -245,6 +245,11 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
+# multipart 解析内存上限（Django 默认 2.5MB，超限抛 RequestDataTooBig 500）。
+# 放宽到 8MB 供 Yggdrasil/站内高清材质上传（4MiB 文件 + 编码开销），
+# 应用层各自有更精确的上限（yggdrasil UPLOAD_MAX_FILE_BYTES / 站内校验管线）。
+DATA_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024
+
 # 容器内由 whitenoise 托管静态文件（生产可不用 Nginx）
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},

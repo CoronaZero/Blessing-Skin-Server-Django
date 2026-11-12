@@ -28,6 +28,10 @@ from .middleware import (
 from .models import YggdrasilLog, YggdrasilToken
 from .tokens import issue_access_token, user_uuid_from_email
 
+# multipart 上传的文件本体上限（PUT multipart 不走 1MiB body 限制，
+# 高清材质另设 4MiB；裸 body 上传仍按 YGG_MAX_BODY_BYTES 默认 1MiB）
+UPLOAD_MAX_FILE_BYTES = 4 * 1024 * 1024
+
 
 def _body(request) -> dict:
     try:
@@ -670,9 +674,23 @@ def upload_texture(request, uuid: str, type_: str):
         _log(request, f"reset_{type_}", user=user, player=player)
         return HttpResponse(status=204)
 
-    # multipart 时 body 非 PNG，跳过原始 body 体积检查（文件大小已由框架限制）
+    # 体积防护：multipart（PUT 时 Django 不解析 FILES，按 Content-Type 判定）
+    # 不走 1MiB 原始 body 上限——否则高清材质会被 413 误杀；
+    # 解析前按 CONTENT_LENGTH 预检（含 8KB 编码开销），文件本体再单查一次
     file_name = ""
-    if not request.FILES.get("file"):
+    ctype = (request.headers.get("Content-Type") or "").lower()
+    is_multipart = "multipart/form-data" in ctype
+    if is_multipart:
+        try:
+            declared = int(request.META.get("CONTENT_LENGTH") or 0)
+        except ValueError:
+            declared = 0
+        if declared > UPLOAD_MAX_FILE_BYTES + 8 * 1024:
+            return error_response(
+                413, "IllegalArgumentException",
+                f"材质文件超过上限（{UPLOAD_MAX_FILE_BYTES // 1024 // 1024}MiB）"
+            )
+    elif not request.FILES.get("file"):
         if err := check_body_size(request):
             return err
 
@@ -683,8 +701,7 @@ def upload_texture(request, uuid: str, type_: str):
     texture_type = type_ if type_ == "cape" else "steve"
     model = request.GET.get("model") or request.headers.get("X-Texture-Model") or ""
     # P0-1: multipart/form-data 解析（规范 L729-733：model+file 字段）
-    ctype = (request.headers.get("Content-Type") or "").lower()
-    if "multipart/form-data" in ctype:
+    if is_multipart:
         if request.method == "POST":
             uploaded = request.FILES.get("file")
             data = uploaded.read() if uploaded else b""
@@ -707,6 +724,13 @@ def upload_texture(request, uuid: str, type_: str):
             model = post.get("model") or model
     if type_ == "skin" and model == "slim":
         texture_type = "alex"
+
+    # multipart 文件本体上限（跳过 body 限制后的兜底，防 DoS）
+    if is_multipart and len(data) > UPLOAD_MAX_FILE_BYTES:
+        return error_response(
+            413, "IllegalArgumentException",
+            f"材质文件超过上限（{UPLOAD_MAX_FILE_BYTES // 1024 // 1024}MiB）"
+        )
 
     result = validate_texture_image(data, texture_type)
     if not result.valid:
