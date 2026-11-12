@@ -102,9 +102,9 @@ class TestP0SelectProfileFlow:
 
 class TestDualPropertySignature:
     def _public_numbers(self):
-        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import padding as _pad
-        from cryptography.hazmat.primitives import hashes
+
         from options.models import Option
 
         pem = Option.objects.get_value("ygg_public_key")
@@ -113,7 +113,6 @@ class TestDualPropertySignature:
 
     def test_every_property_signed(self, client, db):
         from accounts.models import User as U
-        from options.models import Option
         from yggdrasil.views import _ensure_signing_key
 
         _ensure_signing_key()
@@ -164,3 +163,65 @@ class TestDualPropertySignature:
         prop2 = resp2.json()["properties"][0]
         payload2 = json.loads(b64.b64decode(prop2["value"]).decode())
         assert "signatureRequired" not in payload2
+
+
+# ---- P1-4: 材质 URL 用 site_url 优先（原版 forceRootUrl）----
+
+
+class TestTextureUrlBase:
+    def test_site_url_preferred_for_texture_url(self, client, db):
+        from accounts.models import User as U
+        from options.models import Option
+        from textures.models import Texture
+        from yggdrasil.views import _ensure_signing_key
+
+        _ensure_signing_key()
+        Option.objects.set("site_url", "https://skin.dreamweaver.top")
+        user = U.objects.create_user(
+            email="t@x.com", nickname="t", password="password8", verified=True
+        )
+        skin = Texture.objects.create(
+            name="T", type="steve", hash="9" * 64, size=1, uploader=user
+        )
+        player = Player.objects.create(uid=user, name="TexUrl", tid_skin=skin)
+
+        resp = client.get(
+            BASE + f"/sessionserver/session/minecraft/profile/{player.uuid}"
+        )
+        value = json.loads(
+            __import__("base64").b64decode(
+                resp.json()["properties"][0]["value"]
+            ).decode()
+        )
+        assert value["textures"]["SKIN"]["url"] == (
+            "https://skin.dreamweaver.top/textures/" + "9" * 64
+        )
+
+    def test_fallback_to_request_host_without_site_url(self, client, db):
+        from accounts.models import User as U
+        from options.models import Option
+        from textures.models import Texture
+        from yggdrasil.views import _ensure_signing_key
+
+        _ensure_signing_key()
+        assert not Option.objects.get_value("site_url")
+        user = U.objects.create_user(
+            email="t2@x.com", nickname="t2", password="password8", verified=True
+        )
+        skin = Texture.objects.create(
+            name="T2", type="steve", hash="8" * 64, size=1, uploader=user
+        )
+        player = Player.objects.create(uid=user, name="TexUrl2", tid_skin=skin)
+
+        resp = client.get(
+            BASE + f"/sessionserver/session/minecraft/profile/{player.uuid}"
+        )
+        value = json.loads(
+            __import__("base64").b64decode(
+                resp.json()["properties"][0]["value"]
+            ).decode()
+        )
+        # 测试客户端默认 host=testserver，scheme=http
+        assert value["textures"]["SKIN"]["url"] == (
+            "http://testserver/textures/" + "8" * 64
+        )

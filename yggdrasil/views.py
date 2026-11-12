@@ -68,6 +68,19 @@ def _normalize_domain(entry: str) -> str:
     return (urlparse("//" + entry).hostname or entry).lower()
 
 
+def _public_base_url(request) -> str:
+    """对外可访问的站点根地址（原版 forceRootUrl(option('site_url'))，
+    Profile.php:59）：hasJoined 由 Minecraft 服务端发起，经反代后
+    request.get_host() 可能是内网地址，故 site_url 优先；未配置时
+    回落当前请求（邮件场景的 localhost 容错不适用于材质 URL）。"""
+    configured = (Option.objects.get_value("site_url") or "").strip().rstrip("/")
+    if configured:
+        if not configured.startswith(("http://", "https://")):
+            configured = "https://" + configured
+        return configured
+    return f"{request.scheme}://{request.get_host()}"
+
+
 @require_GET
 def hello(request):
     """站点元数据（对照原版 ConfigController@hello）。"""
@@ -95,9 +108,10 @@ def hello(request):
     _ensure_signing_key()
     public_key = _public_key_pem()
     # 关闭注册时移除 register 链接（原版 ConfigController.php:96-98）
-    links = {"homepage": f"{request.scheme}://{request.get_host()}/"}
+    base = _public_base_url(request)
+    links = {"homepage": base + "/"}
     if (Option.objects.get_value("disable_registration") or "0") not in ("1", "true", "on"):
-        links["register"] = f"{request.scheme}://{request.get_host()}/auth/register"
+        links["register"] = base + "/auth/register"
     resp = _json_ok({
         "meta": {
             "serverName": server_name,
@@ -528,7 +542,7 @@ def _profile_payload(request, player: Player, signed: bool) -> dict:
     # 原版 L48-56：要求签名时在 textures JSON 内标记（非 properties 元素上）
     if signed:
         textures["signatureRequired"] = True
-    base_url = f"{request.scheme}://{request.get_host()}"
+    base_url = _public_base_url(request)
     if player.tid_skin:
         entry = {"url": f"{base_url}/textures/{player.tid_skin.hash}"}
         if player.tid_skin.type == "alex":
