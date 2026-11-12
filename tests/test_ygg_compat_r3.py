@@ -185,3 +185,20 @@ class TestSkinDomainsNormalize:
         Option.objects.set("ygg_skin_domain", "TESTserver:8000,testserver")
         resp = client.get(BASE + "/", HTTP_HOST="testserver")
         assert resp.json()["skinDomains"].count("testserver") == 1
+
+
+# ---- clientToken 长度（规范 L408：任意字符串）----
+
+
+class TestLongClientToken:
+    def test_200_char_client_token_accepted(self, client, seeded):
+        token = "a" * 200
+        data = authenticate(client, clientToken=token)
+        assert data["clientToken"] == token
+
+    def test_token_row_persisted(self, client, seeded):
+        from yggdrasil.models import YggdrasilToken
+
+        token = "b" * 200
+        authenticate(client, clientToken=token)
+        assert YggdrasilToken.objects.filter(client_token=token).exists()

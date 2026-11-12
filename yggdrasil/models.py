@@ -17,7 +17,8 @@ class YggdrasilToken(models.Model):
         on_delete=models.CASCADE,
         related_name="yggdrasil_tokens",
     )
-    client_token = models.CharField("客户端令牌", max_length=64)
+    # 规范 L408：clientToken 可以为任意字符串，不限于无符号 UUID
+    client_token = models.CharField("客户端令牌", max_length=255)
     # 每次 authenticate 新建一行并轮换随机 JWT；唯一约束兜底防重复行
     access_token = models.CharField(
         "访问令牌(JWT)", max_length=512, unique=True
