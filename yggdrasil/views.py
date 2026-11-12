@@ -1,4 +1,4 @@
-"""Yggdrasil API 视图：认证服务器 + 会话服务器 + Profile。
+﻿"""Yggdrasil API 视图：认证服务器 + 会话服务器 + Profile。
 
 对照 yggdrasil-api 插件全部端点语义（authlib-injector 规范）。
 """
@@ -151,19 +151,34 @@ def authenticate(request):
         {"id": p.uuid, "name": p.name} for p in user.players.all()
     ]
 
-    token, created = YggdrasilToken.objects.get_or_create(
+    # P1-13: 令牌上限（ygg_tokens_limit，默认 10；超限回收最旧）
+    limit = int(Option.objects.get_value("ygg_tokens_limit") or 10)
+    token = YggdrasilToken.objects.create(
         owner=user,
         client_token=client_token,
-        defaults={"profile_id": profiles[0]["id"] if profiles else ""},
+        profile_id="",
+        expires_in=expires_in,
+        refresh_expires_in=refresh_expires_in,
     )
+    # P1-9: 单角色才自动选中；多角色不预绑定（角色名登录则绑所用角色）
+    bound_profile_id = ""
+    if len(profiles) == 1:
+        bound_profile_id = profiles[0]["id"]
+    elif profiles and "@" not in (payload.get("username") or ""):
+        # 用户名登录：绑定登录时所用的角色（原版 AuthController.php:59-64）
+        identification = (payload.get("username") or "").strip()
+        used = next((p for p in profiles if p["name"] == identification), None)
+        if used:
+            bound_profile_id = used["id"]
+    token.profile_id = bound_profile_id
     ygg_token_uuid = secrets.token_hex(16)
     access_token = issue_access_token(user_uuid, ygg_token_uuid, expires_in)
     token.access_token = access_token
-    token.expires_in = expires_in
-    token.refresh_expires_in = refresh_expires_in
-    if created and profiles:
-        token.profile_id = profiles[0]["id"]
     token.save()
+    excess = YggdrasilToken.objects.filter(owner=user).order_by("-id")
+    if excess.count() > limit:
+        for old in excess[limit:]:
+            old.delete()
 
     response_payload = {
         "accessToken": access_token,
@@ -172,8 +187,10 @@ def authenticate(request):
     }
     if payload.get("requestUser"):
         response_payload["user"] = {"id": user_uuid, "properties": []}
-    if len(profiles) == 1:
-        response_payload["selectedProfile"] = profiles[0]
+    if len(profiles) == 1 or token.profile_id:
+        selected = next((p for p in profiles if p["id"] == token.profile_id), None)
+        if selected:
+            response_payload["selectedProfile"] = selected
 
     _log(request, "authenticate", user=user, params={"clientToken": client_token})
     return _json_ok(response_payload)
@@ -214,17 +231,27 @@ def refresh(request):
 
     selected = payload.get("selectedProfile")
     if selected and isinstance(selected, dict):
+        # P1-7: 已绑定角色时不允许改绑（规范 L524 应 400）
+        if row.profile_id and row.profile_id != selected.get("id"):
+            return error_response(
+                400, "IllegalArgumentException",
+                "Access token already has a profile assigned.",
+            )
         target = next((p for p in profiles if p["id"] == selected.get("id")), None)
         if target is None:
             return error_response(
-                403, "ForbiddenOperationException", "角色不属于该用户"
+                400, "IllegalArgumentException", "角色不属于该用户"
             )
         row.profile_id = target["id"]
 
     # 轮换：新 accessToken（旧 token 随覆盖即刻失效）
+    # P0-4: 刷新时重置签发时间（有效期/刷新窗口重新起算）
+    from django.utils import timezone as _tz
+
     new_access = issue_access_token(user_uuid, secrets.token_hex(16), row.expires_in)
     row.access_token = new_access
-    row.save(update_fields=["access_token"])
+    row.created_at = _tz.now()
+    row.save(update_fields=["access_token", "created_at"])
 
     response_payload = {
         "accessToken": new_access,
@@ -306,7 +333,8 @@ def join(request):
     player = Player.objects.filter(uuid=selected_profile).select_related("uid").first()
     if player is None or player.uid_id != row.owner_id:
         return error_response(403, "ForbiddenOperationException", "角色与令牌不匹配")
-    if row.profile_id and row.profile_id != selected_profile:
+    if row.profile_id != selected_profile:
+        # P1-8: 空绑定也不放行（规范 L618：selectedProfile 必须与绑定角色一致）
         return error_response(403, "ForbiddenOperationException", "令牌未选中该角色")
     if player.uid.permission == User.Permission.BANNED:
         return error_response(403, "ForbiddenOperationException", "账号已被封禁")
@@ -335,7 +363,7 @@ def has_joined(request):
     if player is None or player.name != username:
         return HttpResponse(status=204)
 
-    profile = _profile_payload(request, player, signed=False)
+    profile = _profile_payload(request, player, signed=True)
     _log(request, "has_joined", user=player.uid, player=player,
          params={"serverId": server_id})
     return _json_ok(profile)
@@ -384,9 +412,15 @@ def _profile_payload(request, player: Player, signed: bool) -> dict:
             "value": base64.b64encode(
                 json.dumps(textures, separators=(",", ":")).encode()
             ).decode(),
-        }
+        },
+        {
+            # P1-5: 缺此属性客户端认为不可上传（规范 L216-227）
+            "name": "uploadableTextures",
+            "value": "skin,cape",
+        },
     ]
     if signed:
+        properties[0]["signatureRequired"] = True
         signature = _sign_textures(properties[0]["value"])
         if signature:
             properties[0]["signature"] = signature
@@ -399,7 +433,7 @@ def _profile_payload(request, player: Player, signed: bool) -> dict:
 
 
 def _sign_textures(value_b64: str) -> str | None:
-    """RSA-SHA256 签名（对照原版 openssl_sign）。"""
+    """RSA-SHA1 签名（规范 L187 SHA1withRSA；原版 openssl_sign 默认 SHA1）。"""
     pem = (Option.objects.get_value("ygg_private_key") or "").strip()
     if not pem:
         return None
@@ -410,7 +444,7 @@ def _sign_textures(value_b64: str) -> str | None:
     try:
         key = serialization.load_pem_private_key(pem.encode(), password=None)
         signature = key.sign(
-            value_b64.encode(), padding.PKCS1v15(), hashes.SHA256()
+            value_b64.encode(), padding.PKCS1v15(), hashes.SHA1()
         )
         return base64.b64encode(signature).decode()
     except (ValueError, TypeError):
@@ -459,7 +493,7 @@ def search_single_profile(request, username: str):
 def upload_texture(request, uuid: str, type_: str):
     user, row = get_bearer_user(request)
     if user is None:
-        return error_response(403, "ForbiddenOperationException", "无效的访问令牌")
+        return error_response(401, "ForbiddenOperationException", "无效的访问令牌")
 
     player = Player.objects.filter(uuid=uuid, uid=user).first()
     if player is None:
@@ -475,16 +509,38 @@ def upload_texture(request, uuid: str, type_: str):
         _log(request, f"reset_{type_}", user=user, player=player)
         return HttpResponse(status=204)
 
-    if err := check_body_size(request):
-        return err
+    # multipart 时 body 非 PNG，跳过原始 body 体积检查（文件大小已由框架限制）
+    if not request.FILES.get("file"):
+        if err := check_body_size(request):
+            return err
 
     from textures.storage import texture_storage
     from textures.validation import validate_texture_image
 
     data = request.body
     texture_type = type_ if type_ == "cape" else "steve"
-    # slim/steve 模型由查询参数 model 控制（对照原版 multipart model 字段）
     model = request.GET.get("model") or request.headers.get("X-Texture-Model") or ""
+    # P0-1: multipart/form-data 解析（规范 L729-733：model+file 字段）
+    ctype = (request.headers.get("Content-Type") or "").lower()
+    if "multipart/form-data" in ctype:
+        if request.method == "POST":
+            uploaded = request.FILES.get("file")
+            data = uploaded.read() if uploaded else b""
+            model = request.POST.get("model") or model
+        else:
+            # Django 仅自动解析 POST 的 multipart；PUT 手动解析
+            from io import BytesIO as _BytesIO
+
+            from django.http.multipartparser import MultiPartParser
+
+            parser = MultiPartParser(
+                request.META, _BytesIO(request.body),
+                request.upload_handlers, request.encoding,
+            )
+            post, files = parser.parse()
+            uploaded = files.get("file")
+            data = uploaded.read() if uploaded else b""
+            model = post.get("model") or model
     if type_ == "skin" and model == "slim":
         texture_type = "alex"
 
@@ -494,7 +550,7 @@ def upload_texture(request, uuid: str, type_: str):
 
     from textures.models import Texture
 
-    texture = Texture.objects.filter(hash=result.digest).first()
+    texture = Texture.objects.filter(hash=result.digest, uploader=user).first()
     if texture is None:
         import math
 

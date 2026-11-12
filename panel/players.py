@@ -18,7 +18,11 @@ def players_page(request):
     q = (request.GET.get("q") or "").strip()
     qs = Player.objects.select_related("uid", "tid_skin", "tid_cape").order_by("-pid")
     if q:
-        qs = qs.filter(Q(name__icontains=q) | Q(uid__email__icontains=q) | Q(uid__nickname__icontains=q))
+        qs = qs.filter(
+            Q(name__icontains=q)
+            | Q(uid__email__icontains=q)
+            | Q(uid__nickname__icontains=q)
+        )
     paginator = Paginator(qs, 20)
     page = paginator.get_page(request.GET.get("page", 1))
     return render(
