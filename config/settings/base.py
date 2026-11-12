@@ -220,6 +220,12 @@ ASGI_APPLICATION = "config.asgi.application"
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "noreply@blessing-skin.local"
 
+# ---- Yggdrasil ----
+# 接口日志（yggdrasil_yggdrasillog 表）默认关闭，对照原版 ygg_log()
+# 的 env('YGG_VERBOSE_LOG') 门控（helpers.php:47）：仅在显式开启时
+# 才把各端点访问写入数据库，避免 hasJoined 高频轮询打满写入。
+YGG_VERBOSE_LOG = env_bool("YGG_VERBOSE_LOG", False)
+
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True

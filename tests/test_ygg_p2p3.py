@@ -160,3 +160,34 @@ class TestP3SprClaim:
         assert resp.status_code == 200
         claims = self._decode(resp.json()["accessToken"])
         assert claims["spr"] == tokens["selectedProfile"]["id"]
+
+
+# ---- P3-30: 日志写库受 YGG_VERBOSE_LOG 开关控制（helpers.php:47）----
+
+
+class TestP3VerboseLog:
+    def test_no_log_by_default(self, client, seeded):
+        from yggdrasil.models import YggdrasilLog
+
+        authenticate(client)
+        assert YggdrasilLog.objects.count() == 0
+
+    def test_log_written_when_enabled(self, client, seeded, settings):
+        from yggdrasil.models import YggdrasilLog
+
+        settings.YGG_VERBOSE_LOG = True
+        tokens = authenticate(client)
+        assert YggdrasilLog.objects.filter(action="authenticate").exists()
+
+        # join / has_joined 亦记录
+        resp = client.post(
+            BASE + "/sessionserver/session/minecraft/join",
+            data=json.dumps({
+                "accessToken": tokens["accessToken"],
+                "selectedProfile": tokens["selectedProfile"]["id"],
+                "serverId": "server",
+            }),
+            content_type="application/json",
+        )
+        assert resp.status_code == 204
+        assert YggdrasilLog.objects.filter(action="join").exists()

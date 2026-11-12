@@ -7,6 +7,7 @@ import base64
 import json
 import secrets
 
+from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -41,6 +42,9 @@ def _json_ok(payload: dict, status: int = 200) -> HttpResponse:
 
 
 def _log(request, action, user=None, player=None, params=None):
+    """接口审计日志：对照原版 ygg_log()，仅 YGG_VERBOSE_LOG 开启时落库。"""
+    if not getattr(settings, "YGG_VERBOSE_LOG", False):
+        return
     YggdrasilLog.objects.create(
         action=action,
         user=user,
