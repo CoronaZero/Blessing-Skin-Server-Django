@@ -25,6 +25,15 @@ def validate_texture_image(data: bytes, texture_type: str) -> ValidationResult:
     """
     try:
         img = Image.open(io.BytesIO(data))
+        # 规范 L391-397：先读 PNG 头部尺寸拒绝过大图，再完整解码
+        # （open 仅解析头部；大图 load 会解压全部像素造成内存/时间放大）
+        width, height = img.size
+        max_width = 8192
+        max_height = 8192
+        if width > max_width or height > max_height:
+            return ValidationResult(
+                valid=False, error=f"图片宽度超过上限（{max_width}px）"
+            )
         img.load()
     except Exception:
         return ValidationResult(valid=False, error="不是有效的 PNG 图片")
@@ -33,13 +42,6 @@ def validate_texture_image(data: bytes, texture_type: str) -> ValidationResult:
         return ValidationResult(valid=False, error="仅支持 PNG 格式")
 
     width, height = img.size
-    max_width = 8192
-    max_height = 8192
-    # 规范 L391-397：先查尺寸拒绝过大图（PNG Bomb），width/height 都查
-    if width > max_width or height > max_height:
-        return ValidationResult(
-            valid=False, error=f"图片宽度超过上限（{max_width}px）"
-        )
 
     if texture_type in ("steve", "alex"):
         if width % 64 != 0 or height % 32 != 0:
