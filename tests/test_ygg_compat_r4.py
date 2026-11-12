@@ -95,3 +95,72 @@ class TestP0SelectProfileFlow:
 
         row = YggdrasilToken.objects.get(access_token=refreshed["accessToken"])
         assert row.profile_id == alpha.uuid
+
+
+# ---- P1-3/P2-5: 双属性签名 + signatureRequired 位置 ----
+
+
+class TestDualPropertySignature:
+    def _public_numbers(self):
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import padding as _pad
+        from cryptography.hazmat.primitives import hashes
+        from options.models import Option
+
+        pem = Option.objects.get_value("ygg_public_key")
+        key = serialization.load_pem_public_key(pem.encode())
+        return key, _pad.PKCS1v15(), hashes.SHA1()
+
+    def test_every_property_signed(self, client, db):
+        from accounts.models import User as U
+        from options.models import Option
+        from yggdrasil.views import _ensure_signing_key
+
+        _ensure_signing_key()
+        user = U.objects.create_user(
+            email="s@x.com", nickname="s", password="password8", verified=True
+        )
+        Player.objects.create(uid=user, name="Solo")
+        profile = Player.objects.get(name="Solo")
+
+        resp = client.get(
+            BASE + f"/sessionserver/session/minecraft/profile/{profile.uuid}?unsigned=false"
+        )
+        assert resp.status_code == 200
+        props = resp.json()["properties"]
+        assert {p["name"] for p in props} == {"textures", "uploadableTextures"}
+
+        key, pad, hash_alg = self._public_numbers()
+        for prop in props:
+            sig = __import__("base64").b64decode(prop["signature"])
+            key.verify(sig, prop["value"].encode(), pad, hash_alg)  # 断言不过即失败
+
+    def test_signature_required_inside_textures_json(self, client, db):
+        import base64 as b64
+
+        from accounts.models import User as U
+        from yggdrasil.views import _ensure_signing_key
+
+        _ensure_signing_key()
+        user = U.objects.create_user(
+            email="s2@x.com", nickname="s2", password="password8", verified=True
+        )
+        Player.objects.create(uid=user, name="Solo2")
+        profile = Player.objects.get(name="Solo2")
+
+        resp = client.get(
+            BASE + f"/sessionserver/session/minecraft/profile/{profile.uuid}?unsigned=false"
+        )
+        prop = resp.json()["properties"][0]
+        # signatureRequired 在 base64 解码后的 textures JSON 内（原版 L55）
+        assert "signatureRequired" not in prop
+        payload = json.loads(b64.b64decode(prop["value"]).decode())
+        assert payload["signatureRequired"] is True
+
+        # unsigned 时无该标记（原版仅 $unsigned===false 才标记）
+        resp2 = client.get(
+            BASE + f"/sessionserver/session/minecraft/profile/{profile.uuid}"
+        )
+        prop2 = resp2.json()["properties"][0]
+        payload2 = json.loads(b64.b64decode(prop2["value"]).decode())
+        assert "signatureRequired" not in payload2

@@ -485,7 +485,11 @@ def has_joined(request):
     if player is None or player.name != username:
         return HttpResponse(status=204)
 
-    profile = _profile_payload(request, player, signed=True)
+    try:
+        profile = _profile_payload(request, player, signed=True)
+    except ValueError as exc:
+        # 原版私钥无效时抛 IllegalArgumentException（这里同样 400）
+        return error_response(400, "IllegalArgumentException", str(exc))
     _log(request, "has_joined", user=player.uid, player=player,
          params={"serverId": server_id})
     return _json_ok(profile)
@@ -499,14 +503,18 @@ def get_profile(request, uuid: str):
     if player is None:
         return HttpResponse(status=204)
     unsigned = (request.GET.get("unsigned") or "true").lower() != "false"
-    return _json_ok(_profile_payload(request, player, signed=not unsigned))
+    try:
+        return _json_ok(_profile_payload(request, player, signed=not unsigned))
+    except ValueError as exc:
+        return error_response(400, "IllegalArgumentException", str(exc))
 
 
 def _profile_payload(request, player: Player, signed: bool) -> dict:
     """Profile 序列化（对照原版 Profile::serialize）。
 
-    textures property：base64(JSON{timestamp, profileId, profileName, textures})
-    signed 时附 RSA-SHA256 签名（ygg_private_key option）。
+    textures property：base64(JSON{timestamp, profileId, profileName,
+    signatureRequired, textures})；signed 时对**每个**属性签名
+    （原版 L112-121 foreach properties 签名），算法 SHA1withRSA。
     """
     import time as _time
 
@@ -517,6 +525,9 @@ def _profile_payload(request, player: Player, signed: bool) -> dict:
         "isPublic": True,
         "textures": {},
     }
+    # 原版 L48-56：要求签名时在 textures JSON 内标记（非 properties 元素上）
+    if signed:
+        textures["signatureRequired"] = True
     base_url = f"{request.scheme}://{request.get_host()}"
     if player.tid_skin:
         entry = {"url": f"{base_url}/textures/{player.tid_skin.hash}"}
@@ -542,10 +553,9 @@ def _profile_payload(request, player: Player, signed: bool) -> dict:
         },
     ]
     if signed:
-        properties[0]["signatureRequired"] = True
-        signature = _sign_textures(properties[0]["value"])
-        if signature:
-            properties[0]["signature"] = signature
+        # 原版 L112-121：给每个 property 签名（客户端/Minecraft 逐个验证）
+        for prop in properties:
+            prop["signature"] = _sign_textures(prop["value"])
 
     return {
         "id": player.uuid,
@@ -554,11 +564,25 @@ def _profile_payload(request, player: Player, signed: bool) -> dict:
     }
 
 
-def _sign_textures(value_b64: str) -> str | None:
-    """RSA-SHA1 签名（规范 L187 SHA1withRSA；原版 openssl_sign 默认 SHA1）。"""
+def _sign_textures(value_b64: str) -> str:
+    """RSA-SHA1 签名（规范 L187 SHA1withRSA；原版 openssl_sign 默认 SHA1）。
+
+    原版私钥无效时抛 IllegalArgumentException；此处抛 ValueError
+    由调用方转为 400（保证签名返回的 properties 必带有效签名）。
+    """
+    _ensure_signing_key()
     pem = (Option.objects.get_value("ygg_private_key") or "").strip()
     if not pem:
-        return None
+        raise ValueError("缺少 Yggdrasil 签名私钥")
+
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import padding
+
+    key = serialization.load_pem_private_key(pem.encode(), password=None)
+    signature = key.sign(
+        value_b64.encode(), padding.PKCS1v15(), hashes.SHA1()
+    )
+    return base64.b64encode(signature).decode()
 
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import padding
