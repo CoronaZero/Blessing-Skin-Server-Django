@@ -36,8 +36,13 @@
     {% if announcement %}
     <div class="bs-card" style="margin-bottom:16px">
       <div class="bs-card-body">
-        <h1 class="bs-card-title" style="font-size:15px">站点公告</h1>
-        <p style="margin:0;font-size:14px;white-space:pre-wrap">{{ announcement }}</p>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h1 class="bs-card-title" style="margin:0;font-size:15px">站点公告</h1>
+          <a href="/user/announcement" style="font-size:13px">查看全部</a>
+        </div>
+        <div style="font-size:14px;line-height:1.8;margin-top:8px;max-height:260px;overflow:hidden">
+          {{ announcement|safe }}
+        </div>
       </div>
     </div>
     {% endif %}

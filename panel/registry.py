@@ -42,6 +42,8 @@ OPTION_REGISTRY: list[OptionGroup] = [
             OptionField("site_name", "站点名称"),
             OptionField("site_url", "站点地址", help_text="https://skin.example.com，邮件链接用它构建"),
             OptionField("site_description", "站点描述", widget="textarea"),
+            OptionField("site_announcement", "站点公告（Markdown）", widget="textarea",
+                        help_text="显示在用户中心仪表盘与公告页，支持 Markdown 语法"),
         ],
     ),
     OptionGroup(

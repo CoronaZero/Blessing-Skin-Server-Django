@@ -352,7 +352,11 @@ def user_dashboard(request):
     recent_notifications = (
         request.user.notifications.order_by("-created_at")[:5]
     )
-    announcement = Option.objects.get_value("site_announcement") or ""
+    # 公告渲染 Markdown（仅超管可写，可信边界内）
+    import markdown as _md
+
+    announcement_raw = Option.objects.get_value("site_announcement") or ""
+    announcement = _md.markdown(announcement_raw) if announcement_raw else ""
 
     # 签到状态（与 daily_sign 的 20h 冷却一致）
     from datetime import timedelta
@@ -369,6 +373,7 @@ def user_dashboard(request):
             "bs_user_json": _bs_user_json(request.user),
             "recent_notifications": recent_notifications,
             "announcement": announcement,
+            "announcement_raw": announcement_raw,
             "can_sign": can_sign,
             "next_sign_time": next_sign_time,
         },
@@ -492,7 +497,24 @@ def notification_read(request, notification_id: int):
 
 
 @login_required
-@require_POST
+@require_GET
+def announcement_page(request):
+    """独立公告页（管理员 Markdown，全站可读）。"""
+    import markdown as _md
+
+    raw = Option.objects.get_value("site_announcement") or ""
+    announcement = _md.markdown(raw) if raw else ""
+    return render(
+        request,
+        "users/announcement.html",
+        {
+            "site_name": Option.objects.get_value("site_name"),
+            "announcement": announcement,
+        },
+    )
+
+
+@login_required
 def daily_sign(request):
     """每日签到（对照原版 sign：隔天可签，积分 score_per_sign）。"""
     user = request.user
