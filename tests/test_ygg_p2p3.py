@@ -502,3 +502,98 @@ class TestP2UploadScoring:
         from textures.models import Texture
 
         assert Texture.objects.get().name == "Steve"
+
+
+# ---- P2-20: 材质 hash 像素级 SHA-256（规范 L243-254）----
+
+
+class TestP2PixelHash:
+    def test_known_vector_1x2(self):
+        """缓冲区 = header(width,height 大端) + 列主序 A/R/G/B 像素字节。"""
+        import hashlib
+        import struct
+
+        from textures.validation import _pixel_digest
+
+        img = Image.new("RGBA", (1, 2))
+        img.putpixel((0, 0), (255, 0, 0, 255))  # → A,R,G,B = 255,255,0,0
+        img.putpixel((0, 1), (0, 0, 255, 128))  # → 128,0,0,255
+        buf = struct.pack(">II", 1, 2) + bytes([255, 255, 0, 0, 128, 0, 0, 255])
+        assert _pixel_digest(img) == hashlib.sha256(buf).hexdigest()
+
+    def test_column_major_order_2x2(self):
+        """像素按 x 外层、y 内层排列（规范 L248 offset 公式）。"""
+        import hashlib
+        import struct
+
+        from textures.validation import _pixel_digest
+
+        img = Image.new("RGBA", (2, 2))
+        img.putpixel((0, 0), (255, 0, 0, 255))  # 红
+        img.putpixel((1, 0), (0, 255, 0, 255))  # 绿
+        img.putpixel((0, 1), (0, 0, 255, 255))  # 蓝
+        img.putpixel((1, 1), (255, 255, 255, 255))
+        argb = {
+            (0, 0): bytes([255, 255, 0, 0]),
+            (0, 1): bytes([255, 0, 0, 255]),
+            (1, 0): bytes([255, 0, 255, 0]),
+            (1, 1): bytes([255, 255, 255, 255]),
+        }
+        buf = struct.pack(">II", 2, 2) + b"".join(
+            argb[(x, y)] for x in range(2) for y in range(2)
+        )
+        assert _pixel_digest(img) == hashlib.sha256(buf).hexdigest()
+
+    def test_transparent_rgb_zeroed(self):
+        from textures.validation import _pixel_digest
+
+        opaque = Image.new("RGBA", (64, 32), (255, 0, 0, 0))  # 全透明红
+        other = Image.new("RGBA", (64, 32), (0, 255, 0, 0))  # 全透明绿
+        assert _pixel_digest(opaque) == _pixel_digest(other)
+
+    def test_same_pixels_different_encoding_same_digest(self):
+        """同像素不同 PNG 编码（元数据差异）→ 同 hash，规范核心动机。"""
+        from PIL.PngImagePlugin import PngInfo
+
+        from textures.validation import validate_texture_image
+
+        img = Image.new("RGBA", (64, 32), (7, 8, 9, 255))
+        b1, b2 = io.BytesIO(), io.BytesIO()
+        img.save(b1, format="PNG")
+        meta = PngInfo()
+        meta.add_text("comment", "different-encoding")
+        img.save(b2, format="PNG", pnginfo=meta)
+        assert b1.getvalue() != b2.getvalue()
+
+        r1 = validate_texture_image(b1.getvalue(), "steve")
+        r2 = validate_texture_image(b2.getvalue(), "steve")
+        assert r1.valid and r2.valid
+        assert r1.digest == r2.digest
+
+    def test_upload_dedup_across_encodings(self, client, seeded, tmp_path, settings):
+        _storage_tmp(tmp_path, settings)
+        tokens = authenticate(client)
+        uuid = tokens["selectedProfile"]["id"]
+
+        img = Image.new("RGBA", (64, 32), (7, 8, 9, 255))
+        b1, b2 = io.BytesIO(), io.BytesIO()
+        img.save(b1, format="PNG")
+        from PIL.PngImagePlugin import PngInfo
+
+        meta = PngInfo()
+        meta.add_text("comment", "different-encoding")
+        img.save(b2, format="PNG", pnginfo=meta)
+
+        headers = {"Authorization": f"Bearer {tokens['accessToken']}"}
+        url = f"{BASE}/api/user/profile/{uuid}/skin"
+        assert client.put(
+            url, data=b1.getvalue(), content_type="image/png", headers=headers
+        ).status_code == 204
+        assert client.put(
+            url, data=b2.getvalue(), content_type="image/png", headers=headers
+        ).status_code == 204
+
+        from textures.models import Texture
+
+        # 不同编码同像素 → 复用同一材质行
+        assert Texture.objects.count() == 1
