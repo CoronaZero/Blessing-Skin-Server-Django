@@ -90,6 +90,17 @@ def user_action(request, uid: int):
         target.score = max(0, target.score + delta)
         target.save(update_fields=["score"])
         return json_response(f"积分已调整（{delta:+d}）", SUCCESS)
+    if action == "reset_password":
+        new_pwd = (request.POST.get("password") or "").strip()
+        if len(new_pwd) < 8 or len(new_pwd) > 32:
+            return json_response("新密码须 8-32 位", FAILURE)
+        target.set_password(new_pwd)
+        target.save(update_fields=["password"])
+        return json_response("密码已重置", SUCCESS)
+    if action == "verify":
+        target.verified = True
+        target.save(update_fields=["verified"])
+        return json_response("已标记邮箱验证通过", SUCCESS)
     if action == "perm" and _is_super(request.user):
         try:
             level = int(request.POST.get("level", "0"))

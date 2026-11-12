@@ -1,4 +1,4 @@
-{% extends "panel/base.html" %}
+﻿{% extends "panel/base.html" %}
 {% block title %}用户管理{% endblock %}
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -40,6 +40,13 @@
                   data-action="ban" data-url="/admin/users/{{ u.uid }}/action"
                   data-confirm="确定封禁 {{ u.email }}？">封禁</button>
           {% endif %}
+          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+                  data-reset-pwd="{{ u.uid }}">重置密码</button>
+          {% if not u.verified %}
+          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+                  data-action="verify" data-url="/admin/users/{{ u.uid }}/action"
+                  data-confirm="确认将 {{ u.email }} 标记为已验证？">通过验证</button>
+          {% endif %}
           {% if is_super and u.uid != request.user.uid %}
           <select data-perm data-target="{{ u.uid }}" style="font-size:12px;padding:2px">
             <option value="">调权…</option>
@@ -74,6 +81,17 @@
     });
   });
   // 调权
+  document.querySelectorAll("[data-reset-pwd]").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      const pwd = window.prompt("输入新密码（8-32 位）：");
+      if (!pwd) return;
+      const fd = new FormData();
+      fd.set("action", "reset_password");
+      fd.set("password", pwd);
+      const r = await window.bsPost("/admin/users/" + btn.dataset.resetPwd + "/action", fd);
+      window.bsToast(r.message, r.code === 0 ? "success" : "error");
+    });
+  });
   document.querySelectorAll("[data-perm]").forEach(function (sel) {
     sel.addEventListener("change", async function () {
       if (!sel.value) return;
