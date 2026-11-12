@@ -12,6 +12,7 @@
 import json
 
 import pytest
+from PIL import Image
 
 from accounts.models import User
 from options.models import Option
@@ -233,3 +234,23 @@ class TestPublickeysShape:
     def test_empty_without_key(self, client, db):
         data = client.get(BASE + "/minecraftservices/publickeys").json()
         assert data == {"profilePropertyKeys": [], "playerCertificateKeys": []}
+
+
+# ---- 像素 hash 规范官方测试向量（L360-377）----
+
+
+class TestOfficialTextureHashVector:
+    def test_spec_sample_output(self):
+        """规范样例：2x3 图，期望 47a4c518...afe683（含透明像素 RGB 置零场景）。"""
+        from textures.validation import _pixel_digest
+
+        img = Image.new("RGBA", (2, 3))
+        img.putpixel((0, 0), (255, 0, 0, 255))  # 红
+        img.putpixel((0, 1), (0, 0, 255, 255))  # 蓝
+        img.putpixel((0, 2), (255, 0, 255, 255))  # 紫
+        img.putpixel((1, 0), (0, 255, 0, 255))  # 绿
+        img.putpixel((1, 1), (255, 255, 255, 0))  # 透明（RGB 须置零）
+        img.putpixel((1, 2), (255, 255, 0, 255))  # 黄
+        assert _pixel_digest(img) == (
+            "47a4c518f80f94ad8737713e0325a98e1f2647f962b9a646f58cd0bbd5afe683"
+        )
