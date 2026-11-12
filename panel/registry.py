@@ -168,7 +168,12 @@ OPTION_REGISTRY: list[OptionGroup] = [
                         help_text="同一用户/IP 两次请求的最小间隔，1000=1 秒"),
             OptionField("ygg_enable_ali", "API 地址指示（ALI）", widget="bool",
                         help_text="用户输入域名即可自动发现 API 地址，建议开启"),
-            OptionField("ygg_skin_domain", "皮肤域名（逗号分隔，留空用当前域名）"),
+            OptionField(
+                "ygg_skin_domain", "皮肤域名（逗号分隔，留空用当前域名）",
+                help_text="客户端白名单规则：.example.com 匹配其子域（不含裸域）；"
+                          "example.com 仅精确匹配；* 表示全部放行。当前域名与站点地址会自动加入，"
+                          "仅在此额外填写 CDN 等其他域名",
+            ),
             OptionField(
                 "ygg_private_key", "签名私钥（PEM）", widget="textarea",
                 rows=10, monospace=True,
