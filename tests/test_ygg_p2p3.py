@@ -219,3 +219,32 @@ class TestP3TokenUnique:
         authenticate(client)
         authenticate(client)
         assert YggdrasilToken.objects.count() == 2
+
+
+# ---- P3-32: 过期令牌行清理 ----
+
+
+class TestP3ExpiredCleanup:
+    def test_dead_rows_purged_refreshable_kept(self, client, seeded):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from yggdrasil.models import YggdrasilToken
+
+        dead = YggdrasilToken.objects.create(
+            owner=seeded, client_token="old", access_token="dead-tok",
+            expires_in=10, refresh_expires_in=20,
+        )
+        dead.created_at = timezone.now() - timedelta(seconds=3600)
+        dead.save()
+        # 已过有效期但仍在刷新窗口内 → 保留（可 refresh 续期）
+        YggdrasilToken.objects.create(
+            owner=seeded, client_token="new", access_token="alive-tok",
+            expires_in=10, refresh_expires_in=604800,
+        )
+
+        authenticate(client)
+
+        assert not YggdrasilToken.objects.filter(access_token="dead-tok").exists()
+        assert YggdrasilToken.objects.filter(access_token="alive-tok").exists()

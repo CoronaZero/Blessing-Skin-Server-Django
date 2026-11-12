@@ -175,6 +175,12 @@ def authenticate(request):
         {"id": p.uuid, "name": p.name} for p in user.players.all()
     ]
 
+    # P3-32: 清理该用户已过刷新窗口的失效令牌行
+    # （原版令牌存 Cache 由 TTL 自动过期，DB 持久化需在登录时显式回收）
+    for stale in YggdrasilToken.objects.filter(owner=user):
+        if not stale.is_refreshable():
+            stale.delete()
+
     # P1-13: 令牌上限（ygg_tokens_limit，默认 10；超限回收最旧）
     limit = int(Option.objects.get_value("ygg_tokens_limit") or 10)
     token = YggdrasilToken.objects.create(
