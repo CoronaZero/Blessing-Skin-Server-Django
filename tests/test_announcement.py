@@ -1,4 +1,4 @@
-"""公告 Markdown 测试（定向）。"""
+﻿"""公告 Markdown 测试（定向）。"""
 
 import pytest
 
@@ -33,6 +33,25 @@ class TestAnnouncement:
     def test_empty_announcement_placeholder(self, logged):
         html = logged.get("/user/announcement").content.decode()
         assert "暂未发布公告" in html
+
+    def test_more_tag_truncation(self, logged):
+        Option.objects.set(
+            "site_announcement",
+            "# 上半部分\n\n摘要内容\n\n<!--more-->\n\n# 下半部分\n\n展开后内容",
+        )
+        html = logged.get("/user").content.decode()
+        assert "摘要内容" in html
+        assert "展开后内容" not in html
+        assert "阅读全文" in html
+        # 独立页显示全文
+        full = logged.get("/user/announcement").content.decode()
+        assert "展开后内容" in full
+
+    def test_no_more_tag_shows_all(self, logged):
+        Option.objects.set("site_announcement", "无截断标记的公告")
+        html = logged.get("/user").content.decode()
+        assert "无截断标记的公告" in html
+        assert "阅读全文" not in html
 
     def test_option_editable_in_panel(self, client, db):
         User.objects.create_superuser(

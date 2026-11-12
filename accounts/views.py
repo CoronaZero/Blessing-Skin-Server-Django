@@ -361,10 +361,13 @@ def user_dashboard(request):
         request.user.notifications.order_by("-created_at")[:5]
     )
     # 公告渲染 Markdown（仅超管可写，可信边界内）
+    # 仪表盘只显示 <!--more--> 截断前的内容；独立页显示全文
     import markdown as _md
 
     announcement_raw = Option.objects.get_value("site_announcement") or ""
-    announcement = _md.markdown(announcement_raw) if announcement_raw else ""
+    raw_upper = announcement_raw.split("<!--more-->")[0]
+    announcement = _md.markdown(raw_upper) if raw_upper else ""
+    has_more = "<!--more-->" in announcement_raw
 
     # 签到状态（与 daily_sign 的 20h 冷却一致）
     from datetime import timedelta
@@ -382,6 +385,7 @@ def user_dashboard(request):
             "recent_notifications": recent_notifications,
             "announcement": announcement,
             "announcement_raw": announcement_raw,
+            "has_more": has_more,
             "can_sign": can_sign,
             "next_sign_time": next_sign_time,
         },

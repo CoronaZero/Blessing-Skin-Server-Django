@@ -44,11 +44,17 @@
       <div class="bs-card-body">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <h1 class="bs-card-title" style="margin:0;font-size:15px">站点公告</h1>
+          {% if has_more %}
           <a href="/user/announcement" style="font-size:13px">查看全部</a>
+          {% endif %}
         </div>
-        <div style="font-size:14px;line-height:1.8;margin-top:8px;max-height:260px;overflow:hidden">
+        <div style="font-size:14px;line-height:1.8;margin-top:8px">
           {{ announcement|safe }}
         </div>
+        {% if has_more %}
+        <a href="/user/announcement" class="bs-btn bs-btn-secondary"
+           style="margin-top:12px;padding:6px 18px;font-size:13px">阅读全文</a>
+        {% endif %}
       </div>
     </div>
     {% endif %}
