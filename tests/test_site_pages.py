@@ -158,13 +158,49 @@ class TestNavbarDomOrder:
         pos_toggler = html.index('class="navbar-toggler"')
         assert pos_brand < pos_collapse < pos_right < pos_toggler
 
-        # 右侧控件不在折叠区内（dropdown 在 collapse 内会定位错位）
+        # 右侧控件不在折叠区内
         cbody = html[pos_collapse:pos_right]
         assert "theme-toggle" not in cbody
         assert "nav-avatar" not in cbody
 
         # 右侧控件容器带 ms-auto（手机推右）
         assert 'class="d-flex align-items-center gap-2 ms-auto"' in html
+
+    def test_avatar_opens_offcanvas_drawer(self, client, db):
+        """头像 → 右侧 offcanvas 用户抽屉（dropdown 在手机视口会飞出屏幕，弃用）。"""
+        User.objects.create_user(
+            email="d@x.com", nickname="抽屉用户", password="password8", verified=True
+        )
+        client.login(username="d@x.com", password="password8")
+        html = client.get("/").content.decode()
+
+        # 抽屉存在且含账号信息与入口
+        assert 'id="user-drawer"' in html
+        assert 'class="offcanvas offcanvas-end"' in html
+        assert "抽屉用户" in html
+        assert 'id="nav-logout"' in html
+        for href in ("/user", "/user/players", "/user/closet"):
+            assert f'href="{href}"' in html
+
+        # 头像按钮触发抽屉（不再是 dropdown）
+        assert 'data-bs-toggle="offcanvas" data-bs-target="#user-drawer"' in html
+        assert "dropdown-menu" not in html
+
+    def test_admin_drawer_entry(self, client, db):
+        admin = User.objects.create_user(
+            email="a2@x.com", nickname="管理", password="password8",
+            permission=User.Permission.ADMIN, verified=True,
+        )
+        _ = admin
+        client.login(username="a2@x.com", password="password8")
+        html = client.get("/").content.decode()
+        assert 'href="/admin/"' in html  # 抽屉内管理入口
+
+    def test_anonymous_no_drawer(self, client, db):
+        """匿名访客不渲染用户抽屉。"""
+        html = client.get("/").content.decode()
+        assert 'id="user-drawer"' not in html
+        assert 'href="/auth/login"' in html
 
     def test_anonymous_navbar_structure(self, client, db):
         html = client.get("/").content.decode()
