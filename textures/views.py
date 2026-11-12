@@ -1,4 +1,4 @@
-"""textures 视图：皮肤库搜索/上传/纹理文件/头像/CustomSkinAPI。"""
+﻿"""textures 视图：皮肤库搜索/上传/纹理文件/头像/CustomSkinAPI。"""
 
 import io
 import math
@@ -63,8 +63,12 @@ def texture_show_page(request):
     texture = get_object_or_404(
         Texture.objects.select_related("uploader"), tid=request.GET.get("tid", 0)
     )
-    # 私密纹理仅上传者可见
-    if not texture.public and texture.uploader_id != request.user.uid:
+    # 私密纹理仅上传者与管理员可见（越权审计：普通用户改 tid 访问他人私密 → 404，已有测试锁定）
+    if (
+        not texture.public
+        and texture.uploader_id != request.user.uid
+        and not request.user.is_admin()
+    ):
         from django.http import HttpResponseNotFound
 
         return HttpResponseNotFound()
