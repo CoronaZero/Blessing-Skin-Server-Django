@@ -202,3 +202,34 @@ class TestLongClientToken:
         token = "b" * 200
         authenticate(client, clientToken=token)
         assert YggdrasilToken.objects.filter(client_token=token).exists()
+
+
+# ---- publickeys 响应对齐原版结构 ----
+
+
+class TestPublickeysShape:
+    def test_shape_matches_php(self, client, db):
+        import base64
+
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        pem = key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        ).decode()
+        Option.objects.set("ygg_private_key", pem)
+
+        data = client.get(BASE + "/minecraftservices/publickeys").json()
+        entries = data["profilePropertyKeys"]
+        assert data["playerCertificateKeys"] == entries
+        assert len(entries) == 1
+        der = base64.b64decode(entries[0]["publicKey"])
+        loaded = serialization.load_der_public_key(der)
+        assert loaded.key_size == 2048
+
+    def test_empty_without_key(self, client, db):
+        data = client.get(BASE + "/minecraftservices/publickeys").json()
+        assert data == {"profilePropertyKeys": [], "playerCertificateKeys": []}

@@ -93,22 +93,7 @@ def hello(request):
 
     # 公钥：优先 ygg_public_key；缺失时从 ygg_private_key 实时派生
     # （原版即如此——数据库只存私钥，公钥 openssl 实时导出）
-    public_key = (Option.objects.get_value("ygg_public_key") or "").strip()
-    if not public_key:
-        private_pem = (Option.objects.get_value("ygg_private_key") or "").strip()
-        if private_pem:
-            try:
-                from cryptography.hazmat.primitives import serialization
-
-                private_key = serialization.load_pem_private_key(
-                    private_pem.encode(), password=None
-                )
-                public_key = private_key.public_key().public_bytes(
-                    serialization.Encoding.PEM,
-                    serialization.PublicFormat.SubjectPublicKeyInfo,
-                ).decode()
-            except (ValueError, TypeError):
-                public_key = ""
+    public_key = _public_key_pem()
     # 关闭注册时移除 register 链接（原版 ConfigController.php:96-98）
     links = {"homepage": f"{request.scheme}://{request.get_host()}/"}
     if (Option.objects.get_value("disable_registration") or "0") not in ("1", "true", "on"):
@@ -129,9 +114,46 @@ def hello(request):
     return resp
 
 
+def _public_key_pem() -> str:
+    """公钥 PEM：优先 ygg_public_key 选项；缺失时从 ygg_private_key 实时派生。"""
+    public_key = (Option.objects.get_value("ygg_public_key") or "").strip()
+    if public_key:
+        return public_key
+    private_pem = (Option.objects.get_value("ygg_private_key") or "").strip()
+    if not private_pem:
+        return ""
+    try:
+        from cryptography.hazmat.primitives import serialization
+
+        private_key = serialization.load_pem_private_key(
+            private_pem.encode(), password=None
+        )
+        return private_key.public_key().public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode()
+    except (ValueError, TypeError):
+        return ""
+
+
 def get_public_keys(request):
-    """minecraftservices/publickeys（原版 routes.php:38）。"""
-    return _json_ok({"profileKeys": []})
+    """minecraftservices/publickeys（对照原版 ConfigController::getPublicKeys）。
+
+    公钥以 DER 的 Base64 返回（去 PEM 头尾与换行），两组键组均填同一公钥。
+    注：authlib-injector 客户端会本地拦截此端点、并不实际请求（PublickeysFilter），
+    此处仅为结构与 PHP 原版保真。
+    """
+    pem = _public_key_pem()
+    keys = []
+    if pem:
+        body = (
+            pem.replace("-----BEGIN PUBLIC KEY-----", "")
+            .replace("-----END PUBLIC KEY-----", "")
+            .replace("\n", "")
+            .strip()
+        )
+        keys = [{"publicKey": body}]
+    return _json_ok({"profilePropertyKeys": keys, "playerCertificateKeys": keys})
 
 
 # ---- authenticate ----
