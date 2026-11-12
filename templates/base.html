@@ -96,19 +96,21 @@
         <div class="fw-semibold">{{ user.nickname }}</div>
         <div class="small text-secondary text-break">{{ user.email }}</div>
       </div>
+      {# 入口链接不加 data-bs-dismiss：BS5 对 <a> 的 dismiss 委托会 preventDefault()，#}
+      {# 真实 href 的导航会被吞（正确做法：JS 隐藏抽屉、不阻断跳转，见 base.js） #}
       <div class="list-group list-group-flush">
         <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
-           href="/user" data-bs-dismiss="offcanvas">
+           href="/user">
           <i class="bi bi-person"></i>用户中心</a>
         <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
-           href="/user/players" data-bs-dismiss="offcanvas">
+           href="/user/players">
           <i class="bi bi-person-badge"></i>我的角色</a>
         <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
-           href="/user/closet" data-bs-dismiss="offcanvas">
+           href="/user/closet">
           <i class="bi bi-collection"></i>我的衣柜</a>
         {% if user.is_admin %}
         <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
-           href="/admin/" data-bs-dismiss="offcanvas">
+           href="/admin/">
           <i class="bi bi-gear"></i>管理面板</a>
         {% endif %}
       </div>

@@ -96,6 +96,27 @@
     }
   });
 
+  // ---- 用户抽屉：入口点击隐藏抽屉但不禁导航 ----
+  // 注意不能用 <a data-bs-dismiss="offcanvas">：BS5 的 dismiss 委托对
+  // <a> 标签一律 preventDefault()，真实 href 的跳转会被吞掉。
+  document.addEventListener("click", function (e) {
+    const link = e.target.closest("#user-drawer a[href], #pm-sidebar a[href]");
+    if (!link) return;
+    const drawer = link.closest(".offcanvas");
+    if (drawer && window.bootstrap && bootstrap.Offcanvas) {
+      bootstrap.Offcanvas.getInstance(drawer)?.hide();
+    }
+  });
+  // 浏览器返回（bfcache 恢复）时抽屉若是开着的，关掉它
+  window.addEventListener("pageshow", function (e) {
+    if (!e.persisted) return;
+    document.querySelectorAll(".offcanvas.show").forEach(function (el) {
+      if (window.bootstrap && bootstrap.Offcanvas) {
+        bootstrap.Offcanvas.getInstance(el)?.hide();
+      }
+    });
+  });
+
   // ---- 图标内联（静态引用 → use）----
   window.bsIcon = function (name) {
     return (

@@ -186,6 +186,20 @@ class TestNavbarDomOrder:
         assert 'data-bs-toggle="offcanvas" data-bs-target="#user-drawer"' in html
         assert "dropdown-menu" not in html
 
+        # 入口链接不得携带 data-bs-dismiss：BS5 对 <a> 的 dismiss 委托
+        # 一律 preventDefault()，真实 href 的导航会被吞（跳转失效事故）
+        import re as _re
+
+        dismissing_anchors = _re.findall(
+            r'<a [^>]*data-bs-dismiss="[^"]*"', html
+        )
+        assert not dismissing_anchors, f"入口链接误用 data-bs-dismiss：{dismissing_anchors}"
+
+        # JS 侧隐藏逻辑存在（导航不被阻断）
+        js = Path("static/js/base.js").read_text(encoding="utf-8")
+        assert 'closest("#user-drawer a[href], #pm-sidebar a[href]")' in js
+        assert "Offcanvas.getInstance(drawer)?.hide()" in js
+
     def test_admin_drawer_entry(self, client, db):
         admin = User.objects.create_user(
             email="a2@x.com", nickname="管理", password="password8",
