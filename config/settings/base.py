@@ -113,6 +113,14 @@ def _databases() -> dict:
 
 DATABASES = _databases()
 
+# mysql.W003（唯一 varchar 字段 max_length > 255）是 MySQL 5.6 时代
+# 767 字节索引前缀限制的保守告警，检查不区分数据库版本：
+# MariaDB 10.2+/MySQL 5.7.7+ 的 InnoDB 索引上限为 3072 字节，
+# utf8mb4 下 512 字符 = 2048 字节，生产库建唯一索引实测正常。
+# yggdrasil.YggdrasilToken.access_token 为纯 ASCII JWT（约 320 字符），
+# 缩短会破坏令牌，故显式豁免该告警。
+SILENCED_SYSTEM_CHECKS = ["mysql.W003"]
+
 # 旧库迁移专用 alias（migrate_from_php 命令运行时覆盖为真实 DSN）
 DATABASES["php_source"] = {
     "ENGINE": "django.db.backends.sqlite3",

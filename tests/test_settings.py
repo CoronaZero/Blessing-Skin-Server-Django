@@ -183,3 +183,10 @@ class TestModeModules:
         assert module.DATABASES["default"]["NAME"] == ":memory:"
         assert module.SECRET_KEY.startswith("test-only-fixed-secret-key")
         assert len(module.SECRET_KEY) >= 32  # PyJWT HMAC 推荐最小长度
+
+
+class TestSystemCheckSilence:
+    def test_mysql_w003_silenced(self, monkeypatch, tmp_path):
+        """唯一 JWT 字段 512 字符在现代 MariaDB 可用，显式豁免保守告警。"""
+        base = load_base(monkeypatch, tmp_path)
+        assert "mysql.W003" in base.SILENCED_SYSTEM_CHECKS
