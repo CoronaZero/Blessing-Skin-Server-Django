@@ -13,9 +13,11 @@
 - P2-20: 材质 hash 像素级 SHA-256（规范 L243-254）
 """
 
+import io
 import json
 
 import pytest
+from PIL import Image
 
 from accounts.models import User
 from players.models import Player
@@ -23,6 +25,14 @@ from players.models import Player
 pytestmark = pytest.mark.django_db
 
 BASE = "/api/yggdrasil"
+
+
+def png_bytes(size, color=(255, 0, 0, 255)) -> bytes:
+    """生成指定尺寸的纯色 PNG。"""
+    img = Image.new("RGBA", size, color)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 @pytest.fixture()
@@ -59,3 +69,48 @@ class TestP2SetupKeySize:
         pem = Option.objects.get_value("ygg_private_key")
         key = serialization.load_pem_private_key(pem.encode(), password=None)
         assert key.key_size == 4096
+
+
+# ---- P2-21: 披风 22x17 遗留比例（规范 L395）----
+
+
+class TestP2CapeLegacy22x17:
+    def test_22x17_padded_to_64x32(self):
+        from textures.validation import validate_texture_image
+
+        result = validate_texture_image(
+            png_bytes((22, 17), color=(0, 255, 0, 255)), "cape"
+        )
+        assert result.valid
+        assert (result.width, result.height) == (64, 32)
+        img = Image.open(io.BytesIO(result.normalized))
+        assert img.size == (64, 32)
+        assert img.getpixel((0, 0)) == (0, 255, 0, 255)  # 原内容保留
+        assert img.getpixel((63, 31)) == (0, 0, 0, 0)  # 补足区透明
+
+    def test_44x34_padded_to_64x64(self):
+        from textures.validation import validate_texture_image
+
+        result = validate_texture_image(png_bytes((44, 34)), "cape")
+        assert result.valid
+        assert (result.width, result.height) == (64, 64)
+
+    def test_mixed_multiplier_rejected(self):
+        """宽 2 倍、高 1 倍（44x17）不是 22x17 的整数倍 → 拒绝。"""
+        from textures.validation import validate_texture_image
+
+        result = validate_texture_image(png_bytes((44, 17)), "cape")
+        assert not result.valid
+
+    def test_ratio2_non_multiple_now_rejected(self):
+        """92x46 虽为精确 2:1，但非 64x32 倍数 → 按规范拒绝。"""
+        from textures.validation import validate_texture_image
+
+        result = validate_texture_image(png_bytes((92, 46)), "cape")
+        assert not result.valid
+
+    def test_standard_64x32_still_valid(self):
+        from textures.validation import validate_texture_image
+
+        result = validate_texture_image(png_bytes((64, 32)), "cape")
+        assert result.valid

@@ -71,22 +71,22 @@ class TestValidation:
         assert not result.valid
 
     def test_cape_valid(self):
-        """cape 需精确 2:1（原版及 yggdrasil-connect 均如此）。
+        """cape 接受 64x32 整数倍（规范 L395；22x17 遗留比例另见 P2 测试）。
 
-        标准 Minecraft cape 46x22（≈ 2.09）同样会被原版拒绝，
-        仅接受 64x32 类精确比例，此处对齐原版行为。
+        标准 Minecraft cape 46x22（≈ 2.09）非上述任一倍数，
+        原版 PHP 同样拒绝，此处对齐原版行为。
         """
         result = validate_texture_image(VALID_CAPE_64_32, "cape")
         assert result.valid
 
     def test_cape_standard_46_22_rejected_like_php(self):
-        """46x22 非精确 2:1，原版 PHP 亦拒绝（行为对齐锚点）。"""
+        """46x22 非 64x32 倍数亦非 22x17 倍数，原版 PHP 亦拒绝（行为对齐锚点）。"""
         result = validate_texture_image(png_bytes((46, 22)), "cape")
         assert not result.valid
         assert "披风" in result.error
 
     def test_cape_invalid_ratio(self):
-        # 46x30 ≈ 1.53，不是 2:1
+        # 46x30 非 64x32 / 22x17 任一倍数
         result = validate_texture_image(png_bytes((46, 30)), "cape")
         assert not result.valid
 

@@ -11,14 +11,15 @@ from .dataclasses_models import ValidationResult
 def validate_texture_image(data: bytes, texture_type: str) -> ValidationResult:
     """校验 + 消毒。
 
-    步骤（对照原版）：
+    步骤（对照原版 + 规范 L391-397）：
     1. PIL 解码（非 PNG / 损坏 → 拒绝）
     2. 宽 % 64 == 0 且 高 % 32 == 0
     3. 比例校验：
        - steve: ratio 2 或 1
        - alex:  ratio 1（2 被拒绝）
-       - cape:  ratio 2
-    4. 重编码消毒（去元数据 / 潜在负载）并计算 sha256
+       - cape:  64x32 整数倍，或 22x17 整数倍（遗留尺寸，
+         须透明补足至 64x32 整数倍——规范 L395）
+    4. 重编码消毒（去元数据 / 潜在负载）并计算 hash
 
     返回 ValidationResult（valid=False 时 error 给出中文原因）。
     """
@@ -51,10 +52,24 @@ def validate_texture_image(data: bytes, texture_type: str) -> ValidationResult:
         if texture_type == "alex" and ratio == 2.0:
             return ValidationResult(valid=False, error="皮肤长宽比不正确")
     elif texture_type == "cape":
-        # 对照 yggdrasil-connect 新版语义：披风仅校验 2:1 比例
-        # （标准 Minecraft cape 为 46x22，本体旧版 64 倍数检查会误拒）
-        ratio = width / height
-        if ratio != 2.0:
+        # 规范 L395：披风为 64x32 整数倍或 22x17 整数倍；
+        # 22x17 遗留比例非标准尺寸，须透明补足至 64x32 整数倍
+        if width % 64 == 0 and height % 32 == 0:
+            pass
+        elif (
+            width % 22 == 0
+            and height % 17 == 0
+            and width // 22 == height // 17
+        ):
+            padded = Image.new(
+                "RGBA",
+                (((width + 63) // 64) * 64, ((height + 31) // 32) * 32),
+                (0, 0, 0, 0),
+            )
+            padded.paste(img, (0, 0))
+            img = padded
+            width, height = img.size
+        else:
             return ValidationResult(valid=False, error="披风长宽比不正确")
     else:
         return ValidationResult(valid=False, error=f"未知的纹理类型：{texture_type}")
