@@ -1,30 +1,30 @@
-{% extends "panel/base.html" %}
+﻿{% extends "panel/base.html" %}
 {% block title %}概览{% endblock %}
 {% block content %}
 <h1 style="margin:0 0 20px;font-size:20px">概览</h1>
 <div class="bs-grid" style="margin-bottom:24px">
-  <div class="bs-card"><div class="bs-card-body">
+  <div class="card"><div class="card-body">
     <div style="font-size:28px;font-weight:700;color:var(--bs-primary)">{{ user_count }}</div>
     <div style="font-size:13px;color:var(--bs-text-secondary)">用户</div>
   </div></div>
-  <div class="bs-card"><div class="bs-card-body">
+  <div class="card"><div class="card-body">
     <div style="font-size:28px;font-weight:700;color:var(--bs-primary)">{{ player_count }}</div>
     <div style="font-size:13px;color:var(--bs-text-secondary)">角色</div>
   </div></div>
-  <div class="bs-card"><div class="bs-card-body">
+  <div class="card"><div class="card-body">
     <div style="font-size:28px;font-weight:700;color:var(--bs-primary)">{{ texture_count }}</div>
     <div style="font-size:13px;color:var(--bs-text-secondary)">纹理</div>
   </div></div>
-  <div class="bs-card"><div class="bs-card-body">
+  <div class="card"><div class="card-body">
     <div style="font-size:28px;font-weight:700;{% if report_pending %}color:var(--bs-danger){% else %}color:var(--bs-primary){% endif %}">{{ report_pending }}</div>
     <div style="font-size:13px;color:var(--bs-text-secondary)">待处理举报</div>
   </div></div>
 </div>
 
-<div class="bs-card">
-  <div class="bs-card-body">
+<div class="card">
+  <div class="card-body">
     <h2 style="font-size:15px;margin:0 0 12px">最近注册</h2>
-    <table class="pm-table">
+    <table class="table table-hover align-middle mb-0">
       <tr><th>UID</th><th>邮箱</th><th>昵称</th><th>积分</th><th>注册时间</th></tr>
       {% for u in recent_users %}
       <tr>
@@ -40,16 +40,16 @@
 </div>
 
 {% if is_super %}
-<div class="bs-card" style="margin-top:16px">
-  <div class="bs-card-body">
+<div class="card" style="margin-top:16px">
+  <div class="card-body">
     <h2 style="font-size:15px;margin:0 0 12px">全站广播</h2>
     <form id="pm-broadcast">
       {% csrf_token %}
       <div class="bs-field"><label>标题</label>
-        <input class="bs-input" name="title" required></div>
+        <input class="form-control" name="title" required></div>
       <div class="bs-field"><label>内容</label>
-        <textarea class="bs-textarea" name="content" rows="3"></textarea></div>
-      <button class="bs-btn bs-btn-primary" type="submit">发送给全体用户</button>
+        <textarea class="form-control" name="content" rows="3"></textarea></div>
+      <button class="btn btn-primary" type="submit">发送给全体用户</button>
     </form>
   </div>
 </div>

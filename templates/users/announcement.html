@@ -1,14 +1,14 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}站点公告 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
   <h1 style="margin:0;font-size:20px">站点公告</h1>
-  <a class="bs-btn bs-btn-secondary" href="/user">← 返回用户中心</a>
+  <a class="btn btn-outline-secondary" href="/user">← 返回用户中心</a>
 </div>
 
-<div class="bs-card">
-  <div class="bs-card-body">
+<div class="card">
+  <div class="card-body">
     {% if announcement %}
     <div class="announcement-body" style="font-size:14px;line-height:1.8">
       {{ announcement|safe }}

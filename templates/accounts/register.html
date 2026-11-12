@@ -1,38 +1,38 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}注册 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
 <div style="max-width:460px;margin:40px auto">
-  <div class="bs-card">
-    <div class="bs-card-body">
-      <h1 class="bs-card-title">注册</h1>
-      <div id="reg-alert" style="display:none" class="bs-alert bs-alert-error"></div>
+  <div class="card">
+    <div class="card-body">
+      <h1 class="card-title">注册</h1>
+      <div id="reg-alert" style="display:none" class="alert alert-danger"></div>
 
       <form id="reg-form">
         {% csrf_token %}
         <div class="bs-field">
           <label for="id-email">邮箱</label>
-          <input class="bs-input" id="id-email" name="email" type="email" required>
+          <input class="form-control" id="id-email" name="email" type="email" required>
         </div>
         <div class="bs-field">
           <label for="id-nickname">昵称</label>
-          <input class="bs-input" id="id-nickname" name="nickname" maxlength="32">
+          <input class="form-control" id="id-nickname" name="nickname" maxlength="32">
         </div>
         <div class="bs-field">
           <label for="id-password">密码（8-32 位）</label>
-          <input class="bs-input" id="id-password" name="password" type="password"
+          <input class="form-control" id="id-password" name="password" type="password"
                  minlength="8" maxlength="32" required>
         </div>
         <div class="bs-field">
           <label for="id-password2">确认密码</label>
-          <input class="bs-input" id="id-password2" name="password_confirmation"
+          <input class="form-control" id="id-password2" name="password_confirmation"
                  type="password" minlength="8" maxlength="32" required>
         </div>
 
         {% if invitation_required %}
         <div class="bs-field">
           <label for="id-invitation">邀请码</label>
-          <input class="bs-input" id="id-invitation" name="invitation_code" required>
+          <input class="form-control" id="id-invitation" name="invitation_code" required>
         </div>
         {% endif %}
 
@@ -45,7 +45,7 @@
         </div>
         {% endif %}
 
-        <button class="bs-btn bs-btn-primary" style="width:100%" type="submit" id="reg-submit">
+        <button class="btn btn-primary" style="width:100%" type="submit" id="reg-submit">
           注册
         </button>
       </form>

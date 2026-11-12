@@ -1,17 +1,17 @@
 ﻿{% extends "panel/base.html" %}
 {% block title %}皮肤库管理{% endblock %}
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
   <h1 style="margin:0;font-size:20px">皮肤库管理</h1>
-  <form method="get" style="display:flex;gap:8px">
-    <input class="bs-input" name="q" value="{{ q }}" placeholder="名称/hash" style="width:240px">
-    <button class="bs-btn bs-btn-secondary" type="submit">搜索</button>
+  <form method="get" class="d-flex gap-2 flex-wrap">
+    <input class="form-control" name="q" value="{{ q }}" placeholder="名称/hash" style="min-width:200px">
+    <button class="btn btn-outline-secondary" type="submit">搜索</button>
   </form>
 </div>
 
-<div class="bs-card">
-  <div class="bs-card-body" style="overflow-x:auto">
-    <table class="pm-table">
+<div class="card">
+  <div class="card-body table-responsive">
+    <table class="table table-hover align-middle mb-0">
       <tr><th>TID</th><th>预览</th><th>名称</th><th>类型</th><th>上传者</th><th>公开</th><th>操作</th></tr>
       {% for t in page_obj %}
       <tr>
@@ -19,18 +19,18 @@
         <td><a href="/skinlib/show?tid={{ t.tid }}" title="打开 3D 预览"><img src="/preview/{{ t.tid }}?height=48&png" style="height:48px"></a></td>
         <td>
           <span data-name="{{ t.tid }}">{{ t.name }}</span>
-          <button class="bs-btn bs-btn-secondary" style="padding:2px 8px;font-size:11px"
+          <button class="btn btn-outline-secondary btn-sm py-0"
                   data-rename="{{ t.tid }}">改名</button>
         </td>
         <td>{{ t.get_type_display }}</td>
         <td>{{ t.uploader.nickname }}</td>
         <td>{% if t.public %}公开{% else %}<span style="color:var(--bs-danger)">私密</span>{% endif %}</td>
         <td style="white-space:nowrap">
-          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-outline-secondary btn-sm"
                   data-action="toggle_public" data-url="/admin/textures/{{ t.tid }}/action">
             {% if t.public %}切换私密{% else %}切换公开{% endif %}
           </button>
-          <button class="bs-btn bs-btn-danger" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-danger" style="padding:3px 10px;font-size:12px"
                   data-action="delete" data-url="/admin/textures/{{ t.tid }}/action"
                   data-confirm="确定删除 {{ t.name }}？角色引用将一并清除。">删除</button>
         </td>

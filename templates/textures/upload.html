@@ -1,24 +1,24 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}上传纹理 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
 <div style="max-width:520px;margin:24px auto">
-  <div class="bs-card">
-    <div class="bs-card-body">
-      <h1 class="bs-card-title">上传纹理</h1>
-      <div id="upload-alert" style="display:none" class="bs-alert"></div>
+  <div class="card">
+    <div class="card-body">
+      <h1 class="card-title">上传纹理</h1>
+      <div id="upload-alert" style="display:none" class="alert"></div>
 
       <form id="upload-form" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="bs-field">
           <label for="f-name">名称</label>
-          <input class="bs-input" id="f-name" name="name" placeholder="给纹理起个名字"
+          <input class="form-control" id="f-name" name="name" placeholder="给纹理起个名字"
                  maxlength="50" required>
         </div>
 
         <div class="bs-field">
           <label for="f-type">类型</label>
-          <select class="bs-select" id="f-type" name="type">
+          <select class="form-select" id="f-type" name="type">
             <option value="steve">皮肤（Steve 模型）</option>
             <option value="alex">皮肤（Alex 模型，1:1）</option>
             <option value="cape">披风</option>
@@ -35,7 +35,7 @@
 
         <div class="bs-field">
           <label for="f-file">PNG 文件</label>
-          <input class="bs-input" id="f-file" name="file" type="file"
+          <input class="form-control" id="f-file" name="file" type="file"
                  accept="image/png" required>
           <p style="font-size:12px;color:var(--bs-text-secondary);margin:6px 0 0">
             皮肤 64×32 / 64×64（或其整数倍），披风 2:1 比例；
@@ -49,7 +49,7 @@
                   style="border-radius:8px;background:var(--bs-primary-light);max-width:100%"></canvas>
         </div>
 
-        <button class="bs-btn bs-btn-primary" style="width:100%" type="submit" id="upload-submit">
+        <button class="btn btn-primary" style="width:100%" type="submit" id="upload-submit">
           上传
         </button>
       </form>

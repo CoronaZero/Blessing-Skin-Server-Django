@@ -1,13 +1,13 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}站内通知 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-  <h1 style="margin:0;font-size:20px">站内通知</h1>
-  <a class="bs-btn bs-btn-secondary" href="/user">← 返回用户中心</a>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h1 class="h4 mb-0">站内通知</h1>
+  <a class="btn btn-outline-secondary btn-sm" href="/user">← 返回用户中心</a>
 </div>
-<div id="notifications-list" class="bs-card">
-  <div class="bs-card-body"></div>
+<div id="notifications-list" class="card">
+  <div class="card-body"></div>
 </div>
 {% endblock %}
 

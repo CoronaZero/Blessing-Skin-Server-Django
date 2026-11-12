@@ -9,34 +9,34 @@
     欢迎使用！填写以下信息完成初始化
   </p>
 
-  <div class="bs-card" style="margin-top:20px">
-    <div class="bs-card-body">
-      <div id="setup-alert" style="display:none" class="bs-alert bs-alert-error"></div>
+  <div class="card" style="margin-top:20px">
+    <div class="card-body">
+      <div id="setup-alert" style="display:none" class="alert alert-danger"></div>
 
       <form id="setup-form">
         {% csrf_token %}
         <div class="bs-field">
           <label>站点名称</label>
-          <input class="bs-input" name="site_name" required placeholder="我的皮肤站">
+          <input class="form-control" name="site_name" required placeholder="我的皮肤站">
         </div>
         <div class="bs-field">
           <label>站点地址（用于邮件链接，如 https://skin.example.com）</label>
-          <input class="bs-input" name="site_url" placeholder="https://skin.example.com">
+          <input class="form-control" name="site_url" placeholder="https://skin.example.com">
         </div>
         <div class="bs-field">
           <label>管理员邮箱</label>
-          <input class="bs-input" name="admin_email" type="email" required>
+          <input class="form-control" name="admin_email" type="email" required>
         </div>
         <div class="bs-field">
           <label>管理员昵称</label>
-          <input class="bs-input" name="admin_nickname" placeholder="Admin">
+          <input class="form-control" name="admin_nickname" placeholder="Admin">
         </div>
         <div class="bs-field">
           <label>管理员密码（至少 8 位）</label>
-          <input class="bs-input" name="admin_password" type="password"
+          <input class="form-control" name="admin_password" type="password"
                  minlength="8" required>
         </div>
-        <button class="bs-btn bs-btn-primary" style="width:100%" type="submit">
+        <button class="btn btn-primary" style="width:100%" type="submit">
           完成安装
         </button>
       </form>

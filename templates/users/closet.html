@@ -1,12 +1,12 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}我的衣柜 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
   <h1 style="margin:0;font-size:20px">我的衣柜</h1>
   <div style="display:flex;gap:10px">
-    <a class="bs-btn bs-btn-secondary" href="/skinlib">去皮肤库逛逛</a>
-    <a class="bs-btn bs-btn-secondary" href="/user">← 返回</a>
+    <a class="btn btn-outline-secondary" href="/skinlib">去皮肤库逛逛</a>
+    <a class="btn btn-outline-secondary" href="/user">← 返回</a>
   </div>
 </div>
 <div id="closet-list" class="bs-grid"></div>

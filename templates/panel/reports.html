@@ -1,22 +1,22 @@
-{% extends "panel/base.html" %}
+﻿{% extends "panel/base.html" %}
 {% block title %}举报处理{% endblock %}
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
   <h1 style="margin:0;font-size:20px">举报处理</h1>
-  <form method="get" style="display:flex;gap:8px">
-    <select class="bs-select" name="status">
+  <form method="get" class="d-flex gap-2 flex-wrap">
+    <select class="form-select" name="status">
       <option value="">全部</option>
       <option value="0" {% if status == '0' %}selected{% endif %}>待处理</option>
       <option value="1" {% if status == '1' %}selected{% endif %}>已处理</option>
       <option value="2" {% if status == '2' %}selected{% endif %}>已驳回</option>
     </select>
-    <button class="bs-btn bs-btn-secondary" type="submit">筛选</button>
+    <button class="btn btn-outline-secondary" type="submit">筛选</button>
   </form>
 </div>
 
-<div class="bs-card">
-  <div class="bs-card-body" style="overflow-x:auto">
-    <table class="pm-table">
+<div class="card">
+  <div class="card-body table-responsive">
+    <table class="table table-hover align-middle mb-0">
       <tr><th>ID</th><th>纹理</th><th>被举报人</th><th>举报人</th><th>理由</th><th>状态</th><th>操作</th></tr>
       {% for r in page_obj %}
       <tr>
@@ -31,9 +31,9 @@
         </td>
         <td style="white-space:nowrap">
           {% if r.status == 0 %}
-          <button class="bs-btn bs-btn-primary" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-primary btn-sm"
                   data-action="resolve" data-url="/admin/reports/{{ r.id }}/action">处理</button>
-          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-outline-secondary btn-sm"
                   data-action="reject" data-url="/admin/reports/{{ r.id }}/action">驳回</button>
           {% endif %}
         </td>

@@ -4,12 +4,12 @@
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
   <h1 style="margin:0;font-size:20px">资料设置</h1>
-  <a class="bs-btn bs-btn-secondary" href="/user">← 返回用户中心</a>
+  <a class="btn btn-outline-secondary" href="/user">← 返回用户中心</a>
 </div>
 
-<div class="bs-card" id="profile">
-  <div class="bs-card-body">
-    <h1 class="bs-card-title">账号信息</h1>
+<div class="card" id="profile">
+  <div class="card-body">
+    <h1 class="card-title">账号信息</h1>
     <p style="font-size:14px;color:var(--bs-text-secondary)">
       邮箱：{{ user.email }} · 注册时间：{{ user.register_at|date:"Y-m-d" }} ·
       积分：<span id="uc-score">{{ user.score }}</span>
@@ -18,24 +18,24 @@
     <h3 style="font-size:14px;margin:20px 0 8px">修改昵称</h3>
     <form id="nick-form" style="display:flex;gap:8px;max-width:380px">
       {% csrf_token %}
-      <input class="bs-input" name="new_nickname" placeholder="新昵称" value="{{ user.nickname }}" required>
-      <button class="bs-btn bs-btn-secondary" type="submit">保存</button>
+      <input class="form-control" name="new_nickname" placeholder="新昵称" value="{{ user.nickname }}" required>
+      <button class="btn btn-outline-secondary" type="submit">保存</button>
     </form>
 
     <h3 style="font-size:14px;margin:24px 0 8px">修改密码</h3>
     <form id="pass-form" style="display:grid;gap:8px;max-width:380px">
       {% csrf_token %}
-      <input class="bs-input" name="current_password" type="password" placeholder="当前密码" required>
-      <input class="bs-input" name="new_password" type="password" placeholder="新密码(8-32位)" required>
-      <button class="bs-btn bs-btn-secondary" type="submit" style="justify-self:start">修改密码</button>
+      <input class="form-control" name="current_password" type="password" placeholder="当前密码" required>
+      <input class="form-control" name="new_password" type="password" placeholder="新密码(8-32位)" required>
+      <button class="btn btn-outline-secondary" type="submit" style="justify-self:start">修改密码</button>
     </form>
 
     {% if not user.is_admin %}
     <h3 style="font-size:14px;margin:24px 0 8px;color:var(--bs-danger)">注销账号</h3>
     <form id="delete-form" style="display:grid;gap:8px;max-width:380px">
       {% csrf_token %}
-      <input class="bs-input" name="password" type="password" placeholder="输入当前密码确认注销" required>
-      <button class="bs-btn bs-btn-danger" type="submit"
+      <input class="form-control" name="password" type="password" placeholder="输入当前密码确认注销" required>
+      <button class="btn btn-danger" type="submit"
               style="justify-self:start">永久注销我的账号</button>
     </form>
     {% endif %}

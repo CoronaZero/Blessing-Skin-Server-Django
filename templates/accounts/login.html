@@ -1,28 +1,28 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}登录 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
 <div style="max-width:420px;margin:40px auto">
-  <div class="bs-card">
-    <div class="bs-card-body">
-      <h1 class="bs-card-title">登录</h1>
+  <div class="card">
+    <div class="card-body">
+      <h1 class="card-title">登录</h1>
       <p style="margin:0 0 20px;color:var(--bs-text-secondary);font-size:13px">
         使用邮箱或角色名登录
       </p>
 
-      <div id="login-alert" style="display:none" class="bs-alert bs-alert-error"></div>
+      <div id="login-alert" style="display:none" class="alert alert-danger"></div>
 
       <form id="login-form" method="post" action="/auth/login">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ next_url|default:'' }}">
         <div class="bs-field">
           <label for="id-identification">邮箱 / 角色名</label>
-          <input class="bs-input" id="id-identification" name="identification"
+          <input class="form-control" id="id-identification" name="identification"
                  autocomplete="username" required>
         </div>
         <div class="bs-field">
           <label for="id-password">密码</label>
-          <input class="bs-input" id="id-password" name="password" type="password"
+          <input class="form-control" id="id-password" name="password" type="password"
                  autocomplete="current-password" required>
         </div>
 
@@ -37,7 +37,7 @@
         {% endif %}
         <input type="hidden" name="captcha" id="captcha-token">
 
-        <button class="bs-btn bs-btn-primary" style="width:100%" type="submit" id="login-submit">
+        <button class="btn btn-primary" style="width:100%" type="submit" id="login-submit">
           登录
         </button>
       </form>

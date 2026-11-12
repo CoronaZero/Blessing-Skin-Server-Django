@@ -1,17 +1,17 @@
 ﻿{% extends "panel/base.html" %}
 {% block title %}用户管理{% endblock %}
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
   <h1 style="margin:0;font-size:20px">用户管理</h1>
-  <form method="get" style="display:flex;gap:8px">
-    <input class="bs-input" name="q" value="{{ q }}" placeholder="搜索邮箱/昵称" style="width:240px">
-    <button class="bs-btn bs-btn-secondary" type="submit">搜索</button>
+  <form method="get" class="d-flex gap-2 flex-wrap">
+    <input class="form-control" name="q" value="{{ q }}" placeholder="搜索邮箱/昵称" style="min-width:200px">
+    <button class="btn btn-outline-secondary" type="submit">搜索</button>
   </form>
 </div>
 
-<div class="bs-card">
-  <div class="bs-card-body" style="overflow-x:auto">
-    <table class="pm-table">
+<div class="card">
+  <div class="card-body table-responsive">
+    <table class="table table-hover align-middle mb-0">
       <tr><th>UID</th><th>邮箱</th><th>昵称</th><th>积分</th><th>权限</th><th>操作</th></tr>
       {% for u in page_obj %}
       <tr>
@@ -21,7 +21,7 @@
         <td>
           <span data-score>{{ u.score }}</span>
           {% if is_super %}
-          <button class="bs-btn bs-btn-secondary" style="padding:2px 8px;font-size:11px"
+          <button class="btn btn-outline-secondary btn-sm py-0"
                   data-toggle="score" data-target="{{ u.uid }}">±</button>
           {% endif %}
         </td>
@@ -33,21 +33,21 @@
         </td>
         <td style="white-space:nowrap">
           {% if u.permission == -1 %}
-          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-outline-secondary btn-sm"
                   data-action="unban" data-url="/admin/users/{{ u.uid }}/action">解封</button>
           {% elif u.uid != request.user.uid %}
-          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-outline-secondary btn-sm"
                   data-action="ban" data-url="/admin/users/{{ u.uid }}/action"
                   data-confirm="确定封禁 {{ u.email }}？">封禁</button>
           {% endif %}
-          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-outline-secondary btn-sm"
                   data-reset-pwd="{{ u.uid }}">重置密码</button>
           {% if u.verified %}
-          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-outline-secondary btn-sm"
                   data-action="unverify" data-url="/admin/users/{{ u.uid }}/action"
                   data-confirm="确认取消 {{ u.email }} 的邮箱验证？该用户将被限制功能。">取消验证</button>
           {% else %}
-          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-outline-secondary btn-sm"
                   data-action="verify" data-url="/admin/users/{{ u.uid }}/action"
                   data-confirm="确认将 {{ u.email }} 标记为已验证？">通过验证</button>
           {% endif %}

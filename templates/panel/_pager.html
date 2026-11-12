@@ -1,13 +1,13 @@
-{% if page_obj.has_other_pages %}
+﻿{% if page_obj.has_other_pages %}
 <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;font-size:13px">
   {% if page_obj.has_previous %}
-  <a class="bs-btn bs-btn-secondary" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if action %}&action={{ action }}{% endif %}">上一页</a>
+  <a class="btn btn-outline-secondary" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if action %}&action={{ action }}{% endif %}">上一页</a>
   {% endif %}
   <span style="align-self:center;color:var(--bs-text-secondary)">
     {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
   </span>
   {% if page_obj.has_next %}
-  <a class="bs-btn bs-btn-secondary" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if action %}&action={{ action }}{% endif %}">下一页</a>
+  <a class="btn btn-outline-secondary" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if action %}&action={{ action }}{% endif %}">下一页</a>
   {% endif %}
 </div>
 {% endif %}

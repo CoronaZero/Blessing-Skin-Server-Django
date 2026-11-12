@@ -1,17 +1,17 @@
-{% extends "panel/base.html" %}
+﻿{% extends "panel/base.html" %}
 {% block title %}角色管理{% endblock %}
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
   <h1 style="margin:0;font-size:20px">角色管理</h1>
-  <form method="get" style="display:flex;gap:8px">
-    <input class="bs-input" name="q" value="{{ q }}" placeholder="角色名/用户邮箱/昵称" style="width:280px">
-    <button class="bs-btn bs-btn-secondary" type="submit">搜索</button>
+  <form method="get" class="d-flex gap-2 flex-wrap">
+    <input class="form-control" name="q" value="{{ q }}" placeholder="角色名/用户邮箱/昵称" style="min-width:200px">
+    <button class="btn btn-outline-secondary" type="submit">搜索</button>
   </form>
 </div>
 
-<div class="bs-card">
-  <div class="bs-card-body" style="overflow-x:auto">
-    <table class="pm-table">
+<div class="card">
+  <div class="card-body table-responsive">
+    <table class="table table-hover align-middle mb-0">
       <tr><th>PID</th><th>角色名</th><th>UUID</th><th>所属用户</th><th>皮肤</th><th>披风</th><th>操作</th></tr>
       {% for p in page_obj %}
       <tr>
@@ -31,11 +31,11 @@
         </td>
         <td style="white-space:nowrap">
           {% if not p.uid.is_admin %}
-          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-outline-secondary btn-sm"
                   data-set-skin="{{ p.pid }}">改皮肤</button>
-          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-outline-secondary btn-sm"
                   data-set-cape="{{ p.pid }}">改披风</button>
-          <button class="bs-btn bs-btn-danger" style="padding:3px 10px;font-size:12px"
+          <button class="btn btn-danger" style="padding:3px 10px;font-size:12px"
                   data-action="delete" data-url="/admin/players/{{ p.pid }}/delete"
                   data-confirm="确定删除角色 {{ p.name }}（属于 {{ p.uid.email }}）？该操作不可恢复。">删除</button>
           {% else %}

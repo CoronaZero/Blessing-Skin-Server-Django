@@ -1,12 +1,12 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}重置密码 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
 <div style="max-width:420px;margin:40px auto">
-  <div class="bs-card">
-    <div class="bs-card-body">
-      <h1 class="bs-card-title">重置密码</h1>
-      <div id="reset-alert" style="display:none" class="bs-alert bs-alert-error"></div>
+  <div class="card">
+    <div class="card-body">
+      <h1 class="card-title">重置密码</h1>
+      <div id="reset-alert" style="display:none" class="alert alert-danger"></div>
 
       <form id="reset-form" data-uid="{{ uid }}" data-token="{{ token }}">
         {% csrf_token %}
@@ -14,15 +14,15 @@
         <input type="hidden" name="token" value="{{ token }}">
         <div class="bs-field">
           <label for="id-password">新密码（8-32 位）</label>
-          <input class="bs-input" id="id-password" name="password" type="password"
+          <input class="form-control" id="id-password" name="password" type="password"
                  minlength="8" maxlength="32" required>
         </div>
         <div class="bs-field">
           <label for="id-password2">确认新密码</label>
-          <input class="bs-input" id="id-password2" name="password_confirmation"
+          <input class="form-control" id="id-password2" name="password_confirmation"
                  type="password" minlength="8" maxlength="32" required>
         </div>
-        <button class="bs-btn bs-btn-primary" style="width:100%" type="submit">
+        <button class="btn btn-primary" style="width:100%" type="submit">
           重置密码
         </button>
       </form>
@@ -48,8 +48,8 @@
     const payload = await window.bsPost("/auth/reset?" +
       "uid=" + encodeURIComponent(fd.get("uid")) +
       "&token=" + encodeURIComponent(fd.get("token")), fd);
-    alertBox.className = "bs-alert " +
-      (payload.code === 0 ? "bs-alert-success" : "bs-alert-error");
+    alertBox.className = "alert " +
+      (payload.code === 0 ? "alert-success" : "alert-error");
     alertBox.textContent = payload.message;
     alertBox.style.display = "block";
     if (payload.code === 0) {

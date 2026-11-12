@@ -1,19 +1,19 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}我的角色 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
   <h1 style="margin:0;font-size:20px">我的角色</h1>
-  <a class="bs-btn bs-btn-secondary" href="/user">← 返回用户中心</a>
+  <a class="btn btn-outline-secondary" href="/user">← 返回用户中心</a>
 </div>
 
-<div class="bs-card" style="margin-bottom:18px">
-  <div class="bs-card-body">
+<div class="card" style="margin-bottom:18px">
+  <div class="card-body">
     <h2 style="font-size:15px;margin:0 0 12px">添加角色</h2>
     <form id="add-player-form" style="display:flex;gap:8px;max-width:380px">
       {% csrf_token %}
-      <input class="bs-input" name="name" placeholder="角色名" required>
-      <button class="bs-btn bs-btn-primary" type="submit">添加</button>
+      <input class="form-control" name="name" placeholder="角色名" required>
+      <button class="btn btn-primary" type="submit">添加</button>
     </form>
   </div>
 </div>

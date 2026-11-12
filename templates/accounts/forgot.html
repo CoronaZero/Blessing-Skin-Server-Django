@@ -1,18 +1,18 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}找回密码 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
 <div style="max-width:420px;margin:40px auto">
-  <div class="bs-card">
-    <div class="bs-card-body">
-      <h1 class="bs-card-title">找回密码</h1>
-      <div id="forgot-alert" style="display:none" class="bs-alert"></div>
+  <div class="card">
+    <div class="card-body">
+      <h1 class="card-title">找回密码</h1>
+      <div id="forgot-alert" style="display:none" class="alert"></div>
 
       <form id="forgot-form">
         {% csrf_token %}
         <div class="bs-field">
           <label for="id-email">注册邮箱</label>
-          <input class="bs-input" id="id-email" name="email" type="email" required>
+          <input class="form-control" id="id-email" name="email" type="email" required>
         </div>
 
         {% if captcha.provider == "turnstile" %}
@@ -24,7 +24,7 @@
         </div>
         {% endif %}
 
-        <button class="bs-btn bs-btn-primary" style="width:100%" type="submit">
+        <button class="btn btn-primary" style="width:100%" type="submit">
           发送重置邮件
         </button>
       </form>
@@ -46,7 +46,7 @@
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
     const payload = await window.bsPost("/auth/forgot", new FormData(form));
-    alertBox.className = "bs-alert " + (payload.code === 0 ? "bs-alert-success" : "bs-alert-error");
+    alertBox.className = "alert " + (payload.code === 0 ? "alert-success" : "alert-error");
     alertBox.textContent = payload.message;
     alertBox.style.display = "block";
     // Turnstile token 一次性：失败后重置 widget

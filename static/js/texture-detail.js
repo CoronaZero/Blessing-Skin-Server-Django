@@ -20,8 +20,8 @@
     const setState = function (inCloset, itemId) {
       closetBtn.dataset.itemId = inCloset ? String(itemId) : "";
       closetBtn.textContent = inCloset ? "移出衣柜" : "加入衣柜";
-      closetBtn.classList.toggle("bs-btn-secondary", inCloset);
-      closetBtn.classList.toggle("bs-btn-primary", !inCloset);
+      closetBtn.classList.toggle("btn-outline-secondary", inCloset);
+      closetBtn.classList.toggle("btn-primary", !inCloset);
       closetBtn.disabled = false;
     };
 

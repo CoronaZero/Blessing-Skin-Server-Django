@@ -1,78 +1,76 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}用户中心 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
 {% if not user.verified %}
-<div class="bs-alert bs-alert-error" style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px">
+<div class="alert alert-danger d-flex justify-content-between align-items-center gap-3 flex-wrap">
   <span><b>你的邮箱尚未验证</b> —— 验证前无法使用完整功能，请到收件箱查收验证邮件（含垃圾箱）。</span>
-  <button class="bs-btn bs-btn-primary" id="resend-vf-btn" style="white-space:nowrap">重新发送验证邮件</button>
+  <button class="btn btn-primary btn-sm text-nowrap" id="resend-vf-btn">重新发送验证邮件</button>
 </div>
 {% endif %}
-<div style="display:grid;grid-template-columns:260px 1fr;gap:20px">
+<div class="row g-4">
 
-  <aside>
-    <div class="bs-card">
-      <div class="bs-card-body" style="text-align:center">
-        <img id="uc-avatar" alt="头像"
-             src="{% if user.players.first %}/avatar/128/{{ user.players.first.name }}.png{% endif %}"
-             style="width:96px;height:96px;border-radius:12px">
-        <h2 id="uc-nickname" style="margin:12px 0 4px;font-size:16px">{{ user.nickname }}</h2>
-        <p id="uc-email" style="margin:0;font-size:12px;color:var(--bs-text-secondary)">{{ user.email }}</p>
-        <p id="uc-score" style="margin:8px 0 0;font-size:13px">积分：{{ user.score }}</p>
+  <aside class="col-12 col-md-4 col-lg-3">
+    <div class="card">
+      <div class="card-body text-center">
+        <img id="uc-avatar" alt="头像" class="img-fluid rounded-3"
+             style="width:96px;height:96px;object-fit:cover"
+             src="{% if user.players.first %}/avatar/128/{{ user.players.first.name }}.png{% endif %}">
+        <h2 id="uc-nickname" class="h6 mt-3 mb-1">{{ user.nickname }}</h2>
+        <p id="uc-email" class="small text-secondary mb-2">{{ user.email }}</p>
+        <p id="uc-score" class="small mb-0">
+          <i class="bi bi-coin me-1" style="color:var(--bs-primary)"></i>积分：{{ user.score }}
+        </p>
       </div>
     </div>
-    <div class="bs-card" style="margin-top:16px">
-      <div class="bs-card-body" style="padding:8px">
-        <ul style="list-style:none;margin:0;padding:0;font-size:14px">
-          <li><a href="/user/players" class="uc-nav" style="display:block;padding:9px 12px;border-radius:6px">我的角色</a></li>
-          <li><a href="/user/closet" class="uc-nav" style="display:block;padding:9px 12px;border-radius:6px">我的衣柜</a></li>
-          <li><a href="/user/notifications" class="uc-nav" style="display:block;padding:9px 12px;border-radius:6px">站内通知</a></li>
-          <li><a href="/user/profile" class="uc-nav" style="display:block;padding:9px 12px;border-radius:6px">资料设置</a></li>
-        </ul>
+    <div class="card mt-3">
+      <div class="card-body p-2 side-nav">
+        <a class="nav-link" href="/user/players"><i class="bi bi-person-badge me-1"></i>我的角色</a>
+        <a class="nav-link" href="/user/closet"><i class="bi bi-collection me-1"></i>我的衣柜</a>
+        <a class="nav-link" href="/user/notifications"><i class="bi bi-bell me-1"></i>站内通知</a>
+        <a class="nav-link" href="/user/profile"><i class="bi bi-gear me-1"></i>资料设置</a>
       </div>
     </div>
-    <button class="bs-btn bs-btn-primary" id="sign-btn"
-            style="width:100%;margin-top:16px{% if not can_sign %};background:var(--bs-text-secondary);cursor:not-allowed{% endif %}"
+    <button class="btn btn-primary w-100 mt-3" id="sign-btn"
             {% if not can_sign %}disabled{% endif %}>
       {% if can_sign %}每日签到{% else %}已签到 · {{ next_sign_time }} 后可再签{% endif %}
     </button>
   </aside>
 
-  <section>
+  <section class="col-12 col-md-8 col-lg-9">
     {% if announcement %}
-    <div class="bs-card" style="margin-bottom:16px">
-      <div class="bs-card-body">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <h1 class="bs-card-title" style="margin:0;font-size:15px">站点公告</h1>
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <h1 class="card-title h6 mb-0">站点公告</h1>
           {% if has_more %}
-          <a href="/user/announcement" style="font-size:13px">查看全部</a>
+          <a href="/user/announcement" class="small">查看全部</a>
           {% endif %}
         </div>
         <div style="font-size:14px;line-height:1.8;margin-top:8px">
           {{ announcement|safe }}
         </div>
         {% if has_more %}
-        <a href="/user/announcement" class="bs-btn bs-btn-secondary"
-           style="margin-top:12px;padding:6px 18px;font-size:13px">阅读全文</a>
+        <a href="/user/announcement" class="btn btn-outline-secondary btn-sm mt-2">阅读全文</a>
         {% endif %}
       </div>
     </div>
     {% endif %}
 
-    <div class="bs-card">
-      <div class="bs-card-body">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <h1 class="bs-card-title" style="margin:0;font-size:16px">最近通知</h1>
-          <a href="/user/notifications" style="font-size:13px">查看全部</a>
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <h1 class="card-title h6 mb-0">最近通知</h1>
+          <a href="/user/notifications" class="small">查看全部</a>
         </div>
-        <div id="dashboard-notifications" style="margin-top:12px">
+        <div id="dashboard-notifications" class="mt-2">
           {% for n in recent_notifications %}
-          <div style="border-bottom:1px solid var(--bs-border);padding:10px 0;{% if n.read_at %}opacity:0.6{% endif %}">
+          <div class="border-bottom py-2 {% if n.read_at %}opacity-50{% endif %}">
             <b style="font-size:14px">{{ n.title }}</b>
-            <p style="margin:4px 0 0;font-size:13px;color:var(--bs-text-secondary)">{{ n.content|truncatechars:80 }}</p>
+            <p class="small text-secondary mb-0">{{ n.content|truncatechars:80 }}</p>
           </div>
           {% empty %}
-          <p style="color:var(--bs-text-secondary);font-size:13px">暂无通知</p>
+          <p class="small text-secondary mb-0">暂无通知</p>
           {% endfor %}
         </div>
       </div>
