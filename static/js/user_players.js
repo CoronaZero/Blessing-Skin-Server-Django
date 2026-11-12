@@ -11,8 +11,22 @@
 
   async function load() {
     const list = document.getElementById("players-list");
-    const payload = await window.bsFetch("/user/players");
-    if (payload.code !== 0) return;
+    if (!list) return;
+    let payload;
+    try {
+      payload = await window.bsFetch("/user/players");
+    } catch (err) {
+      list.innerHTML =
+        '<p style="grid-column:1/-1;text-align:center;color:var(--bs-danger);padding:24px 0">' +
+        "角色加载失败：" + err + "<br>请刷新页面重试（Ctrl+F5 清缓存）</p>";
+      return;
+    }
+    if (payload.code !== 0) {
+      list.innerHTML =
+        '<p style="grid-column:1/-1;text-align:center;color:var(--bs-danger);padding:24px 0">' +
+        (payload.message || "角色加载失败") + "</p>";
+      return;
+    }
     list.innerHTML = "";
     payload.data.forEach(function (p) {
       const el = document.createElement("div");
