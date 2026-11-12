@@ -319,7 +319,9 @@ def refresh(request):
     )
     row.access_token = new_access
     row.created_at = _tz.now()
-    row.save(update_fields=["access_token", "created_at"])
+    # selectedProfile 选角可能更新了 profile_id（P0-1：漏存会导致
+    # 多角色用户 refresh 选角后 join 因 DB 仍空绑定而 403）
+    row.save(update_fields=["access_token", "created_at", "profile_id"])
 
     response_payload = {
         "accessToken": new_access,
