@@ -29,7 +29,7 @@
         {% if user.is_authenticated %}
         <div style="position:relative" id="nav-user-menu">
           <img id="nav-avatar" alt="头像"
-               src="{% if bs_user_json and user.players.first %}/avatar/64/{{ user.players.first.name }}.png{% else %}{% static 'icons/user.svg' %}{% endif %}"
+               src="{% if user.players.first %}/avatar/64/{{ user.players.first.name }}.png{% else %}{% static 'icons/user.svg' %}{% endif %}"
                style="width:32px;height:32px;border-radius:6px;cursor:pointer;background:var(--bs-primary-light)">
           <div id="nav-dropdown" style="display:none;position:absolute;right:0;top:40px;background:var(--bs-surface);border:1px solid var(--bs-border);border-radius:8px;box-shadow:var(--bs-shadow);min-width:150px;padding:6px;z-index:50">
             <div style="font-size:12px;color:var(--bs-text-secondary);padding:6px 10px">{{ user.nickname }}<br>{{ user.email|truncatechars:24 }}</div>
