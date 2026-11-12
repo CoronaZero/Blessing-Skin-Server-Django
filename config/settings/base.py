@@ -190,6 +190,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # 全站 ALI 发现头（对照原版 AddApiIndicationHeader；放在响应链尾部）
+    "yggdrasil.middleware.ApiIndicationMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"

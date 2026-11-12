@@ -112,10 +112,8 @@ def hello(request):
         "skinDomains": skin_domains,
         "signaturePublickey": public_key,
     })
-    # ALI（规范 L822-833）：ygg_enable_ali 开关（默认开）
-    enable_ali = (Option.objects.get_value("ygg_enable_ali") or "1") in ("1", "true", "on")
-    if enable_ali:
-        resp["X-Authlib-Injector-API-Location"] = "/api/yggdrasil/"
+    # ALI 头由全站中间件统一附加（ApiIndicationMiddleware，对照原版
+    # AddApiIndicationHeader）；此处不再单独设置，避免双来源分叉。
     return resp
 
 

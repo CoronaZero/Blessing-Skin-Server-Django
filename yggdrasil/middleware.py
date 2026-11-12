@@ -122,6 +122,14 @@ def _client_ip(request) -> str:
     return request.META.get("REMOTE_ADDR", "")
 
 
+# 公开别名（join/hasJoined 等视图复用）
+client_ip = _client_ip
+
+
+# 公开别名（join/hasJoined 等视图复用）
+client_ip = _client_ip
+
+
 def get_bearer_user(request):
     """Bearer accessToken → (user, token_row)；无效返回 (None, None)。
 
@@ -148,3 +156,35 @@ def get_bearer_user(request):
     if user is None or user.permission == User.Permission.BANNED:
         return None, None
     return user, token_row
+
+
+class ApiIndicationMiddleware:
+    """全站附加 ALI 头（对照原版 AddApiIndicationHeader.php:13）。
+
+    规范 L823-833：启动器仅凭域名即可发现 API 地址，ALI 须出现在
+    用户输入地址的响应上（通常是首页）——只挂在 API 根端点时，
+    裸域名请求会拿到首页 HTML 而解析失败（客户端直接启动失败）。
+    受 ygg_enable_ali 选项控制（默认开启）。
+    """
+
+    ALI_PATH = "/api/yggdrasil/"
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        header = "X-Authlib-Injector-API-Location"
+        if header in response.headers:
+            return response
+        try:
+            from options.models import Option
+
+            enabled = (Option.objects.get_value("ygg_enable_ali") or "1") in (
+                "1", "true", "on",
+            )
+        except Exception:  # noqa: BLE001 - options 表未就绪时（安装前）跳过
+            enabled = False
+        if enabled:
+            response[header] = self.ALI_PATH
+        return response
