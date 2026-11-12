@@ -1,4 +1,4 @@
-{% extends "panel/base.html" %}
+﻿{% extends "panel/base.html" %}
 {% block title %}皮肤库管理{% endblock %}
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -16,7 +16,7 @@
       {% for t in page_obj %}
       <tr>
         <td>{{ t.tid }}</td>
-        <td><img src="/preview/{{ t.tid }}?height=48&png" style="height:48px"></td>
+        <td><a href="/skinlib/show?tid={{ t.tid }}" title="打开 3D 预览"><img src="/preview/{{ t.tid }}?height=48&png" style="height:48px"></a></td>
         <td>
           <span data-name="{{ t.tid }}">{{ t.name }}</span>
           <button class="bs-btn bs-btn-secondary" style="padding:2px 8px;font-size:11px"
@@ -28,7 +28,7 @@
         <td style="white-space:nowrap">
           <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
                   data-action="toggle_public" data-url="/admin/textures/{{ t.tid }}/action">
-            切换公开
+            {% if t.public %}切换私密{% else %}切换公开{% endif %}
           </button>
           <button class="bs-btn bs-btn-danger" style="padding:3px 10px;font-size:12px"
                   data-action="delete" data-url="/admin/textures/{{ t.tid }}/action"
