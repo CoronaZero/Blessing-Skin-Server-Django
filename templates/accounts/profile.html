@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}资料设置 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
@@ -30,6 +30,7 @@
       <button class="bs-btn bs-btn-secondary" type="submit" style="justify-self:start">修改密码</button>
     </form>
 
+    {% if not user.is_admin %}
     <h3 style="font-size:14px;margin:24px 0 8px;color:var(--bs-danger)">注销账号</h3>
     <form id="delete-form" style="display:grid;gap:8px;max-width:380px">
       {% csrf_token %}
@@ -37,6 +38,7 @@
       <button class="bs-btn bs-btn-danger" type="submit"
               style="justify-self:start">永久注销我的账号</button>
     </form>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
