@@ -225,3 +225,23 @@ class TestTextureUrlBase:
         assert value["textures"]["SKIN"]["url"] == (
             "http://testserver/textures/" + "8" * 64
         )
+
+
+# ---- P2-9: refresh 选角不属于该用户 → 403（规范错误码表）----
+
+
+class TestRefreshForeignProfile:
+    def test_foreign_profile_rejected_403(self, client, multi_profile_user):
+        tokens = auth(client)
+        foreign = User.objects.create_user(
+            email="f@x.com", nickname="f", password="password8", verified=True
+        )
+        foreigner = Player.objects.create(uid=foreign, name="Foreign")
+
+        resp = api(client, "post", "/authserver/refresh", {
+            "accessToken": tokens["accessToken"],
+            "clientToken": tokens["clientToken"],
+            "selectedProfile": {"id": foreigner.uuid, "name": "Foreign"},
+        })
+        assert resp.status_code == 403
+        assert resp.json()["error"] == "ForbiddenOperationException"

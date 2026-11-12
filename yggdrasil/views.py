@@ -352,8 +352,9 @@ def refresh(request):
             )
         target = next((p for p in profiles if p["id"] == selected.get("id")), None)
         if target is None:
+            # 规范错误码表：向令牌绑定不属于其用户的角色 → 403（非标准）
             return error_response(
-                400, "IllegalArgumentException", "角色不属于该用户"
+                403, "ForbiddenOperationException", "角色不属于该用户"
             )
         row.profile_id = target["id"]
 
