@@ -20,6 +20,7 @@ from players.models import Player
 from .middleware import (
     check_body_size,
     check_content_type,
+    client_ip,
     error_response,
     get_bearer_user,
     throttle_by_ip,
@@ -379,9 +380,12 @@ def join(request):
     if player.uid.permission == User.Permission.BANNED:
         return error_response(403, "ForbiddenOperationException", "账号已被封禁")
 
-    # 会话登记（cache，120s，对照原版）
+    # 会话登记（cache，120s，对照原版）：记录角色 UUID 与客户端 IP，
+    # hasJoined 带 ip 参数时须与 join 时一致（原版 SessionController.php:32/78）
     session_key = f"ygg_server:{server_id}:{player.name}"
-    cache.set(session_key, player.uuid, 120)
+    cache.set(
+        session_key, {"uuid": player.uuid, "ip": client_ip(request)}, 120
+    )
 
     _log(request, "join", user=player.uid, player=player, params={"serverId": server_id})
     return HttpResponse(status=204)
@@ -393,7 +397,17 @@ def has_joined(request):
     server_id = request.GET.get("serverId") or ""
 
     session_key = f"ygg_server:{server_id}:{username}"
-    player_uuid = cache.get(session_key)
+    cached = cache.get(session_key)
+    if not cached:
+        return HttpResponse(status=204)
+    # 会话值：新格式 {uuid, ip}；兼容滚动部署期间的旧格式纯 uuid 字符串
+    if isinstance(cached, dict):
+        if request.GET.get("ip") and request.GET.get("ip") != cached.get("ip"):
+            # 规范 L641 / 原版 SessionController.php:117：IP 不符视为未加入
+            return HttpResponse(status=204)
+        player_uuid = cached.get("uuid")
+    else:
+        player_uuid = cached
     if not player_uuid:
         return HttpResponse(status=204)
 

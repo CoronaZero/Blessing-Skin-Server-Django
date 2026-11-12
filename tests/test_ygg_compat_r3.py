@@ -60,3 +60,65 @@ class TestAliSiteWide:
         Option.objects.set("ygg_enable_ali", "0")
         assert ALI_HEADER not in client.get("/").headers
         assert ALI_HEADER not in client.get(BASE + "/").headers
+
+
+# ---- join/hasJoined 客户端 IP 校验 ----
+
+
+def join_server(client, tokens, server_id="srv", ip="1.2.3.4"):
+    return client.post(
+        BASE + "/sessionserver/session/minecraft/join",
+        data=json.dumps({
+            "accessToken": tokens["accessToken"],
+            "selectedProfile": tokens["selectedProfile"]["id"],
+            "serverId": server_id,
+        }),
+        content_type="application/json",
+        REMOTE_ADDR=ip,
+    )
+
+
+def has_joined(client, server_id="srv", ip=None):
+    url = (
+        f"{BASE}/sessionserver/session/minecraft/hasJoined"
+        f"?username=Steve&serverId={server_id}"
+    )
+    if ip is not None:
+        url += f"&ip={ip}"
+    return client.get(url)
+
+
+class TestJoinIpCheck:
+    def test_ip_match_passes(self, client, seeded):
+        tokens = authenticate(client)
+        assert join_server(client, tokens, ip="1.2.3.4").status_code == 204
+        assert has_joined(client, ip="1.2.3.4").status_code == 200
+
+    def test_ip_mismatch_rejected(self, client, seeded):
+        tokens = authenticate(client)
+        assert join_server(client, tokens, ip="1.2.3.4").status_code == 204
+        assert has_joined(client, ip="5.6.7.8").status_code == 204
+
+    def test_ip_omitted_skips_check(self, client, seeded):
+        """未提供 ip 参数（prevent-proxy-connections 关闭）不做 IP 校验。"""
+        tokens = authenticate(client)
+        assert join_server(client, tokens, ip="1.2.3.4").status_code == 204
+        assert has_joined(client).status_code == 200
+
+    def test_forwarded_for_used_at_join(self, client, seeded):
+        """join 记录的是 X-Forwarded-For 首段（反代后真实客户端 IP）。"""
+        tokens = authenticate(client)
+        resp = client.post(
+            BASE + "/sessionserver/session/minecraft/join",
+            data=json.dumps({
+                "accessToken": tokens["accessToken"],
+                "selectedProfile": tokens["selectedProfile"]["id"],
+                "serverId": "srv",
+            }),
+            content_type="application/json",
+            REMOTE_ADDR="10.0.0.1",
+            HTTP_X_FORWARDED_FOR="9.9.9.9, 10.0.0.1",
+        )
+        assert resp.status_code == 204
+        assert has_joined(client, ip="9.9.9.9").status_code == 200
+        assert has_joined(client, ip="10.0.0.1").status_code == 204
