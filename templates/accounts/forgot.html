@@ -14,6 +14,16 @@
           <label for="id-email">注册邮箱</label>
           <input class="bs-input" id="id-email" name="email" type="email" required>
         </div>
+
+        {% if captcha.provider == "turnstile" %}
+        <div class="bs-field" id="captcha-slot" data-sitekey="{{ captcha.sitekey }}"></div>
+        <input type="hidden" name="captcha" id="captcha-token">
+        {% elif captcha.provider == "recaptcha" %}
+        <div class="bs-field">
+          <div class="g-recaptcha" data-sitekey="{{ captcha.sitekey }}"></div>
+        </div>
+        {% endif %}
+
         <button class="bs-btn bs-btn-primary" style="width:100%" type="submit">
           发送重置邮件
         </button>
@@ -39,7 +49,22 @@
     alertBox.className = "bs-alert " + (payload.code === 0 ? "bs-alert-success" : "bs-alert-error");
     alertBox.textContent = payload.message;
     alertBox.style.display = "block";
+    // Turnstile token 一次性：失败后重置 widget
+    if (typeof window.turnstile !== "undefined") {
+      const slot = document.getElementById("captcha-slot");
+      if (slot) {
+        window.turnstile.reset();
+        const tokenInput = document.getElementById("captcha-token");
+        if (tokenInput) tokenInput.value = "";
+      }
+    }
   });
 })();
 </script>
+
+{% if captcha.provider == "turnstile" %}
+<script src="/static/js/turnstile.js" defer></script>
+{% elif captcha.provider == "recaptcha" %}
+<script src="https://www.recaptcha.net/recaptcha/api.js" async defer></script>
+{% endif %}
 {% endblock %}
