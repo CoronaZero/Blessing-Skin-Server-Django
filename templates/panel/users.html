@@ -42,7 +42,11 @@
           {% endif %}
           <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
                   data-reset-pwd="{{ u.uid }}">重置密码</button>
-          {% if not u.verified %}
+          {% if u.verified %}
+          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+                  data-action="unverify" data-url="/admin/users/{{ u.uid }}/action"
+                  data-confirm="确认取消 {{ u.email }} 的邮箱验证？该用户将被限制功能。">取消验证</button>
+          {% else %}
           <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
                   data-action="verify" data-url="/admin/users/{{ u.uid }}/action"
                   data-confirm="确认将 {{ u.email }} 标记为已验证？">通过验证</button>

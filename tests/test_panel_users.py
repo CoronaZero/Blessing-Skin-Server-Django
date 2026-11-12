@@ -1,4 +1,4 @@
-"""面板用户管理增强测试（定向）。"""
+﻿"""面板用户管理增强测试（定向）。"""
 
 import pytest
 
@@ -49,6 +49,16 @@ class TestManualVerify:
         assert resp.json()["code"] == 0
         target.refresh_from_db()
         assert target.verified is True
+
+    def test_unverify_switch(self, admin_client, target):
+        target.verified = True
+        target.save()
+        resp = admin_client.post(
+            f"/admin/users/{target.uid}/action", {"action": "unverify"}
+        )
+        assert resp.json()["code"] == 0
+        target.refresh_from_db()
+        assert target.verified is False
 
     def test_verify_button_only_for_unverified(self, admin_client, target):
         html = admin_client.get("/admin/users").content.decode()
