@@ -179,6 +179,14 @@ def register_submit(request):
     user = User.objects.create_user(
         email=email, nickname=nickname, password=password, ip=ip
     )
+    # 新用户初始积分（对照原版 user_initial_score；此前未发放）
+    try:
+        initial_score = int(Option.objects.get_value("user_initial_score") or 0)
+    except ValueError:
+        initial_score = 0
+    if initial_score > 0:
+        user.score = initial_score
+        user.save(update_fields=["score"])
 
     if invitation is not None:
         from django.utils import timezone
