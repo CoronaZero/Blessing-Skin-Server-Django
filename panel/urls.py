@@ -24,4 +24,5 @@ urlpatterns = [
     path("invitations/generate", views.invitations_generate, name="invitations_generate"),
     path("players", views.players_page, name="players"),
     path("players/<int:pid>/delete", views.player_delete, name="player_delete"),
+    path("players/<int:pid>/<str:kind>", views.player_set_texture, name="player_set_texture"),
 ]

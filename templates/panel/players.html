@@ -19,12 +19,28 @@
         <td>{{ p.name }}</td>
         <td><code style="font-size:11px">{{ p.uuid }}</code></td>
         <td>{{ p.uid.email }}</td>
-        <td>{% if p.tid_skin %}<a href="/skinlib/show?tid={{ p.tid_skin.tid }}">{{ p.tid_skin.name }}</a>{% else %}—{% endif %}</td>
-        <td>{% if p.tid_cape %}<a href="/skinlib/show?tid={{ p.tid_cape.tid }}">{{ p.tid_cape.name }}</a>{% else %}—{% endif %}</td>
-        <td>
+        <td id="skin-cell-{{ p.pid }}">
+          {% if p.tid_skin %}
+          <a href="/skinlib/show?tid={{ p.tid_skin.tid }}">{{ p.tid_skin.name }}</a>
+          {% else %}—{% endif %}
+        </td>
+        <td id="cape-cell-{{ p.pid }}">
+          {% if p.tid_cape %}
+          <a href="/skinlib/show?tid={{ p.tid_cape.tid }}">{{ p.tid_cape.name }}</a>
+          {% else %}—{% endif %}
+        </td>
+        <td style="white-space:nowrap">
+          {% if not p.uid.is_admin %}
+          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+                  data-set-skin="{{ p.pid }}">改皮肤</button>
+          <button class="bs-btn bs-btn-secondary" style="padding:3px 10px;font-size:12px"
+                  data-set-cape="{{ p.pid }}">改披风</button>
           <button class="bs-btn bs-btn-danger" style="padding:3px 10px;font-size:12px"
                   data-action="delete" data-url="/admin/players/{{ p.pid }}/delete"
                   data-confirm="确定删除角色 {{ p.name }}（属于 {{ p.uid.email }}）？该操作不可恢复。">删除</button>
+          {% else %}
+          <span style="font-size:11px;color:var(--bs-text-secondary)">管理员/超管角色（只读）</span>
+          {% endif %}
         </td>
       </tr>
       {% empty %}
@@ -34,4 +50,30 @@
     {% include "panel/_pager.html" %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_foot %}
+<script>
+(function () {
+  function bindTexture(kind, attrName) {
+    document.querySelectorAll("[" + attrName + "]").forEach(function (btn) {
+      btn.addEventListener("click", async function () {
+        const pid = btn.getAttribute(attrName);
+        const input = window.prompt(
+          "输入纹理 TID（0=清除）：",
+          ""
+        );
+        if (input === null) return;
+        const fd = new FormData();
+        fd.set("tid", input || "0");
+        const r = await window.bsPost("/admin/players/" + pid + "/" + kind, fd);
+        window.bsToast(r.message, r.code === 0 ? "success" : "error");
+        if (r.code === 0) setTimeout(function () { location.reload(); }, 700);
+      });
+    });
+  }
+  bindTexture("skin", "data-set-skin");
+  bindTexture("cape", "data-set-cape");
+})();
+</script>
 {% endblock %}
