@@ -359,3 +359,47 @@ class TestThrottleBaseKey:
                 "username": "m@x.com", "password": "wrong2",
             })
             assert "频繁" in second.json()["errorMessage"]
+
+
+# ---- P3 杂项 ----
+
+
+class TestP3Misc:
+    def test_overlong_client_token_rejected(self, client, multi_profile_user):
+        resp = api(client, "post", "/authserver/authenticate", {
+            "username": "m@x.com", "password": "password8",
+            "clientToken": "x" * 256,
+        })
+        assert resp.status_code == 400
+        assert "clientToken" in resp.json()["errorMessage"]
+
+    def test_search_profiles_non_string_rejected(self, client, db):
+        resp = api(client, "post", "/api/profiles/minecraft", ["ok", 12345])
+        assert resp.status_code == 400
+
+    def test_tokens_limit_garbage_value_no_500(self, client, multi_profile_user, db):
+        from options.models import Option
+
+        Option.objects.set("ygg_tokens_limit", "not-a-number")
+        resp = api(client, "post", "/authserver/authenticate", {
+            "username": "m@x.com", "password": "password8",
+        })
+        assert resp.status_code == 200  # 回落默认 10，不再 500
+
+    def test_refresh_updates_expiry_windows(self, client, multi_profile_user):
+        from options.models import Option
+        from yggdrasil.models import YggdrasilToken
+
+        tokens = auth(client)
+        Option.objects.set("ygg_token_expire_1", "3600")
+        Option.objects.set("ygg_token_expire_2", "7200")
+        resp = api(client, "post", "/authserver/refresh", {
+            "accessToken": tokens["accessToken"],
+            "clientToken": tokens["clientToken"],
+        })
+        assert resp.status_code == 200
+        row = YggdrasilToken.objects.get(
+            access_token=resp.json()["accessToken"]
+        )
+        assert row.expires_in == 3600
+        assert row.refresh_expires_in == 7200

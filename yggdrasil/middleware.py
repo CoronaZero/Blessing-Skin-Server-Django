@@ -17,26 +17,6 @@ def error_response(status: int, error: str, message: str, cause: str = "") -> Ht
     )
 
 
-class YggdrasilMiddleware:
-    """统一挂 /api/yggdrasil/* 的中间件链。
-
-    对照原版三个 middleware + 两项安全修复：
-    - CheckContentType：仅 application/json（材质上传 PUT 除外，走 image/png）
-    - Throttle：IP 维度（原版 username 键缺陷修复）
-    - 请求体大小上限（原版无限制的内存耗尽修复）
-    """
-
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        # 仅处理 yggdrasil API 前缀
-        if not request.path.startswith("/api/yggdrasil/"):
-            return self.get_response(request)
-
-        return self.get_response(request)
-
-
 def check_content_type(request) -> HttpResponse | None:
     """authenticate/refresh 等端点必须 application/json。"""
     if request.method in ("POST", "PUT") and not request.path.endswith(
@@ -130,11 +110,7 @@ def _client_ip(request) -> str:
     return request.META.get("REMOTE_ADDR", "")
 
 
-# 公开别名（join/hasJoined 等视图复用）
-client_ip = _client_ip
-
-
-# 公开别名（join/hasJoined 等视图复用）
+# 公开别名（_log / join / hasJoined 等视图复用）
 client_ip = _client_ip
 
 

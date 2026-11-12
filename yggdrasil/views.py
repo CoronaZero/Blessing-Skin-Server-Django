@@ -47,7 +47,10 @@ def _json_ok(payload: dict, status: int = 200) -> HttpResponse:
 
 
 def _log(request, action, user=None, player=None, params=None):
-    """接口审计日志：对照原版 ygg_log()，仅 YGG_VERBOSE_LOG 开启时落库。"""
+    """接口审计日志：对照原版 ygg_log()，仅 YGG_VERBOSE_LOG 开启时落库。
+
+    IP 取反代后的真实客户端地址（XFF 首段，与 join/hasJoined 审计口径一致）。
+    """
     if not getattr(settings, "YGG_VERBOSE_LOG", False):
         return
     YggdrasilLog.objects.create(
@@ -55,7 +58,7 @@ def _log(request, action, user=None, player=None, params=None):
         user=user,
         player=player,
         parameters=json.dumps(params, ensure_ascii=False)[:512] if params else "",
-        ip=request.META.get("REMOTE_ADDR", ""),
+        ip=client_ip(request),
     )
 
 
@@ -242,8 +245,12 @@ def authenticate(request):
         if not user.verified:
             return error_response(403, "ForbiddenOperationException", "邮箱未验证")
 
-    # clientToken 原样返回，缺省生成
+    # clientToken 原样返回，缺省生成；超长拒绝（DB 列 255，避免 MariaDB 严格模式 500）
     client_token = payload.get("clientToken") or secrets.token_hex(16)
+    if len(str(client_token)) > 255:
+        return error_response(
+            400, "IllegalArgumentException", "clientToken 过长（上限 255 字符）"
+        )
 
     try:
         expires_in = int(Option.objects.get_value("ygg_token_expire_1") or 259200)
@@ -265,7 +272,10 @@ def authenticate(request):
             stale.delete()
 
     # P1-13: 令牌上限（ygg_tokens_limit，默认 10；超限回收最旧）
-    limit = int(Option.objects.get_value("ygg_tokens_limit") or 10)
+    try:
+        limit = int(Option.objects.get_value("ygg_tokens_limit") or 10)
+    except ValueError:
+        limit = 10
     token = YggdrasilToken.objects.create(
         owner=user,
         client_token=client_token,
@@ -336,6 +346,17 @@ def refresh(request):
     if row is None or not row.is_refreshable():
         return error_response(403, "ForbiddenOperationException", "令牌无效或已过期")
 
+    # 原版 AuthController.php:184-189：刷新时按当前配置重算有效期/刷新窗口
+    try:
+        row.expires_in = int(
+            Option.objects.get_value("ygg_token_expire_1") or row.expires_in
+        )
+        row.refresh_expires_in = int(
+            Option.objects.get_value("ygg_token_expire_2") or row.refresh_expires_in
+        )
+    except ValueError:
+        pass
+
     user = row.owner
     if user.permission == User.Permission.BANNED:
         return error_response(403, "ForbiddenOperationException", "账号已被封禁")
@@ -373,7 +394,10 @@ def refresh(request):
     row.created_at = _tz.now()
     # selectedProfile 选角可能更新了 profile_id（P0-1：漏存会导致
     # 多角色用户 refresh 选角后 join 因 DB 仍空绑定而 403）
-    row.save(update_fields=["access_token", "created_at", "profile_id"])
+    row.save(update_fields=[
+        "access_token", "created_at", "profile_id",
+        "expires_in", "refresh_expires_in",
+    ])
 
     response_payload = {
         "accessToken": new_access,
@@ -407,6 +431,7 @@ def validate(request):
         return error_response(403, "ForbiddenOperationException", "clientToken 不匹配")
     if row.owner.permission == User.Permission.BANNED:
         return error_response(403, "ForbiddenOperationException", "账号已被封禁")
+    _log(request, "validate", user=row.owner)
     return HttpResponse(status=204)
 
 
@@ -418,7 +443,8 @@ def invalidate(request):
     payload = _body(request)
     access_token = payload.get("accessToken") or ""
     deleted, _ = YggdrasilToken.objects.filter(access_token=access_token).delete()
-    # 原版语义：无论是否成功均 204
+    # 原版语义：无论是否成功均 204；附审计日志（原版 ygg_log invalidate）
+    _log(request, "invalidate", params={"revoked": deleted})
     return HttpResponse(status=204)
 
 
@@ -603,18 +629,6 @@ def _sign_textures(value_b64: str) -> str:
     )
     return base64.b64encode(signature).decode()
 
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.asymmetric import padding
-
-    try:
-        key = serialization.load_pem_private_key(pem.encode(), password=None)
-        signature = key.sign(
-            value_b64.encode(), padding.PKCS1v15(), hashes.SHA1()
-        )
-        return base64.b64encode(signature).decode()
-    except (ValueError, TypeError):
-        return None
-
 
 # ---- Profile 批量/单个查询 ----
 
@@ -625,6 +639,9 @@ def search_profiles(request):
     names = _body(request)
     if not isinstance(names, list):
         return error_response(400, "IllegalArgumentException", "请求体须为角色名数组")
+    # 元素须为字符串（非字符串直接丢给 ORM 会 500）
+    if any(not isinstance(n, str) for n in names):
+        return error_response(400, "IllegalArgumentException", "角色名须为字符串")
     try:
         max_names = int(Option.objects.get_value("ygg_search_profile_max") or 5)
     except ValueError:
@@ -752,7 +769,9 @@ def upload_texture(request, uuid: str, type_: str):
     if texture is None:
         import math
 
-        size_kb = math.ceil(len(result.normalized) / 1024)
+        # 原版 ProfileController.php:174：按原始文件字节计费（$file->getSize()），
+        # 非消毒后重编码字节
+        size_kb = math.ceil(len(data) / 1024)
         # 计分对照原版 L174-178：私密材质存储费 private_score_per_storage
         # + 衣柜费 score_per_closet_item；不足 → 403
         cost = _opt_int("private_score_per_storage") * size_kb + _opt_int(
