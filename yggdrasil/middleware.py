@@ -54,9 +54,12 @@ RATE_LIMIT_DEFAULT_SECONDS = 1.0  # 原版 ygg_rate_limit 默认 1000ms
 
 
 def throttle_by_ip(request, username=None) -> HttpResponse | None:
-    """节流：IP+端点 基键 + 登录尝试附 username 维度（规范 L492：
-    限制应针对用户而非仅客户端 IP；username 截断防刷爆）。
+    """节流：IP+端点基键必查必写 + 登录尝试附 username 键（规范 L492：
+    限制应针对用户而非仅客户端 IP）。
 
+    基键不能依赖 username（旧实现键为 ip:path:username，攻击者
+    换 username 即新键、IP 维度限速完全失效）；username 维度独立成键，
+    即使攻击者变名也无法逃过 IP 维度的基础节流。
     限速触发时返回 403（规范 L95：短时间内多次失败被禁止登录）。
     """
     raw = getattr(settings, "YGG_RATE_LIMIT_SECONDS", None)
@@ -73,22 +76,27 @@ def throttle_by_ip(request, username=None) -> HttpResponse | None:
         return None
 
     ip = _client_ip(request)
-    ident = f"{ip}:{request.path}"
+    idents = [f"{ip}:{request.path}"]
     if username:
-        ident += ":" + str(username)[:64]
-    key = "ygg_throttle:" + hashlib.sha256(ident.encode()).hexdigest()
+        idents.append(f"{ip}:{request.path}:{str(username)[:64]}")
+
     now = time_ms()
-    last = cache.get(key)
-    if last is not None:
-        retry_after = seconds * 1000 - (now - last)
-        if retry_after > 0:
-            resp = error_response(
-                403, "ForbiddenOperationException",
-                f"请求过于频繁，请 {round(retry_after / 1000, 1)} 秒后再试",
-            )
-            resp["Retry-After"] = str(int(retry_after // 1000) + 1)
-            return resp
-    cache.set(key, now, max(60, int(seconds) * 2))
+    ttl = max(60, int(seconds) * 2)
+    for ident in idents:
+        key = "ygg_throttle:" + hashlib.sha256(ident.encode()).hexdigest()
+        last = cache.get(key)
+        if last is not None:
+            retry_after = seconds * 1000 - (now - last)
+            if retry_after > 0:
+                resp = error_response(
+                    403, "ForbiddenOperationException",
+                    f"请求过于频繁，请 {round(retry_after / 1000, 1)} 秒后再试",
+                )
+                resp["Retry-After"] = str(int(retry_after // 1000) + 1)
+                return resp
+    for ident in idents:
+        key = "ygg_throttle:" + hashlib.sha256(ident.encode()).hexdigest()
+        cache.set(key, now, ttl)
     return None
 
 

@@ -324,3 +324,38 @@ class TestMultipartUploadSize:
             headers={"Authorization": f"Bearer {tokens['accessToken']}"},
         )
         assert resp.status_code == 413
+
+
+# ---- P2-8: throttle 基键不可被换 username 绕过 ----
+
+
+class TestThrottleBaseKey:
+    def test_username_rotation_still_throttled(self, client, multi_profile_user):
+        from django.test import override_settings
+
+        with override_settings(YGG_RATE_LIMIT_SECONDS=60):
+            # 第一次请求（任意 username）占据 IP+path 基键
+            r1 = api(client, "post", "/authserver/authenticate", {
+                "username": "a@x.com", "password": "x",
+            })
+            assert r1.status_code == 403  # 凭据错误
+
+            # 换 username：若基键缺失（旧实现）会放行；现在应被基键节流
+            r2 = api(client, "post", "/authserver/authenticate", {
+                "username": "m@x.com", "password": "x",
+            })
+            assert r2.status_code == 403
+            assert "频繁" in r2.json()["errorMessage"]
+
+    def test_same_user_second_attempt_throttled(self, client, multi_profile_user):
+        from django.test import override_settings
+
+        with override_settings(YGG_RATE_LIMIT_SECONDS=60):
+            first = api(client, "post", "/authserver/authenticate", {
+                "username": "m@x.com", "password": "wrong1",
+            })
+            assert first.status_code == 403  # 凭据错
+            second = api(client, "post", "/authserver/authenticate", {
+                "username": "m@x.com", "password": "wrong2",
+            })
+            assert "频繁" in second.json()["errorMessage"]
