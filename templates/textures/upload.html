@@ -47,6 +47,8 @@
           <label>实时预览</label>
           <canvas id="upload-viewer" width="200" height="280"
                   style="border-radius:8px;background:var(--bs-primary-light);max-width:100%"></canvas>
+          <p style="font-size:12px;color:var(--bs-text-secondary);margin:6px 0 0;display:none"
+             id="cape-hint">披风将挂在站点默认皮肤上预览</p>
         </div>
 
         <button class="btn btn-primary" style="width:100%" type="submit" id="upload-submit">
@@ -65,5 +67,6 @@
 {% block extra_foot %}
 {% load static %}
 <script src="{% static 'vendor/skinview3d.bundle.js' %}"></script>
+{% if default_skin_json %}<script>window.BS_DEFAULT_SKIN = {{ default_skin_json|safe }};</script>{% endif %}
 <script src="{% static 'js/upload.js' %}"></script>
 {% endblock %}

@@ -18,7 +18,21 @@
       </p>
     </div>
   </div>
+  {% elif default_skin %}
+  {# 披风 3D 预览：管理员配置的默认皮肤作人台 + 本披风 #}
+  <div class="card">
+    <div class="card-body" style="text-align:center">
+      <canvas id="viewer-canvas" width="280" height="360"
+              data-skin="/textures/{{ default_skin.hash }}"
+              data-model="{% if default_skin.type == 'alex' %}slim{% else %}default{% endif %}"
+              data-cape="/textures/{{ texture.hash }}"></canvas>
+      <p style="font-size:12px;color:var(--bs-text-secondary);margin:8px 0 0">
+        站点默认皮肤 × 本披风 · 拖动旋转 · 滚轮缩放
+      </p>
+    </div>
+  </div>
   {% else %}
+  {# 未配置默认皮肤：回落披风平铺图 #}
   <div class="card">
     <div class="card-body" style="text-align:center">
       <img src="/preview/{{ texture.tid }}?height=250" alt="{{ texture.name }}"

@@ -3,11 +3,12 @@
 (function () {
   "use strict";
 
-  // 3D 预览
+  // 3D 预览（皮肤：自身；披风：默认皮肤人台 + data-cape）
   const canvas = document.getElementById("viewer-canvas");
   if (canvas) {
     window.bsInitSkinViewer(canvas, {
       skin: canvas.dataset.skin,
+      cape: canvas.dataset.cape || null,
       model: canvas.dataset.model,
       width: 280,
       height: 360,

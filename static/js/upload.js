@@ -9,21 +9,46 @@
   const fileInput = document.getElementById("f-file");
   const typeSelect = document.getElementById("f-type");
   const previewBox = document.getElementById("preview-box");
+  const capeHint = document.getElementById("cape-hint");
 
   let viewer = null;
 
   function showPreview(dataUrl, isCape) {
     previewBox.style.display = "block";
+    const canvas = document.getElementById("upload-viewer");
+
+    // 披风：挂到管理员配置的默认皮肤上做 3D 预览；未配置则回落平铺图
     if (isCape) {
-      // 披风用平铺图片展示
-      if (viewer) { viewer = null; }
-      const canvas = document.getElementById("upload-viewer");
+      if (window.BS_DEFAULT_SKIN && typeof skinview3d !== "undefined") {
+        if (capeHint) capeHint.style.display = "block";
+        canvas.outerHTML =
+          '<canvas id="upload-viewer" width="200" height="280" style="max-width:100%;border-radius:8px;background:var(--bs-primary-light)"></canvas>';
+        const target = document.getElementById("upload-viewer");
+        viewer = new skinview3d.SkinViewer({
+          canvas: target,
+          width: 200,
+          height: 280,
+          skin: window.BS_DEFAULT_SKIN.url,
+        });
+        if (window.BS_DEFAULT_SKIN.model === "slim") {
+          viewer.loadSkin(window.BS_DEFAULT_SKIN.url, { model: "slim" });
+        }
+        viewer.loadCape(dataUrl);
+        viewer.autoRotate = true;
+        viewer.zoom = 0.75;
+        viewer.animation = new skinview3d.IdleAnimation();
+        return;
+      }
+      // 未配置默认皮肤：平铺图
+      if (capeHint) capeHint.style.display = "none";
+      viewer = null;
       canvas.outerHTML =
         '<img id="upload-viewer" src="' + dataUrl + '" alt="披风预览"' +
         ' style="max-height:280px;border-radius:8px;background:var(--bs-primary-light)">';
       return;
     }
-    const canvas = document.getElementById("upload-viewer");
+
+    if (capeHint) capeHint.style.display = "none";
     if (typeof skinview3d === "undefined") return;
     canvas.outerHTML =
       '<canvas id="upload-viewer" width="200" height="280" style="max-width:100%"></canvas>';

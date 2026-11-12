@@ -43,6 +43,7 @@ class TestTextureShow:
         assert 'data-model="slim"' in html
 
     def test_cape_renders_2d_no_canvas(self, client, owner):
+        """未配置默认皮肤：披风回落平铺图（无 3D canvas）。"""
         cape = Texture.objects.create(
             name="C", type="cape", hash="c" * 64, size=1, uploader=owner, public=True
         )
@@ -50,6 +51,48 @@ class TestTextureShow:
         html = client.get(f"/skinlib/show?tid={cape.tid}").content.decode()
         assert "viewer-canvas" not in html
         assert "披风预览" in html
+
+    def test_cape_3d_preview_with_default_skin(self, client, owner):
+        """配置默认皮肤后：披风用 skinview3d 渲染（默认皮肤人台 + data-cape）。"""
+        from options.models import Option
+
+        cape = Texture.objects.create(
+            name="C3", type="cape", hash="f" * 64, size=1, uploader=owner, public=True
+        )
+        steve = Texture.objects.create(
+            name="默认皮", type="steve", hash="6" * 64, size=1,
+            uploader=owner, public=True,
+        )
+        alex = Texture.objects.create(
+            name="默认皮A", type="alex", hash="7" * 64, size=1,
+            uploader=owner, public=True,
+        )
+        Option.objects.set("default_skin_tid", str(steve.tid))
+        client.force_login(owner)
+        html = client.get(f"/skinlib/show?tid={cape.tid}").content.decode()
+        assert "viewer-canvas" in html
+        assert f'data-cape="/textures/{cape.hash}"' in html
+        assert f'data-skin="/textures/{steve.hash}"' in html
+        assert 'data-model="default"' in html
+        # 换 alex 默认皮肤 → slim 模型
+        Option.objects.set("default_skin_tid", str(alex.tid))
+        html2 = client.get(f"/skinlib/show?tid={cape.tid}").content.decode()
+        assert f'data-skin="/textures/{alex.hash}"' in html2
+        assert 'data-model="slim"' in html2
+
+    def test_cape_3d_falls_back_on_invalid_default_tid(self, client, owner):
+        """默认皮肤 tid 无效/不存在：回落平铺图，不 500。"""
+        from options.models import Option
+
+        cape = Texture.objects.create(
+            name="C4", type="cape", hash="8" * 64, size=1, uploader=owner, public=True
+        )
+        for bad in ("0", "not-a-number", "99999"):
+            Option.objects.set("default_skin_tid", bad)
+            client.force_login(owner)
+            resp = client.get(f"/skinlib/show?tid={cape.tid}")
+            assert resp.status_code == 200
+            assert "viewer-canvas" not in resp.content.decode()
 
     def test_private_texture_hidden_from_others(self, client, owner):
         private = Texture.objects.create(

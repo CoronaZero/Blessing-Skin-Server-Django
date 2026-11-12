@@ -109,6 +109,25 @@ class TestCorePagesSmoke:
         assert 'enctype="multipart/form-data"' in html
         assert 'id="upload-form"' in html
 
+    def test_upload_page_default_skin_injection(self, logged_client):
+        """配置默认皮肤后上传页注入 BS_DEFAULT_SKIN（披风 3D 预览人台）。"""
+        from options.models import Option
+        from textures.models import Texture
+
+        u = User.objects.get(email="u@x.com")
+        # 未配置 → 不注入
+        html = logged_client.get("/skinlib/upload").content.decode()
+        assert "BS_DEFAULT_SKIN" not in html
+
+        alex = Texture.objects.create(
+            name="默认皮", type="alex", hash="9" * 64, size=1,
+            uploader=u, public=True,
+        )
+        Option.objects.set("default_skin_tid", str(alex.tid))
+        html = logged_client.get("/skinlib/upload").content.decode()
+        assert f'window.BS_DEFAULT_SKIN = {{"url": "/textures/{alex.hash}"' in html
+        assert '"model": "slim"' in html
+
 
 class TestSiteNameRendering:
     """站点名渲染回归（真实事故：BS5 改造后模板误用 request.site_name——

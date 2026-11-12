@@ -21,19 +21,45 @@ from .validation import validate_texture_image
 # ---- 页面 ----
 
 
+def _default_skin_texture():
+    """管理员配置的默认皮肤（default_skin_tid；无效/未配置返回 None）。
+
+    披风 3D 预览需要一张皮肤作"人台"挂载披风。
+    """
+    raw = (Option.objects.get_value("default_skin_tid") or "0").strip()
+    try:
+        tid = int(raw)
+    except ValueError:
+        return None
+    if tid <= 0:
+        return None
+    return Texture.objects.filter(tid=tid).first()
+
+
 @login_required
 def upload_page(request):
     """上传页（GET 渲染表单；POST 由同 URL 的 upload API 处理）。"""
+    import json as _json
+
     from django.shortcuts import render
 
     per_storage = Option.objects.get_value("score_per_storage") or "0"
     score_hint = f"上传将按体积计分（每 KB {per_storage} 分）。" if per_storage != "0" else ""
+    # 披风实时预览的"人台"：默认皮肤（未配置时 JS 回落平铺图）
+    default_skin = _default_skin_texture()
+    default_skin_json = ""
+    if default_skin:
+        default_skin_json = _json.dumps({
+            "url": f"/textures/{default_skin.hash}",
+            "model": "slim" if default_skin.type == "alex" else "default",
+        })
     return render(
         request,
         "textures/upload.html",
         {
             "site_name": Option.objects.get_value("site_name"),
             "score_hint": score_hint,
+            "default_skin_json": default_skin_json,
         },
     )
 
@@ -77,6 +103,9 @@ def texture_show_page(request):
         texture=texture
     ).values_list("id", flat=True).first()
 
+    # 披风 3D 预览的"人台"：管理员配置的默认皮肤
+    default_skin = _default_skin_texture() if texture.type == "cape" else None
+
     return render(
         request,
         "textures/show.html",
@@ -85,25 +114,7 @@ def texture_show_page(request):
             "site_name": Option.objects.get_value("site_name"),
             "can_manage": can_manage,
             "closet_item_id": closet_item_id or "",
-        },
-    )
-    # 私密纹理仅上传者与管理员可见（越权审计：普通用户改 tid 访问他人私密 → 404，已有测试锁定）
-    can_manage = (
-        texture.uploader_id == request.user.uid or request.user.is_admin()
-    )
-    if not texture.public and not can_manage:
-        from django.http import HttpResponseNotFound
-
-        return HttpResponseNotFound()
-
-    return render(
-        request,
-        "textures/show.html",
-        {
-            "texture": texture,
-            "site_name": Option.objects.get_value("site_name"),
-            "can_manage": can_manage,
-            "is_admin": request.user.is_admin(),
+            "default_skin": default_skin,
         },
     )
 
