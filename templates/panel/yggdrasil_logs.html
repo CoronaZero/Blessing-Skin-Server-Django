@@ -1,0 +1,44 @@
+{% extends "panel/base.html" %}
+{% load get_item %}
+{% block title %}Yggdrasil 日志{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <h1 style="margin:0;font-size:20px">Yggdrasil 日志</h1>
+  <form method="get" style="display:flex;gap:8px">
+    <select class="bs-select" name="action">
+      <option value="">全部动作</option>
+      {% for value, label in action_labels.items %}
+      <option value="{{ value }}" {% if action == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button class="bs-btn bs-btn-secondary" type="submit">筛选</button>
+  </form>
+</div>
+
+<div class="bs-card">
+  <div class="bs-card-body" style="overflow-x:auto">
+    <table class="pm-table">
+      <tr><th>时间</th><th>动作</th><th>用户</th><th>角色</th><th>参数</th><th>IP</th></tr>
+      {% for log in page_obj %}
+      <tr>
+        <td style="white-space:nowrap">{{ log.time|date:"Y-m-d H:i:s" }}</td>
+        <td style="white-space:nowrap">
+          {{ log.action }}{% if action_labels|get_item:log.action %}（{{ action_labels|get_item:log.action }}）{% endif %}
+        </td>
+        <td>{% if log.user %}{{ log.user.nickname }}{% else %}-{% endif %}</td>
+        <td>{% if log.player %}{{ log.player.name }}{% else %}-{% endif %}</td>
+        <td style="font-family:monospace;font-size:12px;max-width:320px;word-break:break-all">
+          {{ log.parameters|truncatechars:60 }}
+        </td>
+        <td style="white-space:nowrap">{{ log.ip|default:"-" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="text-align:center;color:var(--bs-text-secondary);padding:24px">
+        暂无日志。未设置 YGG_VERBOSE_LOG 环境变量时接口日志不会落库。
+      </td></tr>
+      {% endfor %}
+    </table>
+    {% include "panel/_pager.html" %}
+  </div>
+</div>
+{% endblock %}

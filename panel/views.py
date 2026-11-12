@@ -18,6 +18,7 @@ from notifications.models import Notification
 from options.models import Option
 from players.models import Player
 from textures.models import ClosetItem, Texture
+from yggdrasil.models import YggdrasilLog
 
 from .captcha_test import captcha_test  # noqa: F401  re-export for urls
 from .guards import _is_super, admin_required, super_admin_required
@@ -230,6 +231,47 @@ def report_action(request, rid: int):
         target.save(update_fields=["status"])
         return json_response("已驳回", SUCCESS)
     return json_response("未知操作", FAILURE)
+
+
+# ---- Yggdrasil 日志（仅超管，对照原版 ConfigController::logPage）----
+
+
+# 动作中文名映射（原版 trans('Yggdrasil::log.actions')）
+LOG_ACTION_LABELS = {
+    "authenticate": "登录",
+    "auth_failed": "登录失败",
+    "refresh": "刷新令牌",
+    "validate": "校验令牌",
+    "invalidate": "吊销令牌",
+    "signout": "退出登录",
+    "join": "加入服务器",
+    "has_joined": "服务器验证",
+    "upload_skin": "上传皮肤",
+    "reset_skin": "重置皮肤",
+    "upload_cape": "上传披风",
+    "reset_cape": "重置披风",
+}
+
+
+@super_admin_required
+@require_GET
+def yggdrasil_logs(request):
+    qs = (
+        YggdrasilLog.objects.select_related("user", "player")
+        .order_by("-time", "-id")
+    )
+    action = (request.GET.get("action") or "").strip()
+    if action:
+        qs = qs.filter(action=action)
+    paginator = Paginator(qs, 20)
+    page = paginator.get_page(request.GET.get("page", 1))
+    ctx = _panel_ctx(request, "yggdrasil_logs")
+    ctx.update({
+        "page_obj": page,
+        "action": action,
+        "action_labels": LOG_ACTION_LABELS,
+    })
+    return render(request, "panel/yggdrasil_logs.html", ctx)
 
 
 # ---- 选项面板（仅超管）----

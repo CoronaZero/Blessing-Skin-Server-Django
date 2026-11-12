@@ -20,6 +20,7 @@ urlpatterns = [
     path("options/mail-test", views.mail_test, name="mail_test"),
     path("options/<str:section>", views.options_page, name="options_section"),
     path("broadcast", views.broadcast, name="broadcast"),
+    path("yggdrasil/logs", views.yggdrasil_logs, name="yggdrasil_logs"),
     path("invitations", views.invitations_page, name="invitations"),
     path("invitations/generate", views.invitations_generate, name="invitations_generate"),
     path("players", views.players_page, name="players"),

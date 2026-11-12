@@ -248,3 +248,52 @@ class TestP3ExpiredCleanup:
 
         assert not YggdrasilToken.objects.filter(access_token="dead-tok").exists()
         assert YggdrasilToken.objects.filter(access_token="alive-tok").exists()
+
+
+# ---- P2-24: 面板 Yggdrasil 日志页（仅超管）----
+
+
+class TestP2PanelYggLogPage:
+    def _super_client(self, client):
+        User.objects.create_user(
+            email="sp@x.com", nickname="sp", password="password8",
+            permission=User.Permission.SUPER_ADMIN, verified=True,
+        )
+        client.login(username="sp@x.com", password="password8")
+        return client
+
+    def test_super_views_log_page(self, client, db):
+        from yggdrasil.models import YggdrasilLog
+
+        c = self._super_client(client)
+        YggdrasilLog.objects.create(action="authenticate", parameters="{}")
+        resp = c.get("/admin/yggdrasil/logs")
+        assert resp.status_code == 200
+        html = resp.content.decode()
+        assert "Yggdrasil 日志" in html
+        assert "authenticate" in html
+
+    def test_filter_by_action(self, client, db):
+        from yggdrasil.models import YggdrasilLog
+
+        c = self._super_client(client)
+        YggdrasilLog.objects.create(action="join", parameters='{"serverId": "srv-x"}')
+        YggdrasilLog.objects.create(action="signout", parameters="BYE-MARKER")
+        html = c.get("/admin/yggdrasil/logs?action=join").content.decode()
+        assert "加入服务器" in html
+        # 筛除 signout 行（下拉选项含全部动作文案，故用行内独有标记断言）
+        assert "srv-x" in html
+        assert "BYE-MARKER" not in html
+
+    def test_plain_admin_gets_404(self, client, db):
+        User.objects.create_user(
+            email="ad@x.com", nickname="ad", password="password8",
+            permission=User.Permission.ADMIN, verified=True,
+        )
+        client.login(username="ad@x.com", password="password8")
+        assert client.get("/admin/yggdrasil/logs").status_code == 404
+
+    def test_sidebar_entry_super_only(self, client, db):
+        c = self._super_client(client)
+        html = c.get("/admin/").content.decode()
+        assert "/admin/yggdrasil/logs" in html
