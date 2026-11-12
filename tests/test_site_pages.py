@@ -108,3 +108,71 @@ class TestCorePagesSmoke:
         html = logged_client.get("/skinlib/upload").content.decode()
         assert 'enctype="multipart/form-data"' in html
         assert 'id="upload-form"' in html
+
+
+class TestSiteNameRendering:
+    """站点名渲染回归（真实事故：BS5 改造后模板误用 request.site_name——
+    context processor 注入的是顶层键而非 request 属性，全站站名变空）。"""
+
+    def test_site_name_in_brand_title_footer(self, client):
+        from options.models import Option
+
+        Option.objects.set("site_name", "站点名回归测试")
+        html = client.get("/").content.decode()
+
+        # 1) 顶栏 brand 内渲染站名
+        brand_start = html.index('class="navbar-brand')
+        toggler_pos = html.index('class="navbar-toggler')
+        assert "站点名回归测试" in html[brand_start:toggler_pos]
+
+        # 2) 浏览器标题含站名
+        title = html[html.index("<title>"):html.index("</title>")]
+        assert "站点名回归测试" in title
+
+        # 3) brand 不得使用会致 flex 压缩为 0 的 text-truncate
+        #    （手机上站点名消失事故的第二根因）
+        assert "navbar-brand" in html
+        brand_cls = html[brand_start:].split('"')[1]
+        assert "text-truncate" not in brand_cls
+
+    def test_site_name_defaults_without_option(self, client, db):
+        """未配置站名时回落默认值（不渲染空字符串）。"""
+        html = client.get("/").content.decode()
+        brand_start = html.index('class="navbar-brand')
+        toggler_pos = html.index('class="navbar-toggler')
+        brand = html[brand_start:toggler_pos]
+        assert "Blessing Skin" in brand or "皮肤" in brand, brand[:120]
+
+
+class TestNavbarDomOrder:
+    def test_order_and_outside_collapse(self, client, db):
+        User.objects.create_user(
+            email="n@x.com", nickname="n", password="password8", verified=True
+        )
+        client.login(username="n@x.com", password="password8")
+        html = client.get("/skinlib").content.decode()
+
+        pos_brand = html.index('id="site-navbar"')
+        pos_collapse = html.index('id="site-nav"')
+        pos_right = html.index('id="theme-toggle"')
+        pos_toggler = html.index('class="navbar-toggler"')
+        assert pos_brand < pos_collapse < pos_right < pos_toggler
+
+        # 右侧控件不在折叠区内（dropdown 在 collapse 内会定位错位）
+        cbody = html[pos_collapse:pos_right]
+        assert "theme-toggle" not in cbody
+        assert "nav-avatar" not in cbody
+
+        # 右侧控件容器带 ms-auto（手机推右）
+        assert 'class="d-flex align-items-center gap-2 ms-auto"' in html
+
+    def test_anonymous_navbar_structure(self, client, db):
+        html = client.get("/").content.decode()
+        assert "{{" not in html.split("</nav>")[0].replace("{{%", ""), (
+            "顶栏存在未渲染模板变量"
+        )
+        pos_collapse = html.index('id="site-nav"')
+        pos_right = html.index('id="theme-toggle"')
+        pos_toggler = html.index('class="navbar-toggler"')
+        assert pos_collapse < pos_right < pos_toggler
+        assert 'href="/auth/login"' in html
