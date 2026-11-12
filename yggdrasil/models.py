@@ -18,8 +18,9 @@ class YggdrasilToken(models.Model):
         related_name="yggdrasil_tokens",
     )
     client_token = models.CharField("客户端令牌", max_length=64)
+    # 每次 authenticate 新建一行并轮换随机 JWT；唯一约束兜底防重复行
     access_token = models.CharField(
-        "访问令牌(JWT)", max_length=512, db_index=True
+        "访问令牌(JWT)", max_length=512, unique=True
     )
     profile_id = models.CharField("当前角色 UUID", max_length=32, default="", blank=True)
     # 有效期与刷新窗口（create/refresh 时由选项注入；默认对照原版 3 天 / 7 天）

@@ -191,3 +191,31 @@ class TestP3VerboseLog:
         )
         assert resp.status_code == 204
         assert YggdrasilLog.objects.filter(action="join").exists()
+
+
+# ---- P3-34: 令牌行每次新建 + access_token 唯一约束 ----
+
+
+class TestP3TokenUnique:
+    def test_duplicate_access_token_rejected(self, db, seeded):
+        from django.db import IntegrityError, transaction
+
+        from yggdrasil.models import YggdrasilToken
+
+        YggdrasilToken.objects.create(
+            owner=seeded, client_token="c1", access_token="tok",
+            expires_in=1, refresh_expires_in=2,
+        )
+        with pytest.raises(IntegrityError):
+            with transaction.atomic():
+                YggdrasilToken.objects.create(
+                    owner=seeded, client_token="c2", access_token="tok",
+                    expires_in=1, refresh_expires_in=2,
+                )
+
+    def test_authenticate_creates_fresh_row(self, client, seeded):
+        from yggdrasil.models import YggdrasilToken
+
+        authenticate(client)
+        authenticate(client)
+        assert YggdrasilToken.objects.count() == 2
