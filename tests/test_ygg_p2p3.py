@@ -114,3 +114,49 @@ class TestP2CapeLegacy22x17:
 
         result = validate_texture_image(png_bytes((64, 32)), "cape")
         assert result.valid
+
+
+# ---- P3-31: JWT 补 spr claim（对照 AuthController.php:63/159/171）----
+
+
+class TestP3SprClaim:
+    def _decode(self, token: str) -> dict:
+        from yggdrasil.tokens import decode_access_token
+
+        claims = decode_access_token(token)
+        assert claims is not None
+        return claims
+
+    def test_spr_present_when_profile_bound(self, client, seeded):
+        tokens = authenticate(client)
+        claims = self._decode(tokens["accessToken"])
+        assert claims["spr"] == tokens["selectedProfile"]["id"]
+        assert claims["iss"] == "Yggdrasil-Auth"
+        assert claims["yggt"]
+
+    def test_spr_absent_without_profiles(self, client, db):
+        User.objects.create_user(
+            email="n@x.com", nickname="n", password="password8", verified=True
+        )
+        resp = client.post(
+            BASE + "/authserver/authenticate",
+            data=json.dumps({"username": "n@x.com", "password": "password8"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        claims = self._decode(resp.json()["accessToken"])
+        assert "spr" not in claims
+
+    def test_refresh_carries_spr(self, client, seeded):
+        tokens = authenticate(client)
+        resp = client.post(
+            BASE + "/authserver/refresh",
+            data=json.dumps({
+                "accessToken": tokens["accessToken"],
+                "clientToken": tokens["clientToken"],
+            }),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        claims = self._decode(resp.json()["accessToken"])
+        assert claims["spr"] == tokens["selectedProfile"]["id"]

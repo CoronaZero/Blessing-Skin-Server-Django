@@ -192,7 +192,9 @@ def authenticate(request):
             bound_profile_id = used["id"]
     token.profile_id = bound_profile_id
     ygg_token_uuid = secrets.token_hex(16)
-    access_token = issue_access_token(user_uuid, ygg_token_uuid, expires_in)
+    access_token = issue_access_token(
+        user_uuid, ygg_token_uuid, expires_in, spr=bound_profile_id
+    )
     token.access_token = access_token
     token.save()
     excess = YggdrasilToken.objects.filter(owner=user).order_by("-id")
@@ -270,7 +272,9 @@ def refresh(request):
     # P0-4: 刷新时重置签发时间（有效期/刷新窗口重新起算）
     from django.utils import timezone as _tz
 
-    new_access = issue_access_token(user_uuid, secrets.token_hex(16), row.expires_in)
+    new_access = issue_access_token(
+        user_uuid, secrets.token_hex(16), row.expires_in, spr=row.profile_id
+    )
     row.access_token = new_access
     row.created_at = _tz.now()
     row.save(update_fields=["access_token", "created_at"])

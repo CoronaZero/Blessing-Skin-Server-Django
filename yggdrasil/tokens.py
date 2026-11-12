@@ -6,14 +6,16 @@ import jwt
 from django.conf import settings
 
 
-def issue_access_token(user_uuid: str, ygg_token_uuid: str, expires_in: int) -> str:
+def issue_access_token(
+    user_uuid: str, ygg_token_uuid: str, expires_in: int, spr: str = ""
+) -> str:
     """签发 accessToken（HMAC-SHA256，JWT_SECRET）。
 
-    claims 对照原版：
+    claims 对照原版（AuthController.php）：
     - iss: Yggdrasil-Auth
     - sub: 用户 UUID（邮箱派生）
     - yggt: 令牌唯一 ID（原版 refresh 轮换核心）
-    - spr: 选中角色（可选）
+    - spr: 绑定角色 UUID（仅有绑定时携带；L63/L159/L171）
     - exp / iat
     """
     now = int(time.time())
@@ -24,6 +26,8 @@ def issue_access_token(user_uuid: str, ygg_token_uuid: str, expires_in: int) -> 
         "iat": now,
         "exp": now + expires_in,
     }
+    if spr:
+        payload["spr"] = spr
     return jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
 
 
