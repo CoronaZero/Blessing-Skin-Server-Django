@@ -352,6 +352,14 @@ def user_dashboard(request):
         request.user.notifications.order_by("-created_at")[:5]
     )
     announcement = Option.objects.get_value("site_announcement") or ""
+
+    # 签到状态（与 daily_sign 的 20h 冷却一致）
+    from datetime import timedelta
+
+    last_sign = request.user.last_sign_at
+    can_sign = not (last_sign and timezone.now() - last_sign < timedelta(hours=20))
+    next_sign = (last_sign or timezone.now()) + timedelta(hours=20)
+    next_sign_time = next_sign.strftime("%m-%d %H:%M")
     return render(
         request,
         "accounts/dashboard.html",
