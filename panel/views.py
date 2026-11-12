@@ -75,8 +75,30 @@ def user_action(request, uid: int):
     target = User.objects.filter(uid=uid).first()
     if target is None:
         return json_response("用户不存在", FAILURE)
+    # 权限层级：普通管理员不能操作管理员/超管，超管不能操作超管同级以外的自己；
+    # 保护规则：任何人都不能封禁/降级自己，普通管理员不能触碰其他管理员
+    actor = request.user
+    if target.uid == actor.uid and request.POST.get("action") in (
+        "ban", "perm", "reset_password", "unverify",
+    ):
+        return json_response("不能对自己执行此操作", FAILURE)
+    if (
+        not _is_super(actor)
+        and target.permission >= User.Permission.ADMIN
+    ):
+        return json_response(
+            "普通管理员不能操作其他管理员或超级管理员", FAILURE
+        )
+    if (
+        _is_super(actor)
+        and target.permission == User.Permission.SUPER_ADMIN
+        and target.uid != actor.uid
+    ):
+        return json_response("不能操作其他超级管理员", FAILURE)
     action = request.POST.get("action")
     if action == "ban":
+        if target.permission >= User.Permission.SUPER_ADMIN:
+            return json_response("不能封禁超级管理员", FAILURE)
         target.permission = User.Permission.BANNED
         target.save(update_fields=["permission"])
         return json_response("已封禁", SUCCESS)
