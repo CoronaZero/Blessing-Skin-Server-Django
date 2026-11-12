@@ -14,6 +14,8 @@ class OptionField:
     widget: str = "text"  # text / bool / int / textarea / password / select
     help_text: str = ""
     choices: list = field(default_factory=list)  # select 用
+    rows: int = 2  # textarea 行数
+    monospace: bool = False  # textarea 等宽字体（密钥/正则等）
 
 
 @dataclass
@@ -167,6 +169,11 @@ OPTION_REGISTRY: list[OptionGroup] = [
             OptionField("ygg_enable_ali", "API 地址指示（ALI）", widget="bool",
                         help_text="用户输入域名即可自动发现 API 地址，建议开启"),
             OptionField("ygg_skin_domain", "皮肤域名（逗号分隔，留空用当前域名）"),
+            OptionField(
+                "ygg_private_key", "签名私钥（PEM）", widget="textarea",
+                rows=10, monospace=True,
+                help_text="保存前会校验 PEM 格式；留空保存不修改。从旧站迁移时粘贴原私钥即可",
+            ),
         ],
     ),
 ]

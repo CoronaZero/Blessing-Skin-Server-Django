@@ -297,3 +297,81 @@ class TestP2PanelYggLogPage:
         c = self._super_client(client)
         html = c.get("/admin/").content.decode()
         assert "/admin/yggdrasil/logs" in html
+
+
+# ---- P2-23: 面板私钥编辑/重新生成（对照 ConfigController.php:41-60/generate）----
+
+
+class TestP2PanelKeyManagement:
+    def _super_client(self, client):
+        User.objects.create_user(
+            email="sp@x.com", nickname="sp", password="password8",
+            permission=User.Permission.SUPER_ADMIN, verified=True,
+        )
+        client.login(username="sp@x.com", password="password8")
+        return client
+
+    def _pem(self, bits: int = 2048) -> str:
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+
+        key = rsa.generate_private_key(public_exponent=65537, key_size=bits)
+        return key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        ).decode()
+
+    def test_generate_rotates_keypair(self, client, db):
+        from cryptography.hazmat.primitives import serialization
+
+        from options.models import Option
+
+        c = self._super_client(client)
+        resp = c.post("/admin/options/ygg-key/generate")
+        assert resp.json()["code"] == 0
+        pem = Option.objects.get_value("ygg_private_key")
+        key = serialization.load_pem_private_key(pem.encode(), password=None)
+        assert key.key_size == 4096
+        # 公钥 option 同步派生
+        pub = Option.objects.get_value("ygg_public_key")
+        assert pub.startswith("-----BEGIN PUBLIC KEY-----")
+
+    def test_save_custom_key_derives_public(self, client, db):
+        from options.models import Option
+
+        c = self._super_client(client)
+        pem = self._pem()
+        resp = c.post("/admin/options/save", {"ygg_private_key": pem})
+        assert resp.json()["code"] == 0
+        # 保存链路对文本统一 strip，PEM 尾换行不保留（不影响加载）
+        assert Option.objects.get_value("ygg_private_key") == pem.strip()
+        assert Option.objects.get_value("ygg_public_key").startswith(
+            "-----BEGIN PUBLIC KEY-----"
+        )
+
+    def test_invalid_pem_rejected(self, client, db):
+        from options.models import Option
+
+        c = self._super_client(client)
+        resp = c.post("/admin/options/save", {"ygg_private_key": "not-a-pem"})
+        assert resp.json()["code"] != 0
+        assert Option.objects.get_value("ygg_private_key") in (None, "")
+
+    def test_empty_save_keeps_existing_key(self, client, db):
+        from options.models import Option
+
+        c = self._super_client(client)
+        Option.objects.set("ygg_private_key", "PEM-PLACEHOLDER")
+        resp = c.post("/admin/options/save", {"ygg_private_key": ""})
+        assert resp.json()["code"] == 0
+        assert Option.objects.get_value("ygg_private_key") == "PEM-PLACEHOLDER"
+
+    def test_options_page_shows_key_bits(self, client, db):
+        from options.models import Option
+
+        c = self._super_client(client)
+        Option.objects.set("ygg_private_key", self._pem())
+        html = c.get("/admin/options/yggdrasil").content.decode()
+        assert "2048 位" in html
+        assert "重新生成 4096 位密钥对" in html

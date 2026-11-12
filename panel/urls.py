@@ -18,6 +18,7 @@ urlpatterns = [
     path("options/save", views.options_save, name="options_save"),
     path("options/captcha-test", views.captcha_test, name="captcha_test"),
     path("options/mail-test", views.mail_test, name="mail_test"),
+    path("options/ygg-key/generate", views.ygg_key_generate, name="ygg_key_generate"),
     path("options/<str:section>", views.options_page, name="options_section"),
     path("broadcast", views.broadcast, name="broadcast"),
     path("yggdrasil/logs", views.yggdrasil_logs, name="yggdrasil_logs"),

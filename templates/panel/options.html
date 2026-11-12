@@ -37,7 +37,7 @@
         </select>
         {% elif f.widget == 'textarea' %}
         <textarea class="bs-textarea" id="opt-{{ f.key }}" name="{{ f.key }}"
-                  rows="2">{{ entry.values|get_item:f.key }}</textarea>
+                  rows="{{ f.rows }}"{% if f.monospace %} style="font-family:monospace;font-size:11px"{% endif %}>{{ entry.values|get_item:f.key }}</textarea>
         {% elif f.widget == 'int' %}
         <input class="bs-input" type="number" id="opt-{{ f.key }}" name="{{ f.key }}"
                value="{{ entry.values|get_item:f.key }}">
@@ -60,12 +60,24 @@
   {% if current_section == 'yggdrasil' %}
   <div class="bs-card" style="margin-bottom:16px">
     <div class="bs-card-body">
-      <h2 style="font-size:15px;margin:0 0 14px">Yggdrasil 材质签名公钥</h2>
+      <h2 style="font-size:15px;margin:0 0 14px">Yggdrasil 材质签名密钥</h2>
       <p style="font-size:12px;color:var(--bs-text-secondary);margin:0 0 8px">
-        启动器（authlib-injector）首次连接时缓存此公钥；私钥仅存数据库，请勿泄露。
+        当前私钥：{% if ygg_key_bits %}{{ ygg_key_bits }} 位
+        （{% if ygg_key_bits >= 4096 %}符合推荐长度{% else %}低于原版要求的 4096 位，建议重新生成{% endif %}）
+        {% else %}未配置或格式无效{% endif %}。
+        启动器（authlib-injector）首次连接时缓存公钥；私钥仅存数据库，请勿泄露。
       </p>
       <textarea class="bs-textarea" rows="4" readonly
                 style="font-family:monospace;font-size:11px">{{ ygg_public_key }}</textarea>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
+        <button class="bs-btn bs-btn-secondary" id="pm-ygg-generate" type="button">
+          重新生成 4096 位密钥对
+        </button>
+        <span id="pm-ygg-generate-result" style="font-size:13px;color:var(--bs-text-secondary)"></span>
+      </div>
+      <p style="font-size:12px;color:var(--bs-text-secondary);margin:10px 0 0">
+        重新生成后旧公钥立即替换，已缓存的启动器需重新连接才能校验新签名。
+      </p>
     </div>
   </div>
   {% endif %}
@@ -170,6 +182,32 @@
         result.style.color = "var(--bs-danger)";
       } finally {
         mailBtn.disabled = false;
+      }
+    });
+  }
+
+  const yggGen = document.getElementById("pm-ygg-generate");
+  if (yggGen) {
+    yggGen.addEventListener("click", async function () {
+      if (!window.confirm("确定重新生成签名密钥对？旧公钥立即失效，已缓存的启动器需重新连接。")) {
+        return;
+      }
+      const result = document.getElementById("pm-ygg-generate-result");
+      result.textContent = "正在生成（约数秒）…";
+      result.style.color = "var(--bs-text-secondary)";
+      yggGen.disabled = true;
+      try {
+        const r = await window.bsPost("/admin/options/ygg-key/generate", new FormData());
+        result.textContent = r.message;
+        result.style.color = r.code === 0 ? "var(--bs-success)" : "var(--bs-danger)";
+        if (r.code === 0) {
+          setTimeout(function () { location.reload(); }, 800);
+        }
+      } catch (err) {
+        result.textContent = "生成失败：" + err;
+        result.style.color = "var(--bs-danger)";
+      } finally {
+        yggGen.disabled = false;
       }
     });
   }

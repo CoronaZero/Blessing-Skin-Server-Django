@@ -297,6 +297,7 @@ def options_page(request, section: str = "general"):
         "sections": OPTION_SECTIONS,
         "current_section": section,
         "ygg_public_key": _derive_public_key(),
+        "ygg_key_bits": _ygg_key_bits(),
     })
     return render(request, "panel/options.html", ctx)
 
@@ -306,9 +307,18 @@ def options_page(request, section: str = "general"):
 def options_save(request):
     known = {f.key for g in OPTION_REGISTRY for f in g.fields}
     widget_of = {f.key: f.widget for g in OPTION_REGISTRY for f in g.fields}
+    # Yggdrasil 私钥：非空须为合法 PEM（对照原版 openssl_pkey_get_private 校验），
+    # 保存后同步派生公钥 option；留空不修改（与 password 控件同语义）
+    new_key = (request.POST.get("ygg_private_key") or "").strip()
+    if new_key:
+        derived = _derive_public_key(new_key)
+        if not derived:
+            return json_response("签名私钥 PEM 格式无效，未保存", FAILURE)
+        Option.objects.set("ygg_private_key", new_key)
+        Option.objects.set("ygg_public_key", derived)
     updated = 0
     for key, value in request.POST.items():
-        if key not in known:
+        if key not in known or key == "ygg_private_key":
             continue
         widget = widget_of[key]
         if widget == "bool":
@@ -326,14 +336,16 @@ def options_save(request):
     return json_response(f"已保存 {updated} 项", SUCCESS)
 
 
-def _derive_public_key() -> str:
-    private_pem = (Option.objects.get_value("ygg_private_key") or "").strip()
-    if not private_pem:
+def _derive_public_key(pem: str = "") -> str:
+    """从 PEM 私钥派生公钥；不传则读当前 option。无效返回空串。"""
+    if not pem:
+        pem = (Option.objects.get_value("ygg_private_key") or "").strip()
+    if not pem:
         return ""
     try:
         from cryptography.hazmat.primitives import serialization
 
-        key = serialization.load_pem_private_key(private_pem.encode(), password=None)
+        key = serialization.load_pem_private_key(pem.encode(), password=None)
         return key.public_key().public_bytes(
             serialization.Encoding.PEM,
             serialization.PublicFormat.SubjectPublicKeyInfo,
@@ -342,7 +354,43 @@ def _derive_public_key() -> str:
         return ""
 
 
+def _ygg_key_bits() -> int:
+    """当前私钥位数（未配置/无效返回 0，用于面板状态提示）。"""
+    pem = (Option.objects.get_value("ygg_private_key") or "").strip()
+    if not pem:
+        return 0
+    try:
+        from cryptography.hazmat.primitives import serialization
+
+        key = serialization.load_pem_private_key(pem.encode(), password=None)
+        return int(getattr(key, "key_size", 0))
+    except (ValueError, TypeError):
+        return 0
+
+
 # ---- 广播（仅超管）----
+
+
+@super_admin_required
+@require_POST
+def ygg_key_generate(request):
+    """重新生成 4096 位 Yggdrasil 签名密钥对（对照原版 ConfigController::generate）。"""
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
+    private_pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+    public_pem = key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode()
+    Option.objects.set("ygg_private_key", private_pem)
+    Option.objects.set("ygg_public_key", public_pem)
+    return json_response("已生成新的 4096 位密钥对", SUCCESS)
 
 
 @super_admin_required
