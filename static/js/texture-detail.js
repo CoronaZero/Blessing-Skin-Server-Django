@@ -14,15 +14,39 @@
     });
   }
 
-  // 加入衣柜
+  // 加入 / 移出衣柜（双态切换：data-item-id 有值 = 已收藏）
   const closetBtn = document.getElementById("closet-btn");
   if (closetBtn) {
+    const setState = function (inCloset, itemId) {
+      closetBtn.dataset.itemId = inCloset ? String(itemId) : "";
+      closetBtn.textContent = inCloset ? "移出衣柜" : "加入衣柜";
+      closetBtn.classList.toggle("bs-btn-secondary", inCloset);
+      closetBtn.classList.toggle("bs-btn-primary", !inCloset);
+      closetBtn.disabled = false;
+    };
+
     closetBtn.addEventListener("click", async function () {
-      const fd = new FormData();
-      fd.set("tid", closetBtn.dataset.tid);
-      const r = await window.bsPost("/user/closet", fd);
-      window.bsToast(r.message, r.code === 0 ? "success" : "error");
-      if (r.code === 0) closetBtn.disabled = true;
+      closetBtn.disabled = true;
+      try {
+        if (closetBtn.dataset.itemId) {
+          // 移出：仅作用于本人衣柜项（端点按 owner 过滤）
+          const r = await window.bsPost(
+            "/user/closet/" + closetBtn.dataset.itemId + "/remove", new FormData()
+          );
+          window.bsToast(r.message, r.code === 0 ? "success" : "error");
+          if (r.code === 0) setState(false, null);
+        } else {
+          const fd = new FormData();
+          fd.set("tid", closetBtn.dataset.tid);
+          const r = await window.bsPost("/user/closet", fd);
+          window.bsToast(r.message, r.code === 0 ? "success" : "error");
+          if (r.code === 0 && r.data && r.data.item_id) {
+            setState(true, r.data.item_id);
+          }
+        }
+      } finally {
+        closetBtn.disabled = false;
+      }
     });
   }
 

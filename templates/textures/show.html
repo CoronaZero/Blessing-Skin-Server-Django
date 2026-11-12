@@ -43,8 +43,10 @@
 
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       {% if user.is_authenticated %}
-      <button class="bs-btn bs-btn-primary" id="closet-btn" data-tid="{{ texture.tid }}">
-        加入衣柜
+      <button class="bs-btn {% if closet_item_id %}bs-btn-secondary{% else %}bs-btn-primary{% endif %}"
+              id="closet-btn" data-tid="{{ texture.tid }}"
+              data-item-id="{{ closet_item_id|default:'' }}">
+        {% if closet_item_id %}移出衣柜{% else %}加入衣柜{% endif %}
       </button>
       {% endif %}
       <a class="bs-btn bs-btn-secondary"

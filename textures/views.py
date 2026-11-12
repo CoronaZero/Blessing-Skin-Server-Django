@@ -57,11 +57,35 @@ def skinlib_page(request):
 
 @login_required
 def texture_show_page(request):
-    """纹理详情页（3D 预览 + 收藏/下载/举报）。"""
+    """纹理详情页（3D 预览 + 收藏/下载/举报/管理）。"""
     from django.shortcuts import get_object_or_404, render
 
     texture = get_object_or_404(
         Texture.objects.select_related("uploader"), tid=request.GET.get("tid", 0)
+    )
+    # 私密纹理仅上传者与管理员可见（越权审计：普通用户改 tid 访问他人私密 → 404，已有测试锁定）
+    can_manage = (
+        texture.uploader_id == request.user.uid or request.user.is_admin()
+    )
+    if not texture.public and not can_manage:
+        from django.http import HttpResponseNotFound
+
+        return HttpResponseNotFound()
+
+    # 本人衣柜项 id（按 owner 过滤，天然权限隔离）：已收藏 → 渲染"移出"态
+    closet_item_id = request.user.closet.filter(
+        texture=texture
+    ).values_list("id", flat=True).first()
+
+    return render(
+        request,
+        "textures/show.html",
+        {
+            "texture": texture,
+            "site_name": Option.objects.get_value("site_name"),
+            "can_manage": can_manage,
+            "closet_item_id": closet_item_id or "",
+        },
     )
     # 私密纹理仅上传者与管理员可见（越权审计：普通用户改 tid 访问他人私密 → 404，已有测试锁定）
     can_manage = (
@@ -487,8 +511,8 @@ def closet_add(request):
 
     from .models import ClosetItem
 
-    ClosetItem.objects.create(owner=request.user, texture=texture, item_name=name)
-    return json_response("已加入衣柜", SUCCESS)
+    item = ClosetItem.objects.create(owner=request.user, texture=texture, item_name=name)
+    return json_response("已加入衣柜", SUCCESS, {"item_id": item.id})
 
 
 @login_required
