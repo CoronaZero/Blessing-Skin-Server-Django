@@ -122,3 +122,45 @@ class TestJoinIpCheck:
         assert resp.status_code == 204
         assert has_joined(client, ip="9.9.9.9").status_code == 200
         assert has_joined(client, ip="10.0.0.1").status_code == 204
+
+
+# ---- v3 算法下改名重算 UUID（原版 uuid 表重映射）----
+
+
+class TestV3RenameUuid:
+    def _user_client(self, client):
+        User.objects.create_user(
+            email="u@x.com", nickname="u", password="password8", verified=True
+        )
+        client.login(username="u@x.com", password="password8")
+        return client
+
+    def test_v3_rename_recomputes_uuid(self, client, db):
+        from players.uuidgen import generate_uuid_v3
+
+        c = self._user_client(client)
+        Option.objects.set("ygg_uuid_algorithm", "v3")
+        # 走业务创建入口（add_player 显式按名字生成 UUID，v3 生效）
+        resp = c.post("/user/players", {"name": "OldName"})
+        assert resp.json()["code"] == 0
+        player = Player.objects.get(name="OldName")
+        assert player.uuid == generate_uuid_v3("OldName")
+
+        resp = c.post(f"/user/players/{player.pid}/name", {"name": "NewName"})
+        assert resp.json()["code"] == 0
+        player.refresh_from_db()
+        assert player.name == "NewName"
+        assert player.uuid == generate_uuid_v3("NewName")
+
+    def test_v4_rename_keeps_uuid(self, client, db):
+        c = self._user_client(client)
+        Option.objects.set("ygg_uuid_algorithm", "v4")
+        resp = c.post("/user/players", {"name": "OldName"})
+        assert resp.json()["code"] == 0
+        player = Player.objects.get(name="OldName")
+        old_uuid = player.uuid
+
+        resp = c.post(f"/user/players/{player.pid}/name", {"name": "NewName"})
+        assert resp.json()["code"] == 0
+        player.refresh_from_db()
+        assert player.uuid == old_uuid

@@ -7,7 +7,7 @@ from config.jsonapi import FAILURE, SUCCESS, json_response
 from options.models import Option
 from players.models import Player
 
-from .uuidgen import generate_uuid_by_option
+from .uuidgen import generate_uuid_by_option, generate_uuid_v3
 
 
 def _bool_option(name: str, default: str = "0") -> bool:
@@ -161,7 +161,13 @@ def rename_player(request, pid: int):
     if Player.objects.exclude(pid=pid).filter(name=name).exists():
         return json_response("该角色名已被使用", FAILURE)
     player.name = name
-    player.save(update_fields=["name", "last_modified"])
+    update_fields = ["name", "last_modified"]
+    # v3：UUID 为名字的函数，改名须重算（对照原版 uuid 表重映射，Profile.php:146）；
+    # v4：UUID 与名字无关，保持不变（test_players_models 已锁定该语义）
+    if (Option.objects.get_value("ygg_uuid_algorithm") or "v4").strip().lower() == "v3":
+        player.uuid = generate_uuid_v3(name)
+        update_fields.append("uuid")
+    player.save(update_fields=update_fields)
     return json_response("角色已改名", SUCCESS)
 
 
