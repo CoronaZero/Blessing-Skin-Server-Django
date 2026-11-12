@@ -1,0 +1,37 @@
+{% extends "panel/base.html" %}
+{% block title %}角色管理{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <h1 style="margin:0;font-size:20px">角色管理</h1>
+  <form method="get" style="display:flex;gap:8px">
+    <input class="bs-input" name="q" value="{{ q }}" placeholder="角色名/用户邮箱/昵称" style="width:280px">
+    <button class="bs-btn bs-btn-secondary" type="submit">搜索</button>
+  </form>
+</div>
+
+<div class="bs-card">
+  <div class="bs-card-body" style="overflow-x:auto">
+    <table class="pm-table">
+      <tr><th>PID</th><th>角色名</th><th>UUID</th><th>所属用户</th><th>皮肤</th><th>披风</th><th>操作</th></tr>
+      {% for p in page_obj %}
+      <tr>
+        <td>{{ p.pid }}</td>
+        <td>{{ p.name }}</td>
+        <td><code style="font-size:11px">{{ p.uuid }}</code></td>
+        <td>{{ p.uid.email }}</td>
+        <td>{% if p.tid_skin %}<a href="/skinlib/show?tid={{ p.tid_skin.tid }}">{{ p.tid_skin.name }}</a>{% else %}—{% endif %}</td>
+        <td>{% if p.tid_cape %}<a href="/skinlib/show?tid={{ p.tid_cape.tid }}">{{ p.tid_cape.name }}</a>{% else %}—{% endif %}</td>
+        <td>
+          <button class="bs-btn bs-btn-danger" style="padding:3px 10px;font-size:12px"
+                  data-action="delete" data-url="/admin/players/{{ p.pid }}/delete"
+                  data-confirm="确定删除角色 {{ p.name }}（属于 {{ p.uid.email }}）？该操作不可恢复。">删除</button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" style="text-align:center;color:var(--bs-text-secondary);padding:24px">没有符合的角色</td></tr>
+      {% endfor %}
+    </table>
+    {% include "panel/_pager.html" %}
+  </div>
+</div>
+{% endblock %}

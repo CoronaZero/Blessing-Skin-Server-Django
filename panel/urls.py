@@ -22,4 +22,6 @@ urlpatterns = [
     path("broadcast", views.broadcast, name="broadcast"),
     path("invitations", views.invitations_page, name="invitations"),
     path("invitations/generate", views.invitations_generate, name="invitations_generate"),
+    path("players", views.players_page, name="players"),
+    path("players/<int:pid>/delete", views.player_delete, name="player_delete"),
 ]
