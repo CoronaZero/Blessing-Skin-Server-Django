@@ -223,7 +223,8 @@ def mojang_profile_payload():
 
 class TestXboxChain:
     def _patch_chain(self, monkeypatch, *, xsts_payload=None, mc_login_payload=None,
-                     profile_payload=None, profile_status=200, xsts_status=200):
+                     mc_login_status=401, profile_payload=None,
+                     profile_status=200, xsts_status=200):
         posts = []
         gets = []
 
@@ -241,7 +242,7 @@ class TestXboxChain:
             if url == msauth.MC_LOGIN_URL:
                 if mc_login_payload is None:
                     return FakeResp({"access_token": "mc-at"})
-                return FakeResp(mc_login_payload, status=401)
+                return FakeResp(mc_login_payload, status=mc_login_status)
             raise AssertionError(f"unexpected POST {url}")
 
         def fake_get(url, *, params=None, timeout=None, headers=None):
@@ -297,6 +298,24 @@ class TestXboxChain:
         # 上游状态码透出，不再冒用“未购买”文案
         assert "HTTP 401" in exc_info.value.message
         assert "未购买" not in exc_info.value.message
+
+    def test_mc_login_app_registration_rejected(self, monkeypatch):
+        """Mojang 审批政策：新 Azure 应用未过审 → 403 Invalid app registration。"""
+        self._patch_chain(
+            monkeypatch,
+            mc_login_payload={
+                "error": "Forbidden",
+                "errorMessage": (
+                    "Invalid app registration, see https://aka.ms/AppRegInfo "
+                    "for more information"
+                ),
+            },
+            mc_login_status=403,
+        )
+        with pytest.raises(msauth.MicrosoftAuthError) as exc_info:
+            msauth.xbox_authenticate("msa-at")
+        assert "审批" in exc_info.value.message
+        assert "mce-reviewappid" in exc_info.value.message
 
     def test_profile_not_purchased(self, monkeypatch):
         self._patch_chain(

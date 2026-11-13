@@ -155,6 +155,21 @@ def _xsts_error_message(payload: dict) -> str:
     return f"Xbox 认证失败（错误码 {xerr}）"
 
 
+def _mc_login_error_message(resp) -> str:
+    """login_with_xbox 失败的针对性文案（社区高发错误可自助排障）。"""
+    payload = _response_json(resp)
+    text = str(payload.get("errorMessage") or payload.get("error") or "")
+    if "Invalid app registration" in text:
+        # Mojang 政策（help.minecraft.net 文章 16254801392141）：新注册 Azure
+        # 应用须在 aka.ms/mce-reviewappid 提交审批后才能使用 Minecraft API
+        return (
+            "Minecraft 账号认证失败：该 Azure 应用尚未通过 Minecraft API 审批"
+            "（新注册的应用需前往 aka.ms/mce-reviewappid 提交申请，"
+            "审批通过后即可正常使用）"
+        )
+    return f"Minecraft 账号认证失败（{_upstream_error(resp)}）"
+
+
 def xbox_authenticate(msa_access_token: str) -> tuple[dict, str]:
     """正版绑定流程：Microsoft access token → (Minecraft profile, MC token)。
 
@@ -203,8 +218,7 @@ def xbox_authenticate(msa_access_token: str) -> tuple[dict, str]:
     if resp.status_code != 200 or not xsts_token:
         raise _fail(f"XSTS 认证失败（{_upstream_error(resp)}）", "xsts_status")
 
-    # 3. Minecraft login_with_xbox（此步失败常见原因：网络风控/Azure 应用
-    #    未获 Minecraft API 许可——绝不冒用"未购买"文案）
+    # 3. Minecraft login_with_xbox
     try:
         resp = httpclient.outbound_post(MC_LOGIN_URL, json={
             "identityToken": f"XBL3.0 x={uhs};{xsts_token}",
@@ -213,10 +227,7 @@ def xbox_authenticate(msa_access_token: str) -> tuple[dict, str]:
         raise _fail("无法连接 Minecraft 认证服务", "mc_login_network") from None
     mc_payload = _response_json(resp) if resp.status_code == 200 else {}
     if not mc_payload.get("access_token"):
-        raise _fail(
-            f"Minecraft 账号认证失败（{_upstream_error(resp)}）",
-            "mc_login",
-        )
+        raise _fail(_mc_login_error_message(resp), "mc_login")
 
     mc_token = mc_payload["access_token"]
 
