@@ -19,6 +19,7 @@ MANAGED_ENV_VARS = [
     "DEBUG",
     "SECRET_KEY",
     "ALLOWED_HOSTS",
+    "TIME_ZONE",
     "DB_CONNECTION",
     "DB_HOST",
     "DB_PORT",
@@ -190,3 +191,24 @@ class TestSystemCheckSilence:
         """唯一 JWT 字段 512 字符在现代 MariaDB 可用，显式豁免保守告警。"""
         base = load_base(monkeypatch, tmp_path)
         assert "mysql.W003" in base.SILENCED_SYSTEM_CHECKS
+
+
+class TestTimeZone:
+    def test_default_utc_when_unset(self, monkeypatch, tmp_path):
+        base = load_base(monkeypatch, tmp_path)
+        assert base.TIME_ZONE == "UTC"
+        assert base.USE_TZ is True
+
+    def test_env_override_accepted(self, monkeypatch, tmp_path):
+        base = load_base(monkeypatch, tmp_path, TIME_ZONE="Asia/Shanghai")
+        assert base.TIME_ZONE == "Asia/Shanghai"
+        assert base.USE_TZ is True  # DB 恒存 UTC，仅显示层变化
+
+    def test_blank_falls_back_to_utc(self, monkeypatch, tmp_path):
+        base = load_base(monkeypatch, tmp_path, TIME_ZONE="   ")
+        assert base.TIME_ZONE == "UTC"
+
+    def test_invalid_zone_rejects_startup(self, monkeypatch, tmp_path):
+        """非法 IANA 名直接拒绝启动，而非静默回落 UTC。"""
+        with pytest.raises(ImproperlyConfigured, match="时区无效"):
+            load_base(monkeypatch, tmp_path, TIME_ZONE="Mars/Olympus")

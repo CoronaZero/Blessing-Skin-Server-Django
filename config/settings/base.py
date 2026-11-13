@@ -239,7 +239,23 @@ DEFAULT_FROM_EMAIL = "noreply@blessing-skin.local"
 YGG_VERBOSE_LOG = env_bool("YGG_VERBOSE_LOG", False)
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+# 显示时区（IANA 名称，如 Asia/Shanghai）：从 .env 的 TIME_ZONE 读取，
+# 未配置默认 UTC。仅影响渲染层（模板 |date、strftime）；USE_TZ=True 下
+# 数据库恒存 UTC，改此值无迁移、不动存量数据。
+# 写了非法时区名直接拒绝启动（zoneinfo 抛 KeyError），避免静默回落 UTC。
+_raw_tz = (os.environ.get("TIME_ZONE") or "").strip()
+if _raw_tz:
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    try:
+        ZoneInfo(_raw_tz)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ImproperlyConfigured(
+            f"TIME_ZONE 配置的时区无效：{_raw_tz!r}（须为 IANA 名称，如 Asia/Shanghai）"
+        ) from exc
+    TIME_ZONE = _raw_tz
+else:
+    TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
