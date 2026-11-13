@@ -336,8 +336,16 @@ def _choose_bind(request, pending: dict):
     password = request.POST.get("password", "")
     if not email or not password:
         return json_response("请填写站内邮箱与密码", FAILURE)
+    # 与 /auth/login 同一套失败锁定：此路径是等价的凭据撞库入口，
+    # 不能绕过登录侧的暴力破解防护
+    from accounts import login_guard
+
+    ip = get_client_ip(request)
+    if login_guard.is_locked(ip):
+        return json_response("登录失败次数过多，请 1 小时后再试", FAILURE)
     user = authenticate(request, username=email, password=password)
     if user is None:
+        login_guard.record_failure(ip)
         return json_response("站内邮箱或密码错误", FAILURE)
     if user.permission == User.Permission.BANNED:
         return json_response("该账号已被封禁", FAILURE)
@@ -349,6 +357,7 @@ def _choose_bind(request, pending: dict):
     )
     request.session.pop("msa_pending", None)
     auth_login(request, user)
+    login_guard.clear(ip)
     target = pending.get("next") or "/user"
     return json_response(
         "绑定成功，已登录", SUCCESS,

@@ -24,6 +24,9 @@ from config.jsonapi import FAILURE, SPECIAL, SUCCESS, json_response
 from options.models import Option
 
 from .captcha import get_captcha_requirements, verify_captcha
+from .login_guard import clear as _clear_login_fails
+from .login_guard import is_locked as _login_locked
+from .login_guard import record_failure as _record_login_fail
 from .mailer import send_templated_mail
 from .models import PasswordReset, User
 
@@ -72,7 +75,11 @@ def login_submit(request):
         return json_response("请填写邮箱/角色名与密码")
 
     ip = get_client_ip(request)
-    fails_key = "login_fails:" + hashlib.sha256(ip.encode()).hexdigest()
+
+    # 未配置验证码 provider 时的硬锁定：IP 失败达阈值后 1 小时内拒绝
+    # （provider 启用时由验证码承担人机校验，保持原版 >3 次强制的语义）
+    if _login_locked(ip):
+        return json_response("登录失败次数过多，请 1 小时后再试", SPECIAL)
 
     # 验证码 provider 启用时无条件强制（verify_captcha 在关闭时返回 True，
     # 不影响无验证码站点；此前仅 fails>3 才校验，启用了 widget 却可绕过）
@@ -91,14 +98,14 @@ def login_submit(request):
             exists = _user_exists(identification)
             message = "该账号不存在" if not exists else "密码错误"
             code = SPECIAL if not exists else FAILURE
-        cache.set(fails_key, cache.get(fails_key, 0) + 1, 3600)
+        _record_login_fail(ip)
         return json_response(message, code)
 
     if user.permission == User.Permission.BANNED:
         return json_response("账号已被封禁")
 
     auth_login(request, user)
-    cache.delete(fails_key)
+    _clear_login_fails(ip)
     # 回跳优先级：安全校验后的 next > 会话记录 > 默认用户中心
     next_target = request.POST.get("next") or request.session.pop(
         "last_requested_path", ""
