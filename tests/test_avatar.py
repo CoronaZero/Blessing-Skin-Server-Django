@@ -175,6 +175,13 @@ class TestShowPageButton:
         assert 'src="/avatar/me/64.png"' in html
         assert 'src="/avatar/me/128.png"' in html
 
+    def test_user_dashboard_uses_my_avatar_url(self, client, alice):
+        """用户中心头像走 /avatar/me（自选头像优先），不得按角色名渲染。"""
+        client.force_login(alice)
+        html = client.get("/user").content.decode()
+        assert 'src="/avatar/me/128.png"' in html
+        assert "/avatar/128/" not in html
+
 
 def _bytes_io(data):
     import io
