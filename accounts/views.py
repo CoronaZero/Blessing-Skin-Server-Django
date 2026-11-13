@@ -635,23 +635,32 @@ def resend_verification(request):
 
 
 @login_required
+@require_POST
 def daily_sign(request):
-    """每日签到（对照原版 sign：隔天可签，积分 score_per_sign）。"""
-    user = request.user
+    """每日签到（对照原版 sign：隔天可签，积分 score_per_sign）。
+
+    冷却校验 + 计分 + 记录时间以单条条件 UPDATE 原子完成：读-改-写
+    模式下并发双请求可重复加分；状态变更同时限定 POST（GET 不触发）。
+    """
     from datetime import timedelta
 
+    from django.db.models import F, Q
     from django.utils import timezone
 
+    user = request.user
     now = timezone.now()
-    if user.last_sign_at and (now - user.last_sign_at) < timedelta(
-        hours=20
-    ):
-        return json_response("今天已经签到过了")
+    window = timedelta(hours=20)
     try:
         award = int(Option.objects.get_value("score_per_sign") or 0)
     except ValueError:
         award = 0
-    user.score += award
-    user.last_sign_at = now
-    user.save(update_fields=["score", "last_sign_at"])
+    updated = User.objects.filter(uid=user.uid).filter(
+        Q(last_sign_at__isnull=True) | Q(last_sign_at__lt=now - window),
+    ).update(
+        score=F("score") + award,
+        last_sign_at=now,
+    )
+    if not updated:
+        return json_response("今天已经签到过了")
+    user.refresh_from_db()
     return json_response("签到成功", SUCCESS, {"score": user.score})

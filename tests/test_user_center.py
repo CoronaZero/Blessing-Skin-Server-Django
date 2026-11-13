@@ -422,6 +422,10 @@ class TestSign:
         resp = client_logged.post("/user/sign")
         assert resp.json()["code"] == 1
 
+    def test_get_sign_rejected(self, client_logged):
+        """状态变更限定 POST：GET 不触发签到（防 CSRF 惯用语）。"""
+        assert client_logged.get("/user/sign").status_code == 405
+
     def test_next_sign_time_follows_time_zone(self, client_logged, user):
         """「下一次可签到时间」须按 TIME_ZONE 渲染（显示层约定），非 UTC。"""
         import datetime as dt
