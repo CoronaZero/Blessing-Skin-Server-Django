@@ -234,6 +234,60 @@ class TestLoginCallback:
         user.refresh_from_db()
         assert user.msa_identity.sub == "sub-1"
 
+    def test_code_injection_into_victim_session_rejected(self, client, user, monkeypatch):
+        """P1 防授权码注入：攻击者会话发起的 bind 流程，拿到受害者会话
+        回调必须拒绝——否则受害者账号被绑上攻击者的 Microsoft 身份，
+        攻击者随后用 MSA 登录即接管受害者账号。"""
+        from django.test import Client
+
+        enable()
+        victim = User.objects.create_user(
+            email="victim@x.com", nickname="v", password="password8"
+        )
+        attacker = User.objects.create_user(
+            email="atk@x.com", nickname="a", password="password8"
+        )
+        # 攻击者在自己会话发起绑定流程（intent=bind）
+        attacker_client = Client()
+        attacker_client.force_login(attacker)
+        from urllib.parse import parse_qs, urlsplit
+
+        resp = attacker_client.get("/oauth/microsoft/login")
+        st = parse_qs(urlsplit(resp["Location"]).query)["state"][0]
+        # 受害者已登录但从未发起过该流程，点击攻击者回调链接
+        client.force_login(victim)
+        monkeypatch.setattr(
+            msauth, "fetch_login_identity", fake_login_identity(sub="attacker-sub")
+        )
+        resp = client.get(CALLBACK, {"code": "c", "state": st})
+        assert resp.status_code == 200
+        assert "已过期或无效".encode() in resp.content
+        # 关键：受害者的账号未被绑上攻击者的 sub
+        assert not MsaIdentity.objects.filter(user=victim).exists()
+        assert not MsaIdentity.objects.filter(sub="attacker-sub").exists()
+
+    def test_login_csrf_via_injected_state_rejected(self, client, monkeypatch):
+        """login 意图同样校验会话：匿名攻击者发起的 state 不能让受害者
+        被动登录进攻击者账号（login CSRF）。"""
+        from django.test import Client
+
+        enable()
+        attacker_client = Client()
+        from urllib.parse import parse_qs, urlsplit
+
+        resp = attacker_client.get("/oauth/microsoft/login")
+        st = parse_qs(urlsplit(resp["Location"]).query)["state"][0]
+        victim = User.objects.create_user(
+            email="victim@x.com", nickname="v", password="password8"
+        )
+        client.force_login(victim)
+        monkeypatch.setattr(
+            msauth, "fetch_login_identity", fake_login_identity(sub="attacker-sub")
+        )
+        resp = client.get(CALLBACK, {"code": "c", "state": st})
+        assert "已过期或无效".encode() in resp.content
+        assert str(victim.uid) == client.session["_auth_user_id"]  # 会话未被顶替
+
 
 # ---- 引导页 choose ----
 

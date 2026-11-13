@@ -97,16 +97,40 @@ class TestAuthorizeUrl:
 
 
 class TestState:
+    def _request(self):
+        from django.test import RequestFactory
+
+        req = RequestFactory().get("/")
+        req.session = {}
+        return req
+
     def test_roundtrip_single_use(self):
-        token = state.put_state({"intent": "login", "next": "/user"})
+        req = self._request()
+        token = state.put_state({"intent": "login", "next": "/user"}, req)
         assert token
-        payload = state.pop_state(token)
+        payload = state.pop_state(token, req)
         assert payload == {"intent": "login", "next": "/user"}
         # 一次性：再取为 None
-        assert state.pop_state(token) is None
+        assert state.pop_state(token, req) is None
 
     def test_unknown_state(self):
-        assert state.pop_state("nonexistent") is None
+        req = self._request()
+        assert state.pop_state("nonexistent", req) is None
+
+    def test_state_must_match_initiating_session(self):
+        """授权码注入防护：state 换会话即失效。"""
+        attacker_req = self._request()
+        token = state.put_state({"intent": "login"}, attacker_req)
+        # 受害者会话未发起过该流程 → 拒绝
+        victim_req = self._request()
+        assert state.pop_state(token, victim_req) is None
+        # 攻击者自己的会话（未过期窗口内）仍可用一次
+        payload = state.pop_state(token, attacker_req)
+        assert payload == {"intent": "login"}
+
+    def test_oversized_state_rejected(self):
+        req = self._request()
+        assert state.pop_state("x" * 129, req) is None
 
 
 # ---- 登录身份（id_token 解析）----

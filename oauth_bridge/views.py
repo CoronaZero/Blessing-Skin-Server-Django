@@ -109,7 +109,7 @@ def msa_login(request):
     next_url = request.GET.get("next", "")
     if next_url and not _safe_next(next_url):
         next_url = ""
-    state = put_state({"intent": intent, "next": next_url})
+    state = put_state({"intent": intent, "next": next_url}, request)
     return redirect(msauth.authorize_url(
         options.client_id(), _redirect_uri(request), msauth.SCOPE_LOGIN, state,
     ))
@@ -135,7 +135,7 @@ def genuine_start(request):
             f"解绑冷却期内，{_fmt_remaining(left)}后可再次绑定正版角色",
             "/user/players",
         )
-    state = put_state({"intent": "genuine"})
+    state = put_state({"intent": "genuine"}, request)
     return redirect(msauth.authorize_url(
         options.client_id(), _redirect_uri(request), msauth.SCOPE_XBOX, state,
     ))
@@ -153,7 +153,7 @@ def msa_callback(request):
             "Microsoft 授权被取消或失败，请重试或更换账号", "/auth/login",
         )
     code = request.GET.get("code") or ""
-    payload = pop_state(request.GET.get("state") or "")
+    payload = pop_state(request.GET.get("state") or "", request)
     if not code or payload is None:
         return _result(
             request, "授权失败",
