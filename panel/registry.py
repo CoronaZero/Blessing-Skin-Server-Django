@@ -87,6 +87,29 @@ OptionGroup(
         ],
     ),
     OptionGroup(
+        slug="unverified",
+        title="未验证用户限制",
+        section="users",
+        fields=[
+            OptionField(
+                "unverified_block_skinlib", "禁止浏览皮肤库", widget="bool",
+                help_text="勾选后未验证邮箱的用户无法访问皮肤库列表与材质详情页",
+            ),
+            OptionField(
+                "unverified_block_upload", "禁止上传皮肤", widget="bool",
+                help_text="上传页与上传接口一并禁止；与「禁止浏览皮肤库」独立生效",
+            ),
+            OptionField(
+                "unverified_block_ygg", "禁止使用 Yggdrasil API", widget="bool",
+                help_text="未验证邮箱的账号无法通过启动器登录（authenticate 返回 403）",
+            ),
+            OptionField(
+                "unverified_block_import", "禁止站外导入皮肤", widget="bool",
+                help_text="未验证邮箱的用户无法提交站外皮肤导入请求",
+            ),
+        ],
+    ),
+    OptionGroup(
         slug="friends",
         title="好友系统",
         section="users",

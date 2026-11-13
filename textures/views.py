@@ -8,7 +8,8 @@ from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from PIL import Image
 
-from config.jsonapi import SPECIAL, SUCCESS, json_response
+from accounts import restrictions
+from config.jsonapi import FAILURE, SPECIAL, SUCCESS, json_response
 from options.models import Option
 from players.models import Player
 
@@ -39,6 +40,10 @@ def _default_skin_texture():
 @login_required
 def upload_page(request):
     """上传页（GET 渲染表单；POST 由同 URL 的 upload API 处理）。"""
+    if restrictions.blocked(request, "unverified_block_upload"):
+        return restrictions.restricted_page(
+            request, "未验证邮箱的账号暂时不能上传皮肤。"
+        )
     import json as _json
 
     from django.shortcuts import render
@@ -79,6 +84,10 @@ def upload_page(request):
 @login_required
 def skinlib_page(request):
     """皮肤库页面（登录后可见，对照原版）。"""
+    if restrictions.blocked(request, "unverified_block_skinlib"):
+        return restrictions.restricted_page(
+            request, "未验证邮箱的账号暂时不能浏览皮肤库。"
+        )
     from django.shortcuts import render
 
     return render(
@@ -96,6 +105,10 @@ def skinlib_page(request):
 @login_required
 def texture_show_page(request):
     """纹理详情页（3D 预览 + 收藏/下载/举报/管理）。"""
+    if restrictions.blocked(request, "unverified_block_skinlib"):
+        return restrictions.restricted_page(
+            request, "未验证邮箱的账号暂时不能浏览皮肤库。"
+        )
     from django.shortcuts import get_object_or_404, render
 
     texture = get_object_or_404(
@@ -238,6 +251,8 @@ def texture_remove(request, tid: int):
 @login_required
 @require_GET
 def search(request):
+    if restrictions.blocked(request, "unverified_block_skinlib"):
+        return json_response("请先验证邮箱后再浏览皮肤库", FAILURE, status=403)
     from django.core.paginator import Paginator
 
     keyword = (request.GET.get("keyword") or "").strip()
@@ -311,6 +326,8 @@ def search(request):
 @login_required
 @require_POST
 def upload(request):
+    if restrictions.blocked(request, "unverified_block_upload"):
+        return json_response("请先验证邮箱后再上传皮肤", FAILURE, status=403)
     name = (request.POST.get("name") or "").strip()
     texture_type = (request.POST.get("type") or "").strip()
     is_public = request.POST.get("public") in ("1", "true", "on")

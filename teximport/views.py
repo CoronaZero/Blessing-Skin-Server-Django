@@ -27,6 +27,10 @@ def submit_import(request):
     """提交站外纹理导入（URL 入队）。"""
     if _tri_state() not in ("1", "true", "on"):
         return json_response("管理员未开放站外导入功能")
+    from accounts import restrictions
+
+    if restrictions.blocked(request, "unverified_block_import"):
+        return json_response("请先验证邮箱后再使用站外导入", FAILURE, status=403)
 
     raw_url = (request.POST.get("url") or "").strip()
     if not raw_url:

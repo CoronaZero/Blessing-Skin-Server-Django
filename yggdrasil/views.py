@@ -252,6 +252,13 @@ def authenticate(request):
     if (Option.objects.get_value("require_verification") or "0") in ("1", "true"):
         if not user.verified:
             return error_response(403, "ForbiddenOperationException", "邮箱未验证")
+    # 独立开关：无论注册是否要求验证，均禁止未验证用户使用 Yggdrasil API
+    if (Option.objects.get_value("unverified_block_ygg") or "0").strip().lower() in (
+        "1", "true", "on",
+    ) and not user.verified:
+        return error_response(
+            403, "ForbiddenOperationException", "邮箱未验证，无法通过启动器登录"
+        )
 
     # clientToken 原样返回，缺省生成；超长拒绝（DB 列 255，避免 MariaDB 严格模式 500）
     client_token = payload.get("clientToken") or secrets.token_hex(16)
