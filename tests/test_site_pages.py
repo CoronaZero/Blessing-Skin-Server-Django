@@ -144,10 +144,17 @@ class TestCorePagesSmoke:
         assert '"model": "slim"' in html
 
     def test_upload_preview_alex_uses_slim_model(self):
-        """上传页 alex 类型预览必须显式 loadSkin(slim)（否则宽臂渲染）。"""
+        """上传页 alex 类型预览必须显式传 slim 模型（否则宽臂渲染）。
+
+        2206328 预览统一控制条重构后调用从裸 viewer.loadSkin 改为
+        bsInitSkinViewer 入口（带控制条接入与重建前 dispose 清理），
+        模型语义不变：alex → slim；本断言锁定新调用形式。
+        """
         js = Path("static/js/upload.js").read_text(encoding="utf-8")
         assert 'typeSelect.value === "alex"' in js
-        assert 'viewer.loadSkin(dataUrl, { model: "slim" })' in js
+        assert (
+            'model: typeSelect.value === "alex" ? "slim" : "default",' in js
+        )
 
 
 class TestSiteNameRendering:
