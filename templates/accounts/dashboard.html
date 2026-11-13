@@ -1,4 +1,5 @@
 ﻿{% extends "base.html" %}
+{% load static %}
 {% block title %}用户中心 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
@@ -80,7 +81,7 @@
 {% endblock %}
 
 {% block extra_foot %}
-<script src="/static/js/user_dashboard.js"></script>
+<script src="{% static 'js/user_dashboard.js' %}"></script>
 <script>
 (function () {
   const btn = document.getElementById("resend-vf-btn");

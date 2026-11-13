@@ -1,4 +1,5 @@
 ﻿{% extends "base.html" %}
+{% load static %}
 {% block title %}资料设置 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
@@ -44,5 +45,5 @@
 {% endblock %}
 
 {% block extra_foot %}
-<script src="/static/js/user_profile.js"></script>
+<script src="{% static 'js/user_profile.js' %}"></script>
 {% endblock %}

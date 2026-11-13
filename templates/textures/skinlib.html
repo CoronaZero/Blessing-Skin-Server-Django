@@ -1,4 +1,5 @@
 ﻿{% extends "base.html" %}
+{% load static %}
 {% block title %}皮肤库 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
@@ -41,5 +42,5 @@
 {% endblock %}
 
 {% block extra_foot %}
-<script src="/static/js/skinlib.js"></script>
+<script src="{% static 'js/skinlib.js' %}"></script>
 {% endblock %}

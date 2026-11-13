@@ -1,4 +1,5 @@
 ﻿{% extends "base.html" %}
+{% load static %}
 {% block title %}{{ player.name }} - 角色管理 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
@@ -106,5 +107,5 @@
 {% endblock %}
 
 {% block extra_foot %}
-<script src="/static/js/player-manage.js"></script>
+<script src="{% static 'js/player-manage.js' %}"></script>
 {% endblock %}

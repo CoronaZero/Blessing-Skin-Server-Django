@@ -1,4 +1,5 @@
 ﻿{% extends "base.html" %}
+{% load static %}
 {% block title %}注册 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
@@ -100,6 +101,6 @@
 </script>
 
 {% if captcha.provider == "turnstile" %}
-<script src="/static/js/turnstile.js" defer></script>
+<script src="{% static 'js/turnstile.js' %}" defer></script>
 {% endif %}
 {% endblock %}

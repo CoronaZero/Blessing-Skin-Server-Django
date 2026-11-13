@@ -55,6 +55,21 @@ class TestTemplateUrlAudit:
         resolve(settings.LOGIN_URL)
         resolve(settings.LOGIN_REDIRECT_URL)
 
+    def test_no_hardcoded_static_src(self):
+        """静态资源引用必须走 {% static %}（生产指纹 URL 的前置条件）。
+
+        真实事故：JS 用硬编码 /static/js/xxx.js —— whitenoise Manifest
+        存储只对 {% static %} 渲染带 hash 的指纹 URL；硬编码路径永不变，
+        浏览器/反代缓存住旧 JS，模板更新后出现"新按钮 + 旧脚本"错位
+        （全部已读按钮点击无网络请求的根源）。
+        """
+        offenders = []
+        for tpl in Path("templates").rglob("*.html"):
+            text = tpl.read_text(encoding="utf-8")
+            for m in re.finditer(r'src="/static/[^"]+"', text):
+                offenders.append(f"{tpl}: {m.group(0)}")
+        assert not offenders, f"存在硬编码静态引用：{offenders}"
+
 
 class TestCorePagesSmoke:
     """关键页面冒烟：匿名可达页 + 登录后可达页。"""

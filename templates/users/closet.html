@@ -1,4 +1,5 @@
 ﻿{% extends "base.html" %}
+{% load static %}
 {% block title %}我的衣柜 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
 
 {% block content %}
@@ -13,5 +14,5 @@
 {% endblock %}
 
 {% block extra_foot %}
-<script src="/static/js/user_closet.js"></script>
+<script src="{% static 'js/user_closet.js' %}"></script>
 {% endblock %}
