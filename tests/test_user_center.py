@@ -385,3 +385,25 @@ class TestSign:
         client_logged.post("/user/sign")
         resp = client_logged.post("/user/sign")
         assert resp.json()["code"] == 1
+
+    def test_next_sign_time_follows_time_zone(self, client_logged, user):
+        """「下一次可签到时间」须按 TIME_ZONE 渲染（显示层约定），非 UTC。"""
+        import datetime as dt
+
+        from django.test import override_settings
+        from django.utils import timezone as dj_tz
+
+        # 19 小时前签到 → 冷却内，页面显示「已签到 · <next> 后可再签」
+        last_sign = dj_tz.now() - dt.timedelta(hours=19)
+        user.last_sign_at = last_sign
+        user.save()
+        next_sign = last_sign + dt.timedelta(hours=20)
+        expected_utc = next_sign.strftime("%m-%d %H:%M")
+        with override_settings(TIME_ZONE="Asia/Shanghai"):
+            html = client_logged.get("/user").content.decode()
+            # 期望值须在同一 override 上下文中计算
+            expected_local = dj_tz.localtime(next_sign).strftime("%m-%d %H:%M")
+        # Asia/Shanghai 与 UTC 相差 8 小时，两者文本必不相同
+        assert expected_local != expected_utc
+        assert f"已签到 · {expected_local} 后可再签" in html
+        assert f"已签到 · {expected_utc} 后可再签" not in html

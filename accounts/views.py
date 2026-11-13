@@ -391,7 +391,8 @@ def user_dashboard(request):
     last_sign = request.user.last_sign_at
     can_sign = not (last_sign and timezone.now() - last_sign < timedelta(hours=20))
     next_sign = (last_sign or timezone.now()) + timedelta(hours=20)
-    next_sign_time = next_sign.strftime("%m-%d %H:%M")
+    # 显示层约定：按 TIME_ZONE 渲染（裸 strftime 会输出 UTC，差 8 小时）
+    next_sign_time = timezone.localtime(next_sign).strftime("%m-%d %H:%M")
     return render(
         request,
         "accounts/dashboard.html",
