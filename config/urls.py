@@ -16,6 +16,8 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("setup/", include("setup.urls")),
     path("", include("accounts.urls")),
+    # teximport 须在 textures/panel 之前：含 /skinlib/import 与 /admin/imports
+    path("", include("teximport.urls")),
     path("", include("textures.urls")),
     path("", include("players.urls")),
     # OAuth2（对照原版 Passport /oauth/token 等端点）

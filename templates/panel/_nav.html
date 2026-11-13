@@ -23,6 +23,10 @@
     <a class="nav-link {% if active == 'invitations' %}active{% endif %}" href="/admin/invitations">
       <i class="bi bi-ticket-perforated me-1"></i>邀请码</a>
   </li>
+  <li class="nav-item">
+    <a class="nav-link {% if active == 'imports' %}active{% endif %}" href="/admin/imports">
+      <i class="bi bi-cloud-download me-1"></i>皮肤导入</a>
+  </li>
   {% if is_super %}
   <li class="nav-item">
     <a class="nav-link {% if active == 'options' %}active{% endif %}" href="/admin/options">

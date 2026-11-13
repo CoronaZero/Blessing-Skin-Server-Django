@@ -57,6 +57,14 @@
     </div>
     {% endif %}
 
+    {% if texture.source_url %}
+    <p class="small text-secondary mb-3">
+      <i class="bi bi-box-arrow-up-right me-1"></i>来源：
+      <a href="{{ texture.source_url }}" target="_blank"
+         rel="noopener noreferrer nofollow">{{ texture.source_url|truncatechars:72 }}</a>
+    </p>
+    {% endif %}
+
     <div class="d-flex gap-2 flex-wrap">
       {% if user.is_authenticated %}
       <button class="btn {% if closet_item_id %}btn-outline-secondary{% else %}btn-primary{% endif %}"

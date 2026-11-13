@@ -29,6 +29,8 @@ class Texture(models.Model):
     public = models.BooleanField("公开", default=True)
     likes = models.IntegerField("收藏数", default=0)
     description = models.TextField("描述", default="", blank=True)
+    # 站点导入纹理的原始链接（入队前已剔追踪参数；用户上传为空）
+    source_url = models.CharField("来源链接", max_length=500, default="", blank=True)
     upload_at = models.DateTimeField("上传时间", auto_now_add=True)
 
     class Meta:

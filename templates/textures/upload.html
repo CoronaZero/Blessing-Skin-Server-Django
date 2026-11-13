@@ -5,7 +5,15 @@
 <div style="max-width:520px;margin:24px auto">
   <div class="card">
     <div class="card-body">
-      <h1 class="card-title">上传纹理</h1>
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <h1 class="card-title mb-0" style="font-size:1.05rem">上传纹理</h1>
+        {% if import_enabled %}
+        <button class="btn btn-outline-secondary btn-sm" type="button"
+                data-bs-toggle="modal" data-bs-target="#import-modal">
+          <i class="bi bi-cloud-download me-1"></i>从其他皮肤站导入
+        </button>
+        {% endif %}
+      </div>
       <div id="upload-alert" style="display:none" class="alert"></div>
 
       <form id="upload-form" enctype="multipart/form-data">
@@ -69,4 +77,67 @@
 <script src="{% static 'vendor/skinview3d.bundle.js' %}"></script>
 {% if default_skin_json %}<script>window.BS_DEFAULT_SKIN = {{ default_skin_json|safe }};</script>{% endif %}
 <script src="{% static 'js/upload.js' %}"></script>
+{% if import_enabled %}
+{# 站外导入模态框 #}
+<div class="modal fade" id="import-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-cloud-download me-1"></i>从其他皮肤站导入</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+      </div>
+      <div class="modal-body">
+        <div id="import-alert" class="alert alert-danger" style="display:none"></div>
+        <div class="mb-3">
+          <label for="import-url" class="form-label small">皮肤站纹理链接</label>
+          <input class="form-control" id="import-url" type="url"
+                 placeholder="https://littleskin.cn/skinlib/show/929613" required>
+          <div class="form-text">
+            形如 <code>https://站点/skinlib/show/<TID></code> 或 <code>/skinlib/show?tid=<TID></code> 的链接。
+          </div>
+        </div>
+        <p class="fs-6 text-secondary mb-0">
+          <i class="bi bi-info-circle me-1"></i>
+          拉取在后台排队进行（间隔受站长限制），完成后发站内通知。
+          消耗积分为自行上传的 ×{{ import_multiplier|default:3 }} 倍。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="import-submit"
+                data-url="/skinlib/import">提交导入</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const btn = document.getElementById("import-submit");
+  const box = document.getElementById("import-alert");
+  btn.addEventListener("click", async function () {
+    btn.disabled = true;
+    box.style.display = "none";
+    try {
+      const fd = new FormData();
+      fd.set("url", document.getElementById("import-url").value.trim());
+      const r = await window.bsPost(btn.dataset.url, fd);
+      window.bsToast(r.message, r.code === 0 ? "success" : "error");
+      if (r.code === 0) {
+        setTimeout(function () {
+          window.location.href = "/user/notifications";
+        }, 900);
+      } else {
+        box.textContent = r.message;
+        box.style.display = "block";
+      }
+    } catch (err) {
+      box.textContent = "网络异常，请稍后再试";
+      box.style.display = "block";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

@@ -182,6 +182,7 @@ INSTALLED_APPS = [
     "moderation",
     "notifications",
     "invitation",
+    "teximport",
     "oauth_bridge",
     "setup",
     "panel",

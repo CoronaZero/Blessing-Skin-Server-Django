@@ -29,10 +29,11 @@ class OptionGroup:
 
 # 子页签定义（拆分后的选项导航）
 OPTION_SECTIONS = [
-    ("general", "常规", "基本信息、默认材质"),
+    ("general", "常规", "基本信息、默认材质、首页背景"),
     ("users", "用户与注册", "注册、角色名规则、积分、登录安全"),
     ("services", "对接服务", "邮件 SMTP、验证码"),
     ("yggdrasil", "Yggdrasil", "认证协议与签名密钥"),
+    ("import", "皮肤导入", "站外纹理拉取：开关、间隔、UA、倍率、审核"),
 ]
 
 
@@ -186,6 +187,27 @@ OPTION_REGISTRY: list[OptionGroup] = [
                 "ygg_private_key", "签名私钥（PEM）", widget="textarea",
                 rows=10, monospace=True,
                 help_text="保存前会校验 PEM 格式；留空保存不修改。从旧站迁移时粘贴原私钥即可",
+            ),
+        ],
+    ),
+    OptionGroup(
+        slug="teximport",
+        title="皮肤导入",
+        super_admin_only=True,
+        section="import",
+        fields=[
+            OptionField("import_enabled", "启用站外导入", widget="bool",
+                        help_text="开启后用户可在上传页从其他 Blessing Skin 站导入纹理"),
+            OptionField("import_require_review", "导入需管理员审核", widget="bool",
+                        help_text="开启后每次导入须在「面板 → 皮肤导入」页批准后才会拉取"),
+            OptionField("import_interval_seconds", "拉取间隔（秒）", widget="int",
+                        help_text="队列中每两个纹理之间的最小拉取间隔，礼貌爬取建议 ≥ 30"),
+            OptionField("import_score_multiplier", "积分倍率", widget="int",
+                        help_text="导入消耗 =（体积费 + 收藏费）×倍率，应高于自行上传，无上传奖励"),
+            OptionField(
+                "import_user_agents", "User-Agent 池（一行一个）", widget="textarea",
+                rows=4, monospace=True,
+                help_text="拉取时随机选取一行；留空使用内置 UA",
             ),
         ],
     ),

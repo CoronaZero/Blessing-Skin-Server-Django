@@ -53,6 +53,16 @@ def upload_page(request):
             "url": f"/textures/{default_skin.hash}",
             "model": "slim" if default_skin.type == "alex" else "default",
         })
+    # 站外导入开关（默认关闭）与倍率提示
+    import_enabled = (Option.objects.get_value("import_enabled") or "0").strip().lower() in (
+        "1", "true", "on",
+    )
+    try:
+        import_multiplier = int(
+            Option.objects.get_value("import_score_multiplier") or 3
+        )
+    except ValueError:
+        import_multiplier = 3
     return render(
         request,
         "textures/upload.html",
@@ -60,6 +70,8 @@ def upload_page(request):
             "site_name": Option.objects.get_value("site_name"),
             "score_hint": score_hint,
             "default_skin_json": default_skin_json,
+            "import_enabled": import_enabled,
+            "import_multiplier": import_multiplier,
         },
     )
 
