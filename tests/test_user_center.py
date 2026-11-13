@@ -245,6 +245,23 @@ class TestNotifications:
         assert len(resp.json()["data"]) == 1
         assert resp.json()["data"][0]["title"] == "欢迎"
 
+    def test_list_time_localized_and_formatted(self, client_logged, user):
+        """时间按 settings.TIME_ZONE 本地化为 Y-m-d H:i（不再 ISO+偏移）。"""
+        import datetime as _dt
+
+        from django.test import override_settings
+
+        n = Notification.objects.create(recipient=user, title="t", content="c")
+        # 固定 UTC 时刻：2026-11-13 06:30 UTC → 北京 14:30
+        n.created_at = _dt.datetime(2026, 11, 13, 6, 30, tzinfo=_dt.timezone.utc)
+        n.save(update_fields=["created_at"])
+        with override_settings(TIME_ZONE="Asia/Shanghai"):
+            resp = client_logged.get(
+                "/user/notifications",
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+        assert resp.json()["data"][0]["created_at"] == "2026-11-13 14:30"
+
     def test_mark_read(self, client_logged, user):
         n = Notification.objects.create(recipient=user, title="t", content="c")
         resp = client_logged.post(f"/user/notifications/{n.id}/read")

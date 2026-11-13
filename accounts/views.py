@@ -537,7 +537,9 @@ def notifications_list(request):
             "title": n.title,
             "content": n.content,
             "read": n.read_at is not None,
-            "created_at": n.created_at.isoformat(),
+            # 显示层格式化：按 settings.TIME_ZONE 本地化（.env 可配），
+            # 前端直接渲染字符串，不再显示带 +00:00 偏移的原始 ISO 串
+            "created_at": timezone.localtime(n.created_at).strftime("%Y-%m-%d %H:%M"),
         }
         for n in qs
     ]
