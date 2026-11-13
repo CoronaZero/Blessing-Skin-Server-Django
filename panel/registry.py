@@ -166,6 +166,48 @@ OptionGroup(
         ],
     ),
     OptionGroup(
+        slug="microsoft",
+        title="Microsoft OAuth",
+        super_admin_only=True,
+        section="services",
+        fields=[
+            OptionField(
+                "microsoft_oauth_enabled", "启用 Microsoft OAuth", widget="bool",
+                help_text="总开关；应用注册请前往 Azure Portal（aka.ms/aad），"
+                          "平台类型选 Web，重定向 URI 填本站回调地址",
+            ),
+            OptionField("microsoft_client_id", "应用 ID（client_id）"),
+            OptionField("microsoft_client_secret", "应用密码（client_secret）",
+                        widget="password", help_text="留空保存不修改"),
+            OptionField("microsoft_login_enabled", "允许用于账号登录", widget="bool",
+                        help_text="登录/注册页显示 Microsoft 按钮；已登录用户访问时转为绑定入口"),
+            OptionField(
+                "microsoft_register_enabled", "允许用于注册新账号", widget="bool",
+                help_text="未绑定的 Microsoft 账号在引导页可选择创建新账号；"
+                          "创建时仍受注册开关、邀请码、同 IP 上限等全部注册限制",
+            ),
+            OptionField(
+                "microsoft_bind_enabled", "允许绑定正版角色", widget="bool",
+                help_text="用户可在「我的角色」页发起 Xbox 链路验证"
+                          "并绑定正版角色（只读，不建本地角色）",
+            ),
+            OptionField(
+                "microsoft_passthrough_enabled", "正版验证透传", widget="bool",
+                help_text="开启后，已绑定正版角色的玩家可用正版客户端进入指向本站的 "
+                          "authlib-injector 服务器（hasJoined 转发 Mojang 校验；上游失败一律拒绝）",
+            ),
+            OptionField(
+                "microsoft_unbind_cooldown_days", "解绑冷却（天）", widget="int",
+                help_text="解绑 Microsoft 账号/正版角色后，多少天内不可重新绑定；0=不冷却",
+            ),
+            OptionField(
+                "microsoft_outbound_proxy", "出站代理地址",
+                help_text="访问 Microsoft/Mojang API 的代理（http(s)://IP:端口），留空直连；"
+                          "socks 代理请转换为 http 端口后填写",
+            ),
+        ],
+    ),
+    OptionGroup(
         slug="captcha",
         title="验证码",
         super_admin_only=True,
