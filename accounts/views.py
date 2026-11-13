@@ -128,6 +128,8 @@ def register_page(request):
                 Option.objects.get_value("invitation_required") or "0"
             )
             in ("1", "true"),
+            # 邀请链接 ?invite=<code> 预填（面板邀请码页一键复制）
+            "invite_code": (request.GET.get("invite") or "").strip()[:32],
         },
     )
 

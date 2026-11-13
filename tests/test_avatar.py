@@ -180,3 +180,40 @@ def _bytes_io(data):
     import io
 
     return io.BytesIO(data)
+
+
+class TestInvitationLinks:
+    def test_panel_unused_code_clickable(self, client, db):
+        from django.utils import timezone
+
+        from invitation.models import InvitationCode
+
+        User.objects.create_user(
+            email="adm@x.com", nickname="adm", password="password8",
+            permission=User.Permission.ADMIN, verified=True,
+        )
+        used_by = User.objects.create_user(
+            email="used@x.com", nickname="used", password="password8"
+        )
+        free = InvitationCode.objects.create(code="FREE123")
+        _ = free
+        InvitationCode.objects.create(code="USED456", used_by=used_by, used_at=timezone.now())
+
+        client.login(username="adm@x.com", password="password8")
+        html = client.get("/admin/invitations").content.decode()
+        # 未使用 → 可点击复制按钮
+        assert 'data-code="FREE123"' in html
+        assert "copy-invite" in html
+        # 已使用 → 原样纯文本
+        assert 'data-code="USED456"' not in html
+        assert ">USED456<" in html or "USED456" in html
+
+    def test_register_invite_prefill(self, client, db):
+        from options.models import Option
+
+        Option.objects.set("invitation_required", "1")
+        html = client.get("/auth/register?invite=ABCXYZ99").content.decode()
+        assert 'value="ABCXYZ99"' in html
+        # 无参数时不预填
+        html2 = client.get("/auth/register").content.decode()
+        assert 'value=""' in html2 or 'value="ABCXYZ99"' not in html2

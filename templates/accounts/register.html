@@ -32,7 +32,8 @@
         {% if invitation_required %}
         <div class="bs-field">
           <label for="id-invitation">邀请码</label>
-          <input class="form-control" id="id-invitation" name="invitation_code" required>
+          <input class="form-control" id="id-invitation" name="invitation_code" required
+                 value="{{ invite_code|default:'' }}">
         </div>
         {% endif %}
 

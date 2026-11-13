@@ -17,7 +17,19 @@
       <tr><th>邀请码</th><th>状态</th><th>使用者</th><th>使用时间</th><th>生成时间</th></tr>
       {% for inv in page_obj %}
       <tr>
-        <td><code style="font-size:12px;user-select:all">{{ inv.code }}</code></td>
+        <td>
+          {% if inv.used_by %}
+          <code style="font-size:12px;user-select:all">{{ inv.code }}</code>
+          {% else %}
+          {# 未使用：点击复制邀请链接（注册页 ?invite= 预填） #}
+          <button class="btn btn-sm btn-outline-secondary copy-invite"
+                  data-code="{{ inv.code }}" type="button"
+                  title="复制邀请链接">
+            <code style="font-size:12px">{{ inv.code }}</code>
+            <i class="bi bi-clipboard ms-1"></i>
+          </button>
+          {% endif %}
+        </td>
         <td>
           {% if inv.used_by %}<span style="color:var(--bs-danger)">已使用</span>
           {% else %}<span style="color:var(--bs-success)">可用</span>{% endif %}
@@ -35,6 +47,9 @@
     {% include "panel/_pager.html" %}
   </div>
 </div>
+<p class="small text-secondary mt-2">
+  <i class="bi bi-info-circle me-1"></i>点击未使用的邀请码可复制邀请链接，新用户打开后邀请码自动填入。
+</p>
 {% endblock %}
 
 {% block extra_foot %}
@@ -45,6 +60,25 @@
     const r = await window.bsPost("/admin/invitations/generate", new FormData(this));
     window.bsToast(r.message, r.code === 0 ? "success" : "error");
     if (r.code === 0) setTimeout(function () { location.reload(); }, 700);
+  });
+
+  // 点击未使用的邀请码 → 复制邀请链接
+  document.querySelectorAll(".copy-invite").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      const link = location.origin + "/auth/register?invite=" + btn.dataset.code;
+      try {
+        await navigator.clipboard.writeText(link);
+      } catch (err) {
+        // 旧浏览器/非安全上下文回落：选中文本手动复制
+        const tmp = document.createElement("input");
+        document.body.appendChild(tmp);
+        tmp.value = link;
+        tmp.select();
+        document.execCommand("copy");
+        tmp.remove();
+      }
+      window.bsToast("邀请链接已复制：" + link, "success");
+    });
   });
 })();
 </script>
