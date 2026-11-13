@@ -119,5 +119,6 @@ class TestRenderPixelCap:
     def test_preview_render_blocked_over_cap(self, client, worn_player, monkeypatch):
         from textures import rendering
 
+        client.force_login(worn_player.uid)
         monkeypatch.setattr(rendering, "MAX_RENDER_PIXELS", 1024)
         assert client.get(f"/preview/{worn_player.tid_skin.tid}?png").status_code == 404

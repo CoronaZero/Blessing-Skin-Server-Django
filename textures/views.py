@@ -506,30 +506,46 @@ def player_profile_json(request, player_name: str):
 # ---- 皮肤立绘预览（对照原版 /preview/{tid}，3D 投影渲染 + 缓存）----
 
 
+@login_required
 @require_GET
 def preview_texture(request, tid: int):
-    """渲染纹理立绘：skin→正面+背面 3D 立绘；cape→披风平展图。"""
+    """渲染纹理立绘：skin→正面+背面 3D 立绘；cape→披风平展图。
+
+    可见性与详情页同口径：私密纹理仅上传者/管理员可预览（此前未鉴权，
+    按可枚举的 tid 任意人可渲染他人私密纹理）；height 容错收敛到
+    64..1024，并纳入缓存键（此前不同 height 互串缓存）。
+    """
     from django.core.cache import cache
 
     texture = Texture.objects.filter(tid=tid).first()
     if texture is None:
         return HttpResponseNotFound()
+    if (
+        not texture.public
+        and texture.uploader_id != request.user.uid
+        and not request.user.is_admin()
+    ):
+        return HttpResponseNotFound()
 
     use_png = "png" in request.GET
-    height = request.GET.get("height", "200")
-    cache_key = f"preview:t{texture.tid}:{'png' if use_png else 'webp'}"
+    try:
+        height = int(request.GET.get("height", "200"))
+    except ValueError:
+        height = 200
+    height = max(64, min(height, 1024))
+    cache_key = f"preview:t{texture.tid}:{'png' if use_png else 'webp'}:h{height}"
     cached = cache.get(cache_key)
     if cached is None:
         try:
             data = texture_storage.read(texture.hash)
             if texture.type == "cape":
-                image_bytes = render_cape_portrait(data, int(height))
+                image_bytes = render_cape_portrait(data, height)
                 fmt = "PNG"
             else:
                 image_bytes = render_skin_portrait(data, 12, texture.type == "alex")
                 fmt = "PNG"
         except (TextureFileNotFoundError, ValueError):
-            # 渲染超像素上限/文件缺失/height 非法均为 404，不 500
+            # 渲染超像素上限/文件缺失均为 404，不 500
             return HttpResponse(status=404)
         if not use_png:
             try:
