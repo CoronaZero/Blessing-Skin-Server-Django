@@ -253,7 +253,7 @@ class TestNotifications:
 
         n = Notification.objects.create(recipient=user, title="t", content="c")
         # 固定 UTC 时刻：2026-11-13 06:30 UTC → 北京 14:30
-        n.created_at = _dt.datetime(2026, 11, 13, 6, 30, tzinfo=_dt.timezone.utc)
+        n.created_at = _dt.datetime(2026, 11, 13, 6, 30, tzinfo=_dt.UTC)
         n.save(update_fields=["created_at"])
         with override_settings(TIME_ZONE="Asia/Shanghai"):
             resp = client_logged.get(
