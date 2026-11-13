@@ -3,6 +3,8 @@ name: CI
 on:
   push:
   pull_request:
+  # 手动入口：只跑测试，不触发镜像构建
+  workflow_dispatch:
 
 jobs:
   test:

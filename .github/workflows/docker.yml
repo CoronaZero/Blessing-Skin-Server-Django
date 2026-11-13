@@ -1,11 +1,13 @@
-name: Build & Publish
+name: Build & Publish Docker
 
 on:
-  push:
-    branches: [master, main]
-    tags: ["v*"]
-  pull_request:
-    branches: [master, main]
+  # push 链路：CI 测试成功后自动构建被测 commit（PR 与手动跑测试不触发，
+  # 仅 push 引发的 CI 成功才放行——job 级 if 再过滤 master/main/v* 标签）
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  # 手动入口：单独触发构建（不依赖测试结果）
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -14,40 +16,109 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        (
+          github.event.workflow_run.head_branch == 'master' ||
+          github.event.workflow_run.head_branch == 'main' ||
+          startsWith(github.event.workflow_run.head_branch, 'v')
+        )
+      )
     permissions:
       contents: read
       packages: write
 
     steps:
+      # workflow_run 上下文中 github.ref/github.sha 指向默认分支，须用
+      # 触发 CI run 的 head_sha/head_branch 定位被测 commit 与分支/标签名
+      - name: Resolve ref and image tags
+        id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          DISPATCH_SHA: ${{ github.sha }}
+          DISPATCH_REF: ${{ github.ref_name }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            sha="$RUN_SHA"
+            name="$RUN_BRANCH"
+          else
+            sha="$DISPATCH_SHA"
+            name="$DISPATCH_REF"
+          fi
+          sha7="${sha:0:7}"
+          image="$(printf '%s/%s' "$REGISTRY" "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
+
+          tags=""
+          case "$name" in
+            master|main)
+              # push master → 镜像 tag：master + sha-<短哈希>
+              primary="$name"
+              tags+="$image:$name"$'\n'
+              tags+="$image:sha-$sha7"
+              ;;
+            v*)
+              # 标签发布 v1.2.3 → 1.2.3 / 1.2 + sha-<短哈希>（对照原 semver 规则：
+              # {{major}}.{{minor}} 仅对三段式版本产生子 tag）
+              ver="${name#v}"
+              if ! printf '%s' "$ver" | grep -Eq '^[0-9]+(\.[0-9]+){0,2}$'; then
+                echo "::error::标签名「$name」不符合语义化版本（v<major[.minor[.patch]]>）"
+                exit 1
+              fi
+              primary="$ver"
+              tags+="$image:$ver"$'\n'
+              if printf '%s' "$ver" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+                tags+="$image:${ver%.*}"$'\n'
+              fi
+              tags+="$image:sha-$sha7"
+              ;;
+            *)
+              echo "::error::构建目标须为 master/main 分支或 v* 标签（当前：$name）"
+              exit 1
+              ;;
+          esac
+
+          labels="org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY"
+          labels+=$'\n'"org.opencontainers.image.revision=$sha"
+          labels+=$'\n'"org.opencontainers.image.version=$primary"
+          labels+=$'\n'"org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          {
+            echo "sha=$sha"
+            echo "primary=$primary"
+            echo 'tags<<META_EOF'
+            printf '%s\n' "$tags"
+            echo 'META_EOF'
+            echo 'labels<<META_EOF'
+            printf '%s\n' "$labels"
+            echo 'META_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.meta.outputs.sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
-
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
