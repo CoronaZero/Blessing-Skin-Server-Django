@@ -1,8 +1,9 @@
-"""好友系统协议端点 + 未验证用户限制 测试。"""
+"""Minecraft 好友系统协议端点测试。"""
 
 import json
 
 import pytest
+from django.test import Client
 
 from accounts.models import User
 from options.models import Option
@@ -348,3 +349,39 @@ class TestRateLimit:
         for _ in range(5):
             resp = api(client, "get", MS + "/friends", token=tokens["accessToken"])
         assert resp.status_code == 200
+
+
+# ---- CSRF（authlib-injector 代理不携带 CSRF token）----
+
+
+class TestCsrfExempt:
+    def test_put_friends_without_csrf(self, alice, bob):
+        c = Client(enforce_csrf_checks=True)
+        tokens = auth(c)
+        resp = api(
+            c, "put", MS + "/friends",
+            {"name": "Bob", "updateType": "ADD"},
+            token=tokens["accessToken"],
+        )
+        assert resp.status_code == 200, resp.content.decode()[:200]
+        # ADD 在无反向申请时建立 outgoing 请求
+        assert [f["name"] for f in resp.json()["outgoingRequests"]] == ["Bob"]
+
+    def test_post_presence_without_csrf(self, alice):
+        c = Client(enforce_csrf_checks=True)
+        tokens = auth(c)
+        resp = api(
+            c, "post", MS + "/presence", {"status": "ONLINE"},
+            token=tokens["accessToken"],
+        )
+        assert resp.status_code == 200, resp.content.decode()[:200]
+
+    def test_post_attributes_without_csrf(self, alice):
+        c = Client(enforce_csrf_checks=True)
+        tokens = auth(c)
+        resp = api(
+            c, "post", MS + "/player/attributes",
+            {"friendsPreferences": {"friends": "DISABLED", "acceptInvites": "ENABLED"}},
+            token=tokens["accessToken"],
+        )
+        assert resp.status_code == 200, resp.content.decode()[:200]

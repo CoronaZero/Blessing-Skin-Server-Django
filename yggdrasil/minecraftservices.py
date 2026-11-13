@@ -9,6 +9,8 @@ Minecraft 26.3 客户端 + authlib-injector 三方交叉还原）：
 - Presence 存 Django cache（TTL 300s），仅在好友之间可见。
 - GET /friends 支持 ETag/304；所有端点返回 application/json。
 - feature.enable_mojang_anti_features 开关由 hello meta 下发（见 views.hello）。
+- 全部端点 csrf_exempt：鉴权走 Bearer，无 Cookie 会话；authlib-injector
+  代理转发 PUT/POST 时不会携带 CSRF token（否则 403 CSRF 页面）。
 """
 
 import hashlib
@@ -16,6 +18,7 @@ import json
 
 from django.core.cache import cache
 from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from players.models import Friendship, Player
@@ -142,6 +145,7 @@ def _friends_snapshot(player: Player) -> dict:
 # ---- 端点 ----
 
 
+@csrf_exempt
 @require_http_methods(["GET", "PUT"])
 def friends_endpoint(request):
     """GET=快照 / PUT=动作（同 URL 按方法分派）。"""
@@ -155,6 +159,7 @@ def friends_endpoint(request):
     return friends_list(request)
 
 
+@csrf_exempt
 @require_GET
 def friends_list(request):
     """GET /friends：好友全量快照 + ETag/304（规范 §4.1）。"""
@@ -174,6 +179,7 @@ def friends_list(request):
     return resp
 
 
+@csrf_exempt
 @require_http_methods(["PUT"])
 def friends_update(request):
     """PUT /friends：ADD/REMOVE 状态机（规范 §4.2），返回新快照。
@@ -238,6 +244,7 @@ def _get_presence(player: Player) -> dict:
     return cache.get(_presence_key(player)) or {}
 
 
+@csrf_exempt
 @require_POST
 def presence_update(request):
     """POST /presence：上报我的状态 + 取回好友状态（规范 §4.3）。"""
@@ -297,6 +304,7 @@ def _privileges_payload() -> dict:
     }
 
 
+@csrf_exempt
 @require_http_methods(["GET", "POST"])
 def player_attributes(request):
     """GET/POST /player/attributes：用户属性与好友设置（规范 §4.4/§4.5）。"""
@@ -332,6 +340,7 @@ def player_attributes(request):
     })
 
 
+@csrf_exempt
 @require_GET
 def privileges_legacy(request):
     """GET /privileges：老端点（规范 §4.7，与 attributes 同构）。"""
@@ -341,6 +350,7 @@ def privileges_legacy(request):
     return _json({"privileges": _privileges_payload()})
 
 
+@csrf_exempt
 @require_GET
 def blocklist(request):
     """GET /privacy/blocklist：MVP 空集合（规范 §4.6）。"""
@@ -350,18 +360,21 @@ def blocklist(request):
     return _json({"blockedProfiles": []})
 
 
+@csrf_exempt
 @require_POST
 def events_noop(request):
     """POST /events：遥测 no-op（规范 §4.8）。"""
     return HttpResponse(status=204)
 
 
+@csrf_exempt
 @require_POST
 def report_noop(request):
     """POST /player/report：举报 no-op（规范 §4.8）。"""
     return HttpResponse(status=204)
 
 
+@csrf_exempt
 @require_GET
 def blocked_servers(request):
     """GET /sessionserver/blockedservers：404（复刻原 AntiFeaturesFilter 行为）。"""
