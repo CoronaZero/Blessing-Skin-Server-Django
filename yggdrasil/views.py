@@ -527,6 +527,13 @@ def has_joined(request):
     session_key = f"ygg_server:{server_id}:{username}"
     cached = cache.get(session_key)
     if not cached:
+        # 正版验证透传：正版客户端（join 到 Mojang）进 authlib-injector 服务器时，
+        # 本地无会话——转发上游确认后再放行；关闭/失败/未绑定维持 204
+        from oauth_bridge.passthrough import try_passthrough
+
+        passthrough_resp = try_passthrough(request, username, server_id)
+        if passthrough_resp is not None:
+            return passthrough_resp
         return HttpResponse(status=204)
     # 会话值：新格式 {uuid, ip}；兼容滚动部署期间的旧格式纯 uuid 字符串
     if isinstance(cached, dict):
