@@ -469,7 +469,46 @@ def profile_submit(request):
         user.delete()
         return json_response("账号已注销", SUCCESS)
 
+    if action == "avatar":
+        return avatar_submit(request)
+
     return json_response("未知的操作")
+
+
+@login_required
+@require_POST
+def avatar_submit(request):
+    """设置/清除自定义头像（set=皮肤纹理 TID / clear）。
+
+    PHP 原版 users.avatar 字段此前从未被使用，本次接通：
+    仅接受皮肤类纹理（steve/alex），头像渲染取其面部。
+    """
+    user = request.user
+    sub = (request.POST.get("sub") or "").strip()
+    if sub == "clear":
+        user.avatar = 0
+        user.save(update_fields=["avatar"])
+        return json_response("已恢复默认头像（角色皮肤）", SUCCESS)
+    if sub != "set":
+        return json_response("未知的操作")
+
+    from textures.models import Texture
+
+    try:
+        tid = int(request.POST.get("tid") or 0)
+    except ValueError:
+        return json_response("参数无效")
+    texture = Texture.objects.filter(tid=tid).first()
+    if texture is None:
+        return json_response("纹理不存在")
+    # 权限：公开或本人上传（私密纹理不开放做他人头像）
+    if not texture.public and texture.uploader_id != user.uid:
+        return json_response("无权使用该纹理")
+    if texture.type not in ("steve", "alex"):
+        return json_response("仅皮肤类型可设为头像")
+    user.avatar = texture.tid
+    user.save(update_fields=["avatar"])
+    return json_response("已设为头像", SUCCESS)
 
 
 @login_required

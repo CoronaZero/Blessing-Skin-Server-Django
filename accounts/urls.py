@@ -51,4 +51,5 @@ urlpatterns = [
     path("user/sign", views.daily_sign, name="sign"),
     path("user/resend-verification", views.resend_verification, name="resend_verification"),
     path("user/announcement", views.announcement_page, name="announcement"),
+    path("user/avatar", views.avatar_submit, name="avatar"),
 ]

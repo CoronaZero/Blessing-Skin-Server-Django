@@ -407,6 +407,43 @@ def serve_avatar(request, size: int, player_name: str):
     return HttpResponse(avatar, content_type="image/png")
 
 
+@login_required
+@require_GET
+def serve_my_avatar(request, size: int):
+    """当前用户头像：avatar 字段（用户自选纹理）→ 回落首个角色皮肤。
+
+    URL 形如 /avatar/me/64.png（区别于按玩家名的 CustomSkinAPI 路径）。
+    无可用皮肤时 302 到占位图标（前端 <img> 兜底显示）。
+    """
+    from django.shortcuts import redirect as _redirect
+
+    if size not in AVATAR_SIZES:
+        return HttpResponseNotFound()
+
+    skin_hash = ""
+    if request.user.avatar:
+        t = Texture.objects.filter(tid=request.user.avatar).first()
+        if t and t.type in ("steve", "alex"):
+            skin_hash = t.hash
+    if not skin_hash:
+        player = request.user.players.select_related("tid_skin").first()
+        if player and player.tid_skin:
+            skin_hash = player.tid_skin.hash
+    if not skin_hash:
+        # 无皮肤：占位图（静态资源而非 404，避免浏览器显示裂图）
+        return _redirect("/static/icons/user.svg")
+
+    try:
+        skin = texture_storage.read(skin_hash)
+    except (TextureFileNotFoundError, ValueError):
+        return _redirect("/static/icons/user.svg")
+    avatar = render_avatar(skin, size)
+    # 个人选择可能变化，短缓存即可
+    resp = HttpResponse(avatar, content_type="image/png")
+    resp["Cache-Control"] = "private, max-age=300"
+    return resp
+
+
 @require_GET
 def player_profile_json(request, player_name: str):
     """CustomSkinAPI R1：/{player}.json。"""

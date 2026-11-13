@@ -64,6 +64,13 @@
               data-item-id="{{ closet_item_id|default:'' }}">
         {% if closet_item_id %}移出衣柜{% else %}加入衣柜{% endif %}
       </button>
+      {% if texture.type != "cape" %}
+      {# 设为头像：皮肤类纹理 + 登录用户（用其面部渲染个人头像） #}
+      <button class="btn btn-outline-secondary" id="avatar-btn"
+              data-tid="{{ texture.tid }}"{% if user.avatar == texture.tid %} disabled{% endif %}>
+        {% if user.avatar == texture.tid %}当前头像{% else %}设为头像{% endif %}
+      </button>
+      {% endif %}
       {% endif %}
       <a class="btn btn-outline-secondary"
          href="/textures/{{ texture.hash }}" download="{{ texture.hash }}.png">

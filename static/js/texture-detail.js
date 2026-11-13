@@ -65,6 +65,33 @@
     });
   }
 
+  // 设为头像（皮肤类纹理）
+  const avatarBtn = document.getElementById("avatar-btn");
+  if (avatarBtn && !avatarBtn.disabled) {
+    avatarBtn.addEventListener("click", async function () {
+      avatarBtn.disabled = true;
+      let ok = false;
+      try {
+        const fd = new FormData();
+        fd.set("sub", "set");
+        fd.set("tid", avatarBtn.dataset.tid);
+        const r = await window.bsPost("/user/avatar", fd);
+        window.bsToast(r.message, r.code === 0 ? "success" : "error");
+        ok = r.code === 0;
+        if (ok) {
+          avatarBtn.textContent = "当前头像";
+          // 顶栏/抽屉头像立即刷新（浏览器对同名 URL 有缓存，加查询串穿透）
+          const bust = "?v=" + Date.now();
+          document.querySelectorAll("img#nav-avatar").forEach(function (img) {
+            img.src = "/avatar/me/64.png" + bust;
+          });
+        }
+      } finally {
+        if (!ok) avatarBtn.disabled = false;
+      }
+    });
+  }
+
   // 材质管理（上传者/管理员）
   const privacyBtn = document.getElementById("privacy-btn");
   if (privacyBtn) {

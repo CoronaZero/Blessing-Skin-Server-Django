@@ -62,7 +62,7 @@
                 aria-controls="user-drawer" aria-label="个人菜单"
                 style="line-height:1">
           <img id="nav-avatar" alt="头像"
-               src="{% if user.players.first %}/avatar/64/{{ user.players.first.name }}.png{% else %}{% static 'icons/user.svg' %}{% endif %}"
+               src="/avatar/me/64.png"
                class="rounded" style="width:32px;height:32px;background:var(--bs-primary-light)">
         </button>
         {% else %}
@@ -90,7 +90,7 @@
     </div>
     <div class="offcanvas-body">
       <div class="text-center mb-3">
-        <img src="{% if user.players.first %}/avatar/128/{{ user.players.first.name }}.png{% else %}{% static 'icons/user.svg' %}{% endif %}"
+        <img src="/avatar/me/128.png"
              class="rounded-3 mb-2" alt="头像"
              style="width:72px;height:72px;object-fit:cover;background:var(--bs-primary-light)">
         <div class="fw-semibold">{{ user.nickname }}</div>
