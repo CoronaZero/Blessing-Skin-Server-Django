@@ -78,27 +78,32 @@ def submit_import(request):
     require_review = (
         Option.objects.get_value("import_require_review") or "0"
     ).strip().lower() in ("1", "true", "on")
+    # 可见性单选（默认私密；与上传页 public 复选框语义对齐）
+    requested_public = request.POST.get("public") in ("1", "true", "on")
 
     ImportRequest.objects.create(
         requester=request.user,
         source_url=sanitized,
         site=site,
         tid=tid,
+        requested_public=requested_public,
         status=(ImportRequest.Status.PENDING if require_review
                 else ImportRequest.Status.QUEUED),
     )
+    visibility = "公开" if requested_public else "私密"
     if require_review:
         from notifications.models import Notification
 
         Notification.objects.create(
             recipient=request.user,
             title="导入请求已提交",
-            content=f"「{sanitized}」已进入审核队列，管理员通过后将自动拉取。",
+            content=f"「{sanitized}」（{visibility}）已进入审核队列，"
+                    "管理员通过后将自动拉取。",
         )
         return json_response("已提交，等待管理员审核", SUCCESS)
     ensure_worker()
     return json_response(
-        "已加入拉取队列，完成后将发站内通知",
+        f"已加入拉取队列（{visibility}），完成后将发站内通知",
         SUCCESS, {"position": "queued"},
     )
 

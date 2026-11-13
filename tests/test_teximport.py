@@ -152,6 +152,46 @@ class TestSubmit:
         # 追踪参数已剥（入队前完成）
         assert item.source_url == "https://littleskin.cn/skinlib/show/929613"
 
+    def test_public_radio_persisted(self, client, user, monkeypatch):
+        """单选公开 → 请求记录 requested_public=True。"""
+        self._no_dns(monkeypatch)
+        enable_import()
+        client.force_login(user)
+        resp = client.post(
+            "/skinlib/import",
+            {"url": "https://littleskin.cn/skinlib/show/929613", "public": "1"},
+        ).json()
+        assert resp["code"] == 0
+        item = ImportRequest.objects.get()
+        assert item.requested_public is True
+
+    def test_default_is_private(self, client, user, monkeypatch):
+        """不传参数默认私密（向后兼容旧客户端）。"""
+        self._no_dns(monkeypatch)
+        enable_import()
+        client.force_login(user)
+        _submit(client, "https://littleskin.cn/skinlib/show/929613")
+        assert ImportRequest.objects.get().requested_public is False
+
+    def test_public_flag_reaches_texture(self, user, monkeypatch):
+        """worker 按请求值入库：公开请求 → 公开纹理。"""
+        enable_import(score_per_storage=0, score_per_closet_item=0)
+        monkeypatch.setattr(
+            "teximport.worker.fetcher.fetch_texture", lambda s, t, ua: _mk_fetched(),
+        )
+        monkeypatch.setattr("teximport.worker.fetcher.assert_safe_host", lambda h: None)
+        item = ImportRequest.objects.create(
+            requester=user, source_url="https://s.com/skinlib/show/42",
+            site="https://s.com", tid=42, requested_public=True,
+            status=ImportRequest.Status.QUEUED,
+        )
+        from teximport.worker import process_one
+
+        process_one(item.id)
+        item.refresh_from_db()
+        assert item.status == ImportRequest.Status.DONE
+        assert item.texture.public is True
+
     def test_pending_with_review(self, client, user, monkeypatch):
         self._no_dns(monkeypatch)
         enable_import(import_require_review=1)
@@ -659,6 +699,17 @@ class TestTemplates:
         assert "从其他皮肤站导入" in html
         assert "import-modal" in html
         assert "×5" in html
+
+    def test_import_modal_has_visibility_radio(self, client, user):
+        """模态框含可见性单选（默认私密 + 公开选项 + JS 提交 public）。"""
+        enable_import()
+        client.force_login(user)
+        html = client.get("/skinlib/upload").content.decode()
+        assert 'name="import-public"' in html
+        assert 'value="0" checked' in html  # 默认私密
+        assert 'id="import-public"' in html
+        assert "导入后可见性" in html
+        assert 'fd.set("public"' in html  # JS 提交携带
 
     def test_upload_page_hidden_when_disabled(self, client, user):
         client.force_login(user)

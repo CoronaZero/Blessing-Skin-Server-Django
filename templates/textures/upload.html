@@ -96,6 +96,23 @@
             形如 <code>https://站点/skinlib/show/<TID></code> 或 <code>/skinlib/show?tid=<TID></code> 的链接。
           </div>
         </div>
+        <div class="mb-3">
+          <label class="form-label small d-block mb-1">导入后可见性</label>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="import-public"
+                   id="import-private" value="0" checked>
+            <label class="form-check-label small" for="import-private">
+              私密（仅自己可见，导入后可在详情页切换）
+            </label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="import-public"
+                   id="import-public" value="1">
+            <label class="form-check-label small" for="import-public">
+              公开（其他用户可见；请确认你有权分享该纹理）
+            </label>
+          </div>
+        </div>
         <p class="fs-6 text-secondary mb-0">
           <i class="bi bi-info-circle me-1"></i>
           拉取在后台排队进行（间隔受站长限制），完成后发站内通知。
@@ -120,6 +137,10 @@
     try {
       const fd = new FormData();
       fd.set("url", document.getElementById("import-url").value.trim());
+      const pubRadio = document.querySelector(
+        'input[name="import-public"]:checked'
+      );
+      fd.set("public", pubRadio ? pubRadio.value : "0");
       const r = await window.bsPost(btn.dataset.url, fd);
       window.bsToast(r.message, r.code === 0 ? "success" : "error");
       if (r.code === 0) {

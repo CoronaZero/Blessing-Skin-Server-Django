@@ -35,6 +35,8 @@ class ImportRequest(models.Model):
     status = models.CharField(
         "状态", max_length=12, choices=Status.choices, default=Status.QUEUED
     )
+    # 请求者选择的可见性（提交时单选；导入按此入库）
+    requested_public = models.BooleanField("请求公开", default=False)
     error_text = models.CharField("失败原因", max_length=255, default="", blank=True)
     texture = models.ForeignKey(
         "textures.Texture",

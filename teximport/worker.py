@@ -173,7 +173,7 @@ def process_one(request_id: int) -> None:
         hash=result.digest,
         size=fetched["size_kb"],
         uploader=user,
-        public=False,  # 导入默认私密
+        public=item.requested_public,  # 提交时的可见性单选
         source_url=item.source_url,
     )
     if not texture_storage.exists(result.digest):
@@ -188,10 +188,11 @@ def process_one(request_id: int) -> None:
     item.score_cost = cost
     item.processed_at = _now()
     item.save(update_fields=["status", "texture", "score_cost", "processed_at"])
+    visibility = "公开" if item.requested_public else "私密"
     _notify(
         item.requester, "纹理导入成功",
-        f"「{texture.name}」已导入并加入你的衣柜（消耗 {cost} 积分），"
-        f"查看：/skinlib/show?tid={texture.tid}",
+        f"「{texture.name}」（{visibility}）已导入并加入你的衣柜"
+        f"（消耗 {cost} 积分），查看：/skinlib/show?tid={texture.tid}",
     )
 
 
