@@ -34,6 +34,36 @@ def client_logged(client, user):
     return client
 
 
+# ---- BS_USER 注入通道（<script> 上下文）安全 ----
+
+
+class TestBsUserJsonEscaping:
+    """base.html 以 |safe 注入 window.BS_USER：json.dumps 不转义 < > &，
+    昵称等用户可控字段携带 </script> 即逃逸脚本块，须以 \\u003c 系列转义。"""
+
+    def test_script_breakout_escaped_and_semantics_kept(self, client_logged, user):
+        user.nickname = "</script><svg onload=alert(1)>"
+        user.save(update_fields=["nickname"])
+        html = client_logged.get("/user").content.decode()
+        # 未转义的逃逸载荷不得出现在响应中
+        assert "<svg onload" not in html
+        assert "</script><svg" not in html
+        # 转义标记存在，且 JSON 语义不变（JS 解析后仍是原昵称）
+        assert "\\u003c" in html
+        import json
+        import re
+
+        m = re.search(r"window\.BS_USER = (.*?);</script>", html)
+        assert m, "BS_USER 注入块缺失"
+        assert json.loads(m.group(1))["nickname"] == "</script><svg onload=alert(1)>"
+
+    def test_profile_page_uses_same_escaping(self, client_logged, user):
+        user.nickname = "a<b>c&d"
+        user.save(update_fields=["nickname"])
+        html = client_logged.get("/user/profile").content.decode()
+        assert "a\\u003cb\\u003ec\\u0026d" in html
+
+
 # ---- 资料修改 ----
 
 

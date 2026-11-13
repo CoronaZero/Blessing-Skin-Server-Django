@@ -355,7 +355,7 @@ def _bs_user_json(user):
     """用户概要 JSON（模板注入 BS_USER 全局，纯辅助函数非视图）。"""
     import json as _json
 
-    return _json.dumps(
+    payload = _json.dumps(
         {
             "nickname": user.nickname,
             "email": user.email,
@@ -366,6 +366,14 @@ def _bs_user_json(user):
             ],
         },
         ensure_ascii=False,
+    )
+    # <script> 上下文安全转义：HTML 解析器不认 JS 字符串边界，
+    # json.dumps 不转义 < > &，值中携带 </script> 即逃逸脚本块。
+    # \u003c 为合法 JSON 转义，JS 解析结果不变，模板与前端零改动。
+    return (
+        payload.replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
     )
 
 
