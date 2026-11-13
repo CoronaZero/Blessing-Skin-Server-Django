@@ -4,11 +4,13 @@ import io
 import math
 
 from django.contrib.auth.decorators import login_required
+from django.db.models import F
 from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from PIL import Image
 
 from accounts import restrictions
+from accounts.models import User
 from config.jsonapi import FAILURE, SPECIAL, SUCCESS, json_response
 from options.models import Option
 from players.models import Player
@@ -191,10 +193,12 @@ def texture_privacy(request, tid: int):
             * (_opt_int("private_score_per_storage") - _opt_int("score_per_storage"))
             - _opt_int("score_award_per_texture")
         )
-        if uploader.score + diff < 0:
+        # 条件 UPDATE 原子完成余额校验与扣减（读-改-写并发可透支为负）
+        qs = User.objects.filter(uid=uploader.uid)
+        if diff < 0:
+            qs = qs.filter(score__gte=-diff)
+        if not qs.update(score=F("score") + diff):
             return json_response("积分不足，无法设为私密")
-        uploader.score += diff
-        uploader.save(update_fields=["score"])
         texture.public = False
         texture.save(update_fields=["public"])
         return json_response("已设为私密", SUCCESS)
@@ -210,10 +214,13 @@ def texture_privacy(request, tid: int):
         return json_response("重复的纹理", SPECIAL, {"tid": duplicated.tid})
 
     # 转公开返还差价（原版 take_back 语义：公开材质不收私密存储费）
-    uploader.score += texture.size * (
+    refund = texture.size * (
         _opt_int("private_score_per_storage") - _opt_int("score_per_storage")
     )
-    uploader.save(update_fields=["score"])
+    qs = User.objects.filter(uid=uploader.uid)
+    if refund < 0:  # 误配时扣减仍不可透支
+        qs = qs.filter(score__gte=-refund)
+    qs.update(score=F("score") + refund)
     texture.public = True
     texture.save(update_fields=["public"])
     return json_response("已设为公开", SUCCESS)
@@ -379,8 +386,14 @@ def upload(request):
         award = 0
 
     cost = size_kb * per_storage + per_closet - award
-    if cost > user.score:
-        return json_response("积分不足，无法上传")
+    # 条件 UPDATE 原子完成余额校验与扣减（读-改-写并发可透支为负）；
+    # 先扣费后建档，避免建档成功而扣费竞态失败
+    if cost:
+        if not User.objects.filter(uid=user.uid, score__gte=cost).update(
+            score=F("score") - cost
+        ):
+            return json_response("积分不足，无法上传")
+        user.refresh_from_db()
 
     texture = Texture.objects.create(
         name=name,
@@ -392,9 +405,6 @@ def upload(request):
     )
     if not texture_storage.exists(result.digest):
         texture_storage.save_bytes(result.digest, result.normalized)
-    if cost != 0:
-        user.score -= cost
-        user.save(update_fields=["score"])
 
     return json_response("上传成功", SUCCESS, {"tid": texture.tid})
 
@@ -588,10 +598,13 @@ def closet_add(request):
         cost = int(_Option.objects.get_value("score_per_closet_item") or 0)
     except ValueError:
         cost = 0
-    if cost > request.user.score:
-        return json_response("积分不足")
-    request.user.score -= cost
-    request.user.save(update_fields=["score"])
+    # 条件 UPDATE 原子完成余额校验与扣减（读-改-写并发可透支为负）
+    if cost:
+        if not User.objects.filter(
+            uid=request.user.uid, score__gte=cost
+        ).update(score=F("score") - cost):
+            return json_response("积分不足")
+        request.user.refresh_from_db()
 
     from .models import ClosetItem
 

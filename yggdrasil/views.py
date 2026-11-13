@@ -9,6 +9,7 @@ import secrets
 
 from django.conf import settings
 from django.core.cache import cache
+from django.db.models import F
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
@@ -800,8 +801,14 @@ def upload_texture(request, uuid: str, type_: str):
         cost = _opt_int("private_score_per_storage") * size_kb + _opt_int(
             "score_per_closet_item"
         )
-        if cost > user.score:
-            return error_response(403, "ForbiddenOperationException", "积分不足")
+        # 条件 UPDATE 原子完成余额校验与扣减（读-改-写并发可透支为负）；
+        # 先扣费后建档，避免建档成功而扣费竞态失败
+        if cost:
+            if not User.objects.filter(uid=user.uid, score__gte=cost).update(
+                score=F("score") - cost
+            ):
+                return error_response(403, "ForbiddenOperationException", "积分不足")
+            user.refresh_from_db()
         texture = Texture.objects.create(
             name=name,
             type=texture_type,
@@ -812,9 +819,6 @@ def upload_texture(request, uuid: str, type_: str):
             likes=1,  # 原版上传即自收藏（L189）
         )
         texture_storage.save_bytes(result.digest, result.normalized)
-        if cost:
-            user.score -= cost
-            user.save(update_fields=["score"])
         ClosetItem.objects.create(owner=user, texture=texture, item_name=name)
     else:
         # 已有同 hash 材质（本人上传）：不在衣柜则补入；
