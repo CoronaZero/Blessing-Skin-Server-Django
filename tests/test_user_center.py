@@ -10,6 +10,7 @@
 """
 
 import pytest
+from django.utils import timezone
 
 from accounts.models import User
 from moderation.models import Report
@@ -250,6 +251,34 @@ class TestNotifications:
         assert resp.json()["code"] == 0
         n.refresh_from_db()
         assert n.read_at is not None
+
+    def test_read_all_only_own_notifications(self, client_logged, user):
+        """一键全部已读只作用于本人通知（他人通知不受影响）。"""
+        mine_unread = Notification.objects.create(recipient=user, title="m1", content="c")
+        mine_read = Notification.objects.create(recipient=user, title="m2", content="c")
+        mine_read.read_at = timezone.now()
+        mine_read.save()
+        other = User.objects.create_user(
+            email="other9@x.com", nickname="other9", password="password8"
+        )
+        other_unread = Notification.objects.create(recipient=other, title="o1", content="c")
+
+        resp = client_logged.post("/user/notifications/read-all")
+        assert resp.json()["code"] == 0
+
+        mine_unread.refresh_from_db()
+        other_unread.refresh_from_db()
+        assert mine_unread.read_at is not None  # 我的未读 → 已读
+        assert other_unread.read_at is None  # 他人的绝不动
+
+    def test_read_all_idempotent(self, client_logged, user):
+        """重复调用幂等，返回 0 条时也成功。"""
+        resp = client_logged.post("/user/notifications/read-all")
+        assert resp.json()["code"] == 0
+        assert "0 条" in resp.json()["message"]
+
+    def test_read_all_requires_login(self, client):
+        assert client.post("/user/notifications/read-all").status_code == 302
 
     def test_other_users_notification_forbidden(self, client_logged, user):
         other = User.objects.create_user(

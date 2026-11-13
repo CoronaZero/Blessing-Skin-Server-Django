@@ -261,6 +261,24 @@ class TestPanelReview:
         assert "s.com/skinlib/show/42" in html
         assert "通过" in html
 
+    def test_page_shows_visibility_column(self, client, admin, user):
+        """三个页签都含可见性列，公开/私密徽标随 requested_public。"""
+        client.force_login(admin)
+        ImportRequest.objects.create(
+            requester=user, source_url="https://s.com/skinlib/show/1",
+            site="https://s.com", tid=1, requested_public=True,
+            status=ImportRequest.Status.PENDING,
+        )
+        ImportRequest.objects.create(
+            requester=user, source_url="https://s.com/skinlib/show/2",
+            site="https://s.com", tid=2, requested_public=False,
+            status=ImportRequest.Status.PENDING,
+        )
+        html = client.get("/admin/imports?status=pending").content.decode()
+        assert "可见性" in html
+        assert "<span class=\"text-success\">公开</span>" in html
+        assert "<span class=\"text-warning-emphasis\">私密</span>" in html
+
     def test_approve_queues(self, client, admin, user, monkeypatch):
         # 避免审核通过即真实起线程（ensure_worker 打桩）
         import teximport.views as v

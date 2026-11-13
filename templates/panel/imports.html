@@ -30,7 +30,7 @@
   <div class="card-body table-responsive">
     <table class="table table-hover align-middle mb-0">
       <tr>
-        <th>ID</th><th>提交者</th><th>来源链接</th><th>状态</th>
+        <th>ID</th><th>提交者</th><th>来源链接</th><th>状态</th><th>可见性</th>
         {% if status == 'recent' %}<th>结果</th><th>消耗</th>{% endif %}
         <th>提交时间</th>
         {% if status == 'pending' %}<th>操作</th>{% endif %}
@@ -39,7 +39,7 @@
       <tr>
         <td>{{ r.id }}</td>
         <td>{{ r.requester.nickname }}</td>
-        <td class="text-truncate" style="max-width:320px">
+        <td class="text-truncate" style="max-width:280px">
           <a href="{{ r.source_url }}" target="_blank" rel="noopener noreferrer nofollow"
              class="small">{{ r.source_url }}</a>
         </td>
@@ -51,6 +51,10 @@
           {% elif r.status == 'dedup' %}<span class="text-secondary">站内已存在</span>
           {% elif r.status == 'failed' %}<span class="text-danger">失败</span>
           {% else %}<span class="text-secondary">已拒绝</span>{% endif %}
+        </td>
+        <td class="small">
+          {% if r.requested_public %}<span class="text-success">公开</span>
+          {% else %}<span class="text-warning-emphasis">私密</span>{% endif %}
         </td>
         {% if status == 'recent' %}
         <td class="small">

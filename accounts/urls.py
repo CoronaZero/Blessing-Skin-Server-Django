@@ -48,6 +48,8 @@ urlpatterns = [
         views.notification_read,
         name="notification_read",
     ),
+    path("user/notifications/read-all", views.notification_read_all,
+         name="notification_read_all"),
     path("user/sign", views.daily_sign, name="sign"),
     path("user/resend-verification", views.resend_verification, name="resend_verification"),
     path("user/announcement", views.announcement_page, name="announcement"),

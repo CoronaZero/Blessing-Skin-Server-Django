@@ -550,6 +550,18 @@ def notification_read(request, notification_id: int):
 
 
 @login_required
+@require_POST
+def notification_read_all(request):
+    """一键全部已读（严格限定本人通知范围，幂等）。"""
+    from django.utils import timezone
+
+    updated = request.user.notifications.filter(read_at__isnull=True).update(
+        read_at=timezone.now()
+    )
+    return json_response(f"已将 {updated} 条通知标记为已读", SUCCESS)
+
+
+@login_required
 @require_GET
 def announcement_page(request):
     """独立公告页（管理员 Markdown，全站可读）。"""

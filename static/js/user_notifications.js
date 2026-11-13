@@ -18,6 +18,21 @@
     }
   }
 
+  // 全部已读（后端限定本人范围）
+  const readAllBtn = document.getElementById("read-all-btn");
+  if (readAllBtn) {
+    readAllBtn.addEventListener("click", async function () {
+      readAllBtn.disabled = true;
+      try {
+        const r = await window.bsPost(readAllBtn.dataset.url, new FormData());
+        window.bsToast(r.message, r.code === 0 ? "success" : "error");
+        if (r.code === 0) load();
+      } finally {
+        readAllBtn.disabled = false;
+      }
+    });
+  }
+
   function render(box, payload) {
     box.innerHTML = "";
     if (!payload.data.length) {
