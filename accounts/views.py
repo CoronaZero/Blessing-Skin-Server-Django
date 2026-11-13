@@ -122,6 +122,20 @@ def _user_exists(identification: str) -> bool:
     return Player.objects.filter(name=identification).exists()
 
 
+def _valid_email(email: str) -> bool:
+    """邮箱格式校验：EmailField 的校验器在裸 save 不生效，此前仅查含 @。"""
+    from django.core.exceptions import ValidationError
+    from django.core.validators import EmailValidator
+
+    if not email or len(email) > 100:  # 模型列上限
+        return False
+    try:
+        EmailValidator()(email)
+    except ValidationError:
+        return False
+    return True
+
+
 # ---- 注册 ----
 
 
@@ -481,7 +495,7 @@ def profile_submit(request):
     if action == "email":
         email = (request.POST.get("email") or "").strip()
         password = request.POST.get("password", "")
-        if "@" not in email:
+        if not _valid_email(email):
             return json_response("邮箱格式不正确")
         from accounts.models import User
 

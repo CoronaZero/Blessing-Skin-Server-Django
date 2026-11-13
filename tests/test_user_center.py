@@ -74,6 +74,22 @@ class TestProfile:
         assert resp.status_code == 302
         assert "/auth/login" in resp["Location"]
 
+    def test_change_email_rejects_invalid_format(self, client_logged):
+        """邮箱格式校验走 EmailValidator（此前仅查含 @）。"""
+        for bad in ("no-at-sign", "a@b", "a@b.", "<svg>@x.com", "x" * 101):
+            resp = client_logged.post("/user/profile", {
+                "action": "email", "email": bad, "password": "password8",
+            })
+            assert resp.json()["code"] == 1, bad
+        assert User.objects.count() == 1  # 原账号邮箱未被污染
+
+    def test_register_rejects_invalid_email(self, client):
+        resp = client.post("/auth/register", {
+            "email": "bad-email", "password": "password8", "nickname": "N",
+        })
+        assert resp.json()["code"] == 1
+        assert User.objects.count() == 0
+
     def test_change_nickname(self, client_logged, user):
         resp = client_logged.post(
             "/user/profile", {"action": "nickname", "new_nickname": "NewNick"}
