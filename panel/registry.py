@@ -140,6 +140,23 @@ OptionGroup(
         ],
     ),
     OptionGroup(
+        slug="skinlib_upload",
+        title="皮肤库上传限制",
+        section="users",
+        fields=[
+            OptionField(
+                "max_upload_file_size", "站内上传体积上限（KB）", widget="int",
+                help_text="上传页/上传接口按原始文件字节执行（对照原版，默认 2048KB）；"
+                          "Yggdrasil API 路径维持独立 4MiB 上限",
+            ),
+            OptionField(
+                "max_texture_width", "纹理像素尺寸上限", widget="int",
+                help_text="宽/高均不得超过（默认 8192；渲染预览另有像素总量保护，"
+                          "超限纹理仍可下载但不再生成头像/立绘）",
+            ),
+        ],
+    ),
+    OptionGroup(
         slug="player_name",
         title="角色名规则",
         section="users",

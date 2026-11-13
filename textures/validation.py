@@ -8,6 +8,21 @@ from PIL import Image
 from .dataclasses_models import ValidationResult
 
 
+def _max_texture_width() -> int:
+    """像素尺寸上限：读选项 max_texture_width（对照 PHP 原版执行项）。
+
+    异常（无库环境的纯函数单测、误配）一律回落硬编码 8192，
+    并收敛到 64..8192 防负值/超大值。
+    """
+    try:
+        from options.models import Option
+
+        raw = int(Option.objects.get_value("max_texture_width") or 8192)
+    except Exception:  # noqa: BLE001 - 回落默认上限，不阻断校验管线
+        raw = 8192
+    return max(64, min(raw, 8192))
+
+
 def validate_texture_image(data: bytes, texture_type: str) -> ValidationResult:
     """校验 + 消毒。
 
@@ -28,11 +43,10 @@ def validate_texture_image(data: bytes, texture_type: str) -> ValidationResult:
         # 规范 L391-397：先读 PNG 头部尺寸拒绝过大图，再完整解码
         # （open 仅解析头部；大图 load 会解压全部像素造成内存/时间放大）
         width, height = img.size
-        max_width = 8192
-        max_height = 8192
-        if width > max_width or height > max_height:
+        max_width = _max_texture_width()
+        if width > max_width or height > max_width:
             return ValidationResult(
-                valid=False, error=f"图片宽度超过上限（{max_width}px）"
+                valid=False, error=f"图片尺寸超过上限（{max_width}px）"
             )
         img.load()
     except Exception:

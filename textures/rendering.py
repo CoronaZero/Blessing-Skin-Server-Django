@@ -14,13 +14,34 @@ from .storage import texture_storage
 # 头像支持的尺寸变体（对照原版 avatar/{size}）
 AVATAR_SIZES = (32, 64, 128, 180, 256)
 
+# 渲染解码的像素总量上限：PIL 全量解码内存约 w*h*4 字节，超大像素图
+# （如 8192²）经未鉴权的 /avatar/* 反复请求即内存放大 DoS；上限取
+# 4096² 已覆盖全部现实 HD 皮肤（超限纹理文件仍可经 /textures/<hash>
+# 下载，仅拒绝渲染）
+MAX_RENDER_PIXELS = 4096 * 4096
+
+
+class RenderTooLargeError(ValueError):
+    """纹理像素总量超过渲染上限（内存放大 DoS 防护）。"""
+
+
+def open_image_capped(data: bytes) -> Image.Image:
+    """解码前按图片头部尺寸拦截超大图（Image.open 仅解析头部，成本可忽略）。"""
+    img = Image.open(io.BytesIO(data))
+    width, height = img.size
+    if width * height > MAX_RENDER_PIXELS:
+        img.close()
+        raise RenderTooLargeError(f"纹理像素过大（{width}x{height}），拒绝渲染")
+    img.load()
+    return img
+
 
 def render_avatar(skin_bytes: bytes, size: int, overlay: bool = True) -> bytes:
     """渲染头像：面部 8x8 区域放大至 size×size。
 
     overlay=True 时叠加头层（半透明帽层覆盖，对照原版）。
     """
-    img = Image.open(io.BytesIO(skin_bytes))
+    img = open_image_capped(skin_bytes)
     width, height = img.size
     scale = width // 64  # HD 皮肤 scale（64x32 → 1, 128x64 → 2）
 

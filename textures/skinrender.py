@@ -14,6 +14,8 @@ import math
 
 from PIL import Image, ImageDraw
 
+from .rendering import open_image_capped
+
 
 class _Pt:
     __slots__ = ("x", "y", "z", "dx", "dy", "dz", "projected")
@@ -70,7 +72,7 @@ class SkinRenderer:
         self.vR = vertical_rotation
 
     def render(self, skin_bytes: bytes, is_alex: bool) -> Image.Image:
-        skin = Image.open(io.BytesIO(skin_bytes)).convert("RGBA")
+        skin = open_image_capped(skin_bytes).convert("RGBA")
         if skin.width > 256:  # 防 HD 皮肤内存放大异常
             new_h = int(skin.height / (skin.width / 256))
             skin = skin.resize((256, new_h), Image.LANCZOS)
@@ -503,7 +505,7 @@ def render_skin_portrait(skin_bytes: bytes, ratio: int = 12,
 
 def render_cape_portrait(cape_bytes: bytes, height: int = 200) -> bytes:
     """披风立绘（对照 CapeRenderer：裁 (1,1) 起 10:16 区域并缩放）。"""
-    cape = Image.open(io.BytesIO(cape_bytes)).convert("RGBA")
+    cape = open_image_capped(cape_bytes).convert("RGBA")
     hd = cape.width // 64
     out_w = int(height / 16 * 10)
     vp, hp = 20, 40

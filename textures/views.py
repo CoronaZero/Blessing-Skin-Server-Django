@@ -335,6 +335,11 @@ def upload(request):
 
     if not uploaded:
         return json_response("请选择要上传的文件")
+    # 体积上限接选项 max_upload_file_size（KB，对照 PHP 原版执行项；
+    # Yggdrasil API 路径维持其 4MiB 独立上限，不受此选项影响）
+    max_kb = _opt_int("max_upload_file_size", 2048)
+    if uploaded.size > max_kb * 1024:
+        return json_response(f"文件体积超过上限（{max_kb}KB）")
     if not name:
         name = uploaded.name.rsplit(".", 1)[0] if uploaded.name else "未命名"
     if texture_type not in ("steve", "alex", "cape"):
@@ -429,10 +434,11 @@ def serve_avatar(request, size: int, player_name: str):
         return HttpResponse(status=404)
     try:
         skin = texture_storage.read(player.tid_skin.hash)
+        avatar = render_avatar(skin, size)
     except (TextureFileNotFoundError, ValueError):
+        # RenderTooLargeError 为 ValueError 子类：超大像素图一律 404，防内存放大
         return HttpResponse(status=404)
 
-    avatar = render_avatar(skin, size)
     return HttpResponse(avatar, content_type="image/png")
 
 
@@ -464,9 +470,9 @@ def serve_my_avatar(request, size: int):
 
     try:
         skin = texture_storage.read(skin_hash)
+        avatar = render_avatar(skin, size)
     except (TextureFileNotFoundError, ValueError):
         return _redirect("/static/icons/user.svg")
-    avatar = render_avatar(skin, size)
     # 个人选择可能变化，短缓存即可
     resp = HttpResponse(avatar, content_type="image/png")
     resp["Cache-Control"] = "private, max-age=300"
@@ -506,14 +512,15 @@ def preview_texture(request, tid: int):
     if cached is None:
         try:
             data = texture_storage.read(texture.hash)
+            if texture.type == "cape":
+                image_bytes = render_cape_portrait(data, int(height))
+                fmt = "PNG"
+            else:
+                image_bytes = render_skin_portrait(data, 12, texture.type == "alex")
+                fmt = "PNG"
         except (TextureFileNotFoundError, ValueError):
+            # 渲染超像素上限/文件缺失/height 非法均为 404，不 500
             return HttpResponse(status=404)
-        if texture.type == "cape":
-            image_bytes = render_cape_portrait(data, int(height))
-            fmt = "PNG"
-        else:
-            image_bytes = render_skin_portrait(data, 12, texture.type == "alex")
-            fmt = "PNG"
         if not use_png:
             try:
                 img = Image.open(io.BytesIO(image_bytes))
