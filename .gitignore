@@ -31,3 +31,4 @@ staticfiles/
 Thumbs.db
 .temp/
 storage/
+agent.md
