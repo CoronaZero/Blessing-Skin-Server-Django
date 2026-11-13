@@ -68,6 +68,12 @@ class TestBsUserJsonEscaping:
 
 
 class TestProfile:
+    def test_anonymous_get_redirects_to_login(self, client):
+        """匿名访问资料页跳登录（此前因 bs_user_json(AnonymousUser) 抛 500）。"""
+        resp = client.get("/user/profile")
+        assert resp.status_code == 302
+        assert "/auth/login" in resp["Location"]
+
     def test_change_nickname(self, client_logged, user):
         resp = client_logged.post(
             "/user/profile", {"action": "nickname", "new_nickname": "NewNick"}

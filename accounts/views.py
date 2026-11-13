@@ -417,8 +417,13 @@ def user_dashboard(request):
     )
 
 
+@login_required
 def profile_view(request):
-    """资料页（分页改造后专指资料设置）/ POST 修改资料。"""
+    """资料页（分页改造后专指资料设置）/ POST 修改资料。
+
+    匿名 GET 此前会因 _bs_user_json(AnonymousUser) 抛 AttributeError 500，
+    补登录保护与站内其余用户中心页一致。
+    """
     if request.method == "POST":
         return profile_submit(request)
     from oauth_bridge.models import MsaIdentity
