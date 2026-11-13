@@ -1,6 +1,7 @@
-"""teximport 全链路测试：URL 净化/解析、SSRF 防护、入队、审核、拉取、计分"""
+﻿"""teximport 全链路测试：URL 净化/解析、SSRF 防护、入队、审核、拉取、计分"""
 
 import io
+import ipaddress
 
 import pytest
 from django.core.files.storage import FileSystemStorage
@@ -492,6 +493,159 @@ class TestWorkerLoop:
         w._thread_running = False
         w.ensure_worker()  # 未启用：不起线程、不报错
         assert w._thread_running is False
+
+
+# ---- 深度安全：逐跳重定向 SSRF / 流式体积上限 / 自站拦截 ----
+
+
+class _FakeResp:
+    """requests.Response 的最小替身（stream 语义）。"""
+
+    def __init__(self, status=200, body=b"", headers=None):
+        self.status_code = status
+        self._body = body
+        self.headers = headers or {}
+        self.closed = False
+
+    def iter_content(self, chunk_size=65536):
+        view = memoryview(self._body)
+        for i in range(0, len(view), chunk_size):
+            yield bytes(view[i:i + chunk_size])
+
+    def json(self):
+        import json as _j
+
+        return _j.loads(self._body)
+
+    def close(self):
+        self.closed = True
+
+
+class TestSecurityRedirectChain:
+    @staticmethod
+    def _dns(monkeypatch):
+        """真实语义的 DNS 桩：IP 字面量原样返回（getaddrinfo 的真实行为），
+        公网域名解析到假公网 IP——避免桩把 SSRF 校验本身骗过。"""
+
+        def fake_getaddrinfo(host, port):
+            try:
+                ipaddress.ip_address(host)
+                addrs = [host]
+            except ValueError:
+                addrs = ["93.184.216.34"]
+            return [(None, None, None, "", (a, 0)) for a in addrs]
+
+        monkeypatch.setattr(fetcher.socket, "getaddrinfo", fake_getaddrinfo)
+
+    def _run_get(self, monkeypatch, responses, url="https://pub.example.com/x"):
+        """responses: URL 后缀映射 → _FakeResp。"""
+        seen = []
+
+        def fake_get(u, timeout, headers, allow_redirects, stream):
+            seen.append(u)
+            for suffix, resp in responses.items():
+                if u.endswith(suffix):
+                    return resp
+            raise AssertionError(f"unexpected url {u}")
+
+        monkeypatch.setattr(fetcher.http_client, "get", fake_get)
+        return fetcher._get(url, "UA", "测试")
+
+    def test_redirect_to_loopback_blocked(self, monkeypatch):
+        """公网站点 302 → 127.0.0.1：第二跳必须被 assert_safe_host 拦截。"""
+        self._dns(monkeypatch)
+        responses = {
+            "/first": _FakeResp(status=302, headers={"Location": "http://127.0.0.1/secret"}),
+        }
+        with pytest.raises(fetcher.FetchError, match="内网|本机"):
+            self._run_get(monkeypatch, responses, url="https://pub.example.com/first")
+
+    def test_redirect_to_metadata_blocked(self, monkeypatch):
+        """302 → 云元数据 169.254.169.254 同样被拦（真实漏洞回归）。"""
+        self._dns(monkeypatch)
+        responses = {
+            "/first": _FakeResp(
+                status=302, headers={"Location": "http://169.254.169.254/latest/meta-data/"}
+            ),
+        }
+        with pytest.raises(fetcher.FetchError):
+            self._run_get(monkeypatch, responses, url="https://pub.example.com/first")
+
+    def test_multiple_hops_ok_then_bad_blocked(self, monkeypatch):
+        """公网→公网跳转放行，第三跳转内网（10.x）被拦。"""
+        self._dns(monkeypatch)
+        responses = {
+            "/a": _FakeResp(status=302, headers={"Location": "https://pub.example.com/b"}),
+            "/b": _FakeResp(status=302, headers={"Location": "http://10.0.0.5/x"}),
+        }
+        with pytest.raises(fetcher.FetchError, match="内网|本机"):
+            self._run_get(monkeypatch, responses, url="https://pub.example.com/a")
+
+    def test_redirect_loop_capped(self, monkeypatch):
+        self._dns(monkeypatch)
+        responses = {
+            "/loop": _FakeResp(status=302, headers={"Location": "https://pub.example.com/loop"}),
+        }
+        with pytest.raises(fetcher.FetchError, match="重定向次数"):
+            self._run_get(monkeypatch, responses, url="https://pub.example.com/loop")
+
+
+class TestSecurityStreamCap:
+    def test_content_length_declared_over(self):
+        resp = _FakeResp(headers={"Content-Length": str(9 * 1024 * 1024)})
+        with pytest.raises(fetcher.FetchError, match="上限"):
+            fetcher._read_capped(resp)
+
+    def test_chunked_body_over_cap(self):
+        body = b"x" * (fetcher.MAX_DOWNLOAD_BYTES + 1)
+        resp = _FakeResp(body=body)
+        with pytest.raises(fetcher.FetchError, match="上限"):
+            fetcher._read_capped(resp)
+        assert resp.closed  # 超限即断开
+
+    def test_normal_body_passes(self):
+        body = b"y" * 1024
+        assert fetcher._read_capped(_FakeResp(body=body)) == body
+
+
+class TestSecuritySelfImport:
+    def _allow_dns(self, monkeypatch):
+        monkeypatch.setattr(
+            fetcher.socket, "getaddrinfo",
+            lambda host, port: [(None, None, None, "", ("93.184.216.34", 0))],
+        )
+
+    def test_same_host_rejected(self, client, user, monkeypatch):
+        self._allow_dns(monkeypatch)
+        enable_import()
+        client.force_login(user)
+        # 测试客户端 host = testserver
+        r = client.post(
+            "/skinlib/import", {"url": "https://testserver/skinlib/show/1"}
+        ).json()
+        assert r["code"] == 1
+        assert "本站" in r["message"]
+
+    def test_site_url_host_rejected_too(self, client, user, monkeypatch):
+        self._allow_dns(monkeypatch)
+        enable_import()
+        Option.objects.set("site_url", "https://skin.dreamweaver.top")
+        client.force_login(user)
+        r = client.post(
+            "/skinlib/import",
+            {"url": "https://skin.dreamweaver.top/skinlib/show/87"},
+        ).json()
+        assert r["code"] == 1
+        assert "本站" in r["message"]
+
+    def test_external_host_still_accepted(self, client, user, monkeypatch):
+        self._allow_dns(monkeypatch)
+        enable_import()
+        client.force_login(user)
+        r = client.post(
+            "/skinlib/import", {"url": "https://littleskin.cn/skinlib/show/929613"}
+        ).json()
+        assert r["code"] == 0
 
 
 # ---- 页面渲染 ----

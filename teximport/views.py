@@ -40,6 +40,20 @@ def submit_import(request):
         site, tid = fetcher.parse_target(sanitized)
     except fetcher.FetchError as exc:
         return json_response(str(exc))
+    # 禁止目标为本站：自导入语义无效，且可借本站 info 接口绕过站内逻辑
+    from urllib.parse import urlsplit
+
+    target_host = (urlsplit(site).hostname or "").lower()
+    self_hosts = {request.get_host().split(":")[0].lower()}
+    configured = (Option.objects.get_value("site_url") or "").strip()
+    if configured:
+        own = urlsplit(
+            configured if "://" in configured else f"https://{configured}"
+        ).hostname
+        if own:
+            self_hosts.add(own.lower())
+    if target_host in self_hosts:
+        return json_response("不能从本站导入纹理，请直接在皮肤库收藏")
     # SSRF 静态预检（DNS 层面的校验留到 worker 实际拉取时）
     try:
         fetcher.assert_safe_host(site.split("://", 1)[1])

@@ -111,25 +111,79 @@ def assert_safe_host(host: str) -> None:
 
 # ---- HTTP 拉取 ----
 
+MAX_REDIRECTS = 3
+
 
 def _get(url: str, user_agent: str, tag: str) -> http_client.Response:
-    """带重试的 GET；不可重试状态或耗尽后抛 FetchError。"""
+    """带重试与逐跳 SSRF 校验的 GET。
+
+    allow_redirects=False + 手动跟随：每一跳都重新过 assert_safe_host，
+    防止公网站点 302 跳板转向内网/云元数据地址（若交给 requests 自动
+    跟随，只有首跳会被校验）。标签用于错误信息区分。
+    """
     last_error = None
     for _attempt in range(3):
+        resp = None
         try:
-            resp = http_client.get(
-                url,
-                timeout=REQUEST_TIMEOUT,
-                headers={"User-Agent": user_agent},
-                allow_redirects=True,
-            )
-            if resp.status_code in RETRYABLE_STATUS:
-                last_error = f"HTTP {resp.status_code}"
-                continue
-            return resp
+            current = url
+            for _hop in range(MAX_REDIRECTS + 1):
+                # 逐跳校验目标主机（重定向地址不可信）
+                parts = urlsplit(current)
+                assert_safe_host(parts.netloc)
+                resp = http_client.get(
+                    current,
+                    timeout=REQUEST_TIMEOUT,
+                    headers={"User-Agent": user_agent},
+                    allow_redirects=False,
+                    stream=True,
+                )
+                if resp.status_code in (301, 302, 303, 307, 308):
+                    location = resp.headers.get("Location")
+                    resp.close()
+                    if not location:
+                        raise FetchError(f"{tag}重定向缺少 Location")
+                    current = _resolve_url(current, location)
+                    continue
+                if resp.status_code in RETRYABLE_STATUS:
+                    last_error = f"HTTP {resp.status_code}"
+                    resp.close()
+                    break  # 跳出跳循环，进入下一次外层重试
+                return resp
+            raise FetchError(f"{tag}重定向次数超过 {MAX_REDIRECTS}")
         except http_client.RequestException as exc:
             last_error = exc
     raise FetchError(f"{tag}请求失败（已重试）：{last_error}")
+
+
+def _resolve_url(base: str, location: str) -> str:
+    """相对/绝对 Location 解析为绝对 URL。"""
+    from urllib.parse import urljoin
+
+    return urljoin(base, location)
+
+
+def _read_capped(resp: http_client.Response) -> bytes:
+    """流式读取响应体，超过 MAX_DOWNLOAD_BYTES 立即断开。
+
+    必须流式：resp.content 会先把完整响应载入内存再谈上限——
+    恶意超大/chunked 响应会直接 OOM 进程且卡死唯一队列线程。
+    """
+    try:
+        declared = resp.headers.get("Content-Length")
+        if declared and declared.isdigit() and int(declared) > MAX_DOWNLOAD_BYTES:
+            raise FetchError("纹理文件超过体积上限（8MiB）")
+        chunks = []
+        total = 0
+        for chunk in resp.iter_content(chunk_size=64 * 1024):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > MAX_DOWNLOAD_BYTES:
+                raise FetchError("纹理文件超过体积上限（8MiB）")
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally:
+        resp.close()
 
 
 def fetch_texture(site: str, tid: int, user_agent: str) -> dict:
@@ -138,40 +192,41 @@ def fetch_texture(site: str, tid: int, user_agent: str) -> dict:
     返回 {"name", "type", "hash", "size_kb", "png": bytes}。
     """
     info_resp = _get(f"{site}/skinlib/info/{tid}", user_agent, "元数据")
-    if info_resp.status_code in (403, 404):
-        raise FetchError("来源站返回纹理不存在或非公开")
-    if info_resp.status_code != 200:
-        raise FetchError(f"元数据接口返回 HTTP {info_resp.status_code}")
     try:
-        info = json.loads(info_resp.content)
-    except ValueError as exc:
-        raise FetchError("来源站元数据响应不是 JSON") from exc
-    if not isinstance(info, dict) or not info.get("hash"):
-        raise FetchError("来源站元数据缺少 hash 字段")
-    if info.get("type") not in ("steve", "alex", "cape"):
-        raise FetchError(f"未知纹理类型：{info.get('type')!r}")
-    source_hash = str(info["hash"])
-    if not re.fullmatch(r"[0-9a-fA-F]{64}", source_hash):
-        raise FetchError("来源站元数据 hash 字段非法")
+        if info_resp.status_code in (403, 404):
+            raise FetchError("来源站返回纹理不存在或非公开")
+        if info_resp.status_code != 200:
+            raise FetchError(f"元数据接口返回 HTTP {info_resp.status_code}")
+        try:
+            info = json.loads(_read_capped(info_resp))
+        except ValueError as exc:
+            raise FetchError("来源站元数据响应不是 JSON") from exc
+        if not isinstance(info, dict) or not info.get("hash"):
+            raise FetchError("来源站元数据缺少 hash 字段")
+        if info.get("type") not in ("steve", "alex", "cape"):
+            raise FetchError(f"未知纹理类型：{info.get('type')!r}")
+        source_hash = str(info["hash"])
+        if not re.fullmatch(r"[0-9a-fA-F]{64}", source_hash):
+            raise FetchError("来源站元数据 hash 字段非法")
 
-    file_resp = _get(f"{site}/textures/{source_hash}", user_agent, "纹理文件")
-    if file_resp.status_code in (403, 404):
-        raise FetchError("纹理文件不可下载")
-    if file_resp.status_code != 200:
-        raise FetchError(f"纹理文件返回 HTTP {file_resp.status_code}")
-    png = file_resp.content
-    if not png.startswith(b"\x89PNG\r\n\x1a\n"):
-        raise FetchError("下载内容不是 PNG 文件")
-    if len(png) > MAX_DOWNLOAD_BYTES:
-        raise FetchError("纹理文件超过体积上限（8MiB）")
+        file_resp = _get(f"{site}/textures/{source_hash}", user_agent, "纹理文件")
+        if file_resp.status_code in (403, 404):
+            raise FetchError("纹理文件不可下载")
+        if file_resp.status_code != 200:
+            raise FetchError(f"纹理文件返回 HTTP {file_resp.status_code}")
+        png = _read_capped(file_resp)
+        if not png.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise FetchError("下载内容不是 PNG 文件")
 
-    import math
+        import math
 
-    size_kb = int(info.get("size")) or math.ceil(len(png) / 1024)
-    name = str(info.get("name") or "")[:50] or f"import-{tid}"
-    return {
-        "name": name,
-        "type": str(info["type"]),
-        "size_kb": max(1, int(size_kb)),
-        "png": png,
-    }
+        size_kb = int(info.get("size")) or math.ceil(len(png) / 1024)
+        name = str(info.get("name") or "")[:50] or f"import-{tid}"
+        return {
+            "name": name,
+            "type": str(info["type"]),
+            "size_kb": max(1, int(size_kb)),
+            "png": png,
+        }
+    finally:
+        info_resp.close()
