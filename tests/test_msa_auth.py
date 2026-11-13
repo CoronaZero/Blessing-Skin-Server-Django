@@ -268,9 +268,9 @@ class TestXboxChain:
         assert gets[0][1]["Authorization"] == "Bearer mc-at"
 
     @pytest.mark.parametrize("xerr,message,status", [
-        (2148916233, "家长", 401),
-        (2148916238, "Xbox", 401),
-        (2148916233, "家长", 403),
+        (2148916233, "Xbox 档案", 401),
+        (2148916238, "家庭组", 401),
+        (2148916227, "封禁", 403),
     ])
     def test_xsts_errors(self, monkeypatch, xerr, message, status):
         self._patch_chain(
@@ -281,10 +281,22 @@ class TestXboxChain:
             msauth.xbox_authenticate("msa-at")
         assert message in exc_info.value.message
 
+    def test_xsts_200_with_xerr_is_error(self, monkeypatch):
+        """PHP/HMCL 同语义：XErr 在响应体即失败，不看 HTTP status。"""
+        self._patch_chain(
+            monkeypatch, xsts_payload={"XErr": 2148916238}, xsts_status=200,
+        )
+        with pytest.raises(msauth.MicrosoftAuthError) as exc_info:
+            msauth.xbox_authenticate("msa-at")
+        assert "家庭组" in exc_info.value.message
+
     def test_mc_login_rejected(self, monkeypatch):
         self._patch_chain(monkeypatch, mc_login_payload={"error": "UNAUTHORIZED"})
-        with pytest.raises(msauth.MicrosoftAuthError):
+        with pytest.raises(msauth.MicrosoftAuthError) as exc_info:
             msauth.xbox_authenticate("msa-at")
+        # 上游状态码透出，不再冒用“未购买”文案
+        assert "HTTP 401" in exc_info.value.message
+        assert "未购买" not in exc_info.value.message
 
     def test_profile_not_purchased(self, monkeypatch):
         self._patch_chain(
@@ -295,3 +307,62 @@ class TestXboxChain:
         with pytest.raises(msauth.MicrosoftAuthError) as exc_info:
             msauth.xbox_authenticate("msa-at")
         assert "未购买" in exc_info.value.message
+
+    def test_profile_constraint_violation(self, monkeypatch):
+        self._patch_chain(
+            monkeypatch,
+            profile_payload={"path": "/minecraft/profile",
+                             "error": "CONSTRAINT_VIOLATION"},
+        )
+        with pytest.raises(msauth.MicrosoftAuthError) as exc_info:
+            msauth.xbox_authenticate("msa-at")
+        assert "地区" in exc_info.value.message
+
+
+class TestOutboundHeaders:
+    """出站请求头与重试：自定义 UA + Accept（对照 minecraft-launcher-lib）。"""
+
+    def test_default_headers_shape(self):
+        assert "python-requests" not in httpclient.USER_AGENT.lower()
+        assert httpclient.JSON_HEADERS["Accept"] == "application/json"
+        assert httpclient.USER_AGENT
+
+    def test_merged_headers_override(self):
+        merged = httpclient._merged_headers({"Authorization": "Bearer x"})
+        assert merged["User-Agent"] == httpclient.USER_AGENT
+        assert merged["Accept"] == "application/json"
+        assert merged["Authorization"] == "Bearer x"
+
+    def test_retry_on_network_error_then_success(self, monkeypatch):
+        """网络异常重试：首次抛 RequestException，第二次成功。"""
+        import requests
+
+        calls = []
+
+        class FakeResp:
+            status_code = 200
+
+            def json(self):
+                return {"ok": True}
+
+        def fake_get(url, *, params=None, headers=None, timeout=None,
+                     proxies=None):
+            calls.append(1)
+            if len(calls) == 1:
+                raise requests.RequestException("timeout")
+            return FakeResp()
+
+        monkeypatch.setattr(httpclient._session, "get", fake_get)
+        resp = httpclient.outbound_get("https://x.test", retries=2)
+        assert resp.json() == {"ok": True}
+        assert len(calls) == 2
+
+    def test_retry_exhausted_raises(self, monkeypatch):
+        import requests
+
+        def fake_get(url, **kwargs):
+            raise requests.RequestException("down")
+
+        monkeypatch.setattr(httpclient._session, "get", fake_get)
+        with pytest.raises(requests.RequestException):
+            httpclient.outbound_get("https://x.test", retries=3)
