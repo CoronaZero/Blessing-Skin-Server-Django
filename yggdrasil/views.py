@@ -119,14 +119,22 @@ def hello(request):
     links = {"homepage": base + "/"}
     if (Option.objects.get_value("disable_registration") or "0") not in ("1", "true", "on"):
         links["register"] = base + "/auth/register"
+    meta = {
+        "serverName": server_name,
+        "implementationName": "blessing-skin-django",
+        "implementationVersion": "0.1.0",
+        "links": links,
+        "feature.non_email_login": True,
+    }
+    # 好友系统总开关开启时声明 enable_mojang_anti_features：让 authlib-injector
+    # 不再本地拦截 /player/attributes 等端点、转而反代到本站（规范 §2 硬前提）。
+    # 关闭时保持注入器默认（好友 UI 不可用），端点实现不产生副作用。
+    if (Option.objects.get_value("friends_enabled") or "0").strip().lower() in (
+        "1", "true", "on",
+    ):
+        meta["feature.enable_mojang_anti_features"] = True
     resp = _json_ok({
-        "meta": {
-            "serverName": server_name,
-            "implementationName": "blessing-skin-django",
-            "implementationVersion": "0.1.0",
-            "links": links,
-            "feature.non_email_login": True,
-        },
+        "meta": meta,
         "skinDomains": skin_domains,
         "signaturePublickey": public_key,
     })

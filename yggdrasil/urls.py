@@ -2,6 +2,7 @@
 
 from django.urls import path
 
+from . import minecraftservices as msvc
 from . import views
 
 app_name = "yggdrasil"
@@ -9,6 +10,18 @@ app_name = "yggdrasil"
 urlpatterns = [
     path("", views.hello, name="hello"),
     path("minecraftservices/publickeys", views.get_public_keys, name="publickeys"),
+    # ---- 好友系统（规范：{API_ROOT}minecraftservices/*）----
+    path("minecraftservices/friends", msvc.friends_endpoint, name="msvc_friends"),
+    path("minecraftservices/presence", msvc.presence_update, name="msvc_presence"),
+    path(
+        "minecraftservices/player/attributes",
+        msvc.player_attributes, name="msvc_attributes",
+    ),
+    path("minecraftservices/privileges", msvc.privileges_legacy, name="msvc_privileges"),
+    path("minecraftservices/privacy/blocklist", msvc.blocklist, name="msvc_blocklist"),
+    path("minecraftservices/events", msvc.events_noop, name="msvc_events"),
+    path("minecraftservices/player/report", msvc.report_noop, name="msvc_report"),
+    path("sessionserver/blockedservers", msvc.blocked_servers, name="blocked_servers"),
     path("authserver/authenticate", views.authenticate, name="authenticate"),
     path("authserver/refresh", views.refresh, name="refresh"),
     path("authserver/validate", views.validate, name="validate"),

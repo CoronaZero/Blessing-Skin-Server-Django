@@ -73,6 +73,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     verified = models.BooleanField("邮箱已验证", default=False)
     locale = models.CharField("语言偏好", max_length=10, default="")
     is_dark_mode = models.BooleanField("暗色模式", default=False)
+    # 好友系统用户级设置（对照好友协议规范 §4.4 friendsPreferences）
+    friends_enabled = models.BooleanField("好友列表开关", default=True)
+    accept_invites = models.BooleanField("接受好友请求", default=True)
     oauth_provider = models.CharField("OAuth 提供者", max_length=32, default="", blank=True)
     last_sign_at = models.DateTimeField("最后签到", null=True, blank=True)
     register_at = models.DateTimeField("注册时间", default=timezone.now)

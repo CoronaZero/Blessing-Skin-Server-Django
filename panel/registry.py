@@ -74,7 +74,7 @@ OPTION_REGISTRY: list[OptionGroup] = [
             ),
         ],
     ),
-    OptionGroup(
+OptionGroup(
         slug="register",
         title="注册",
         section="users",
@@ -84,6 +84,23 @@ OPTION_REGISTRY: list[OptionGroup] = [
             OptionField("require_verification", "注册需邮箱验证", widget="bool"),
             OptionField("regs_per_ip", "同 IP 注册上限", widget="int"),
             OptionField("player_limit_per_user", "每人角色上限（0=不限）", widget="int"),
+        ],
+    ),
+    OptionGroup(
+        slug="friends",
+        title="好友系统",
+        section="users",
+        fields=[
+            OptionField(
+                "friends_enabled", "启用好友系统", widget="bool",
+                help_text="开启后在 API 元数据声明 enable_mojang_anti_features，"
+                          "Minecraft 26.2+ 客户端好友列表/在线状态可用；"
+                          "开启前请确认本站已实现全部 minecraftservices 端点",
+            ),
+            OptionField(
+                "friends_rate_limit", "好友端点每分钟上限（每用户）", widget="int",
+                help_text="GET/PUT /friends 的兜底节流，超出返回 429 + Retry-After；0=不限",
+            ),
         ],
     ),
     OptionGroup(
