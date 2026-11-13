@@ -7,6 +7,7 @@
 - 结束（成功/失败/已存在）后站内通知请求者
 """
 
+import logging
 import random
 import threading
 import time
@@ -124,8 +125,10 @@ def process_one(request_id: int) -> None:
     except fetcher.FetchError as exc:
         _finish_failed(item, str(exc))
         return
-    except Exception as exc:  # noqa: BLE001 - 网络/解析等全部异常归为失败
-        _finish_failed(item, f"拉取异常：{exc}")
+    except Exception:  # noqa: BLE001 - 网络/解析等全部异常归为失败
+        # 异常原文可能携内部解析出的 IP/代理/环境细节，仅进日志，用户侧给通用文案
+        logging.getLogger("teximport").exception("拉取异常（id=%s）", item.id)
+        _finish_failed(item, "拉取异常（网络或目标站错误），请稍后重试")
         return
 
     from textures.models import ClosetItem, Texture

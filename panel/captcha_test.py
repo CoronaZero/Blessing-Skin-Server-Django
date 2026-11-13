@@ -1,4 +1,10 @@
-"""验证码连通性测试端点（管理面板）。"""
+"""验证码连通性测试端点（管理面板）。
+
+网络异常的原始信息仅进日志：urllib 默认信任环境代理，异常文本可能
+带出内部代理地址等环境细节，用户侧统一给通用文案。
+"""
+
+import logging
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -54,8 +60,9 @@ def captcha_test(request):
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310 - 白名单 URL
             body = json.loads(resp.read().decode())
-    except Exception as exc:  # noqa: BLE001 - 网络异常统一报告
-        return json_response(f"无法连接验证服务：{exc}", FAILURE)
+    except Exception:  # noqa: BLE001 - 网络异常统一报告
+        logging.getLogger("panel.captcha_test").exception("验证码连通性探测失败")
+        return json_response("无法连接验证服务（网络异常或超时）", FAILURE)
 
     errors = body.get("error-codes") or []
     if "invalid-input-secret" in errors:
