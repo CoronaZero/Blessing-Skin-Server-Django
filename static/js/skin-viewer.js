@@ -1,6 +1,6 @@
 /* skinview3d 装配与预览控制条（对照 PHP 原版 Viewer.tsx）：
  *
- * - 四态动画循环：行走 → 奔跑 → 飞行 → 待机（点击切换，对齐原版默认行走）
+ * - 四态动画循环：待机（默认）→ 行走 → 奔跑 → 飞行 →（循环）
  * - 暂停/播放（暂停时同步关闭自动旋转，原版同款）
  * - 自动旋转开关
  * - 披风 ⇄ 鞘翅切换（仅加载了披风的查看器显示该按钮）
@@ -65,10 +65,12 @@
         make: function () { return new skinview3d.IdleAnimation(); },
       },
     ];
-    var animIndex = 0;
+    var animIndex = 3; // 默认待机；点击循环 待机→行走→奔跑→飞行→待机
     var paused = false;
 
-    var animBtn = iconBtn("anim", anims[0].icon, "动作：" + anims[0].name);
+    var animBtn = iconBtn(
+      "anim", anims[animIndex].icon, "动作：" + anims[animIndex].name
+    );
     var pauseBtn = iconBtn("pause", "bi-pause-fill", "暂停动画");
     var rotateBtn = iconBtn("rotate", "bi-arrow-repeat", "自动旋转：开");
 
@@ -160,8 +162,8 @@
     viewer.autoRotate = true;
     viewer.fov = 60;
     viewer.zoom = 0.85;
-    // 默认行走动画（对齐原版 animationFactories[0]）
-    viewer.animation = new skinview3d.WalkingAnimation();
+    // 默认待机（呼吸挥手）动画
+    viewer.animation = new skinview3d.IdleAnimation();
     // 暗色主题默认灰背景（原版 dark-mode 同款色）
     if (document.documentElement.dataset.bsTheme === "dark") {
       viewer.background = BG_GRAY;
