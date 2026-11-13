@@ -5,7 +5,7 @@
 <div class="hero {% if home_bg_url %}hero-with-bg{% endif %}"
      {% if home_bg_url %}style="background-image:url('{{ home_bg_url }}')"{% endif %}>
   <h1 class="display-5 fw-bold mb-3">{{ site_name|default:"Blessing Skin" }}</h1>
-  <p class="lead fs-6 mb-4 mx-auto" style="max-width:560px">
+  <p class="lead fs-6 mb-4 mx-auto" style="max-width:560px;white-space:pre-line">
     {% if site_description %}{{ site_description }}{% else %}
       一个 Minecraft 皮肤与披风分享站，支持 authlib-injector（Yggdrasil）登录。
     {% endif %}

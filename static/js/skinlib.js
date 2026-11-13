@@ -29,6 +29,8 @@
       return;
     }
     render(payload.data);
+    // 状态入 URL（replaceState 不留历史记录）：刷新/分享后保持当前页与筛选
+    window.history.replaceState(null, "", "?" + qs.toString());
   }
 
   function render(data) {

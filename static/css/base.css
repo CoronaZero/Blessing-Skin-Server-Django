@@ -35,6 +35,11 @@
 
 /* ---- 顶栏吸附策略：仅桌面吸附（lg 及以上）。
    竖屏手机屏高有限，sticky 顶栏持续占屏 —— 小屏随页面滚走 ---- */
+.app-navbar {
+  /* BS5 navbar 默认 --bs-navbar-bg 为透明，sticky 下滚动内容会透出；
+     显式实体背景（跟随昼夜主题） */
+  background: var(--bs-body-bg);
+}
 @media (max-width: 991.98px) {
   .app-navbar {
     position: relative;
