@@ -38,6 +38,10 @@
         {% elif f.widget == 'textarea' %}
         <textarea class="form-control" id="opt-{{ f.key }}" name="{{ f.key }}"
                   rows="{{ f.rows }}"{% if f.monospace %} style="font-family:monospace;font-size:11px"{% endif %}>{{ entry.values|get_item:f.key }}</textarea>
+        {% elif f.widget == 'secret_textarea' %}
+        <textarea class="form-control" id="opt-{{ f.key }}" name="{{ f.key }}"
+                  rows="{{ f.rows }}"{% if f.monospace %} style="font-family:monospace;font-size:11px"{% endif %}
+                  placeholder="{{ entry.values|get_item:f.key|yesno:'已配置（留空不修改，粘贴新值以更换）,未配置' }}"></textarea>
         {% elif f.widget == 'int' %}
         <input class="form-control" type="number" id="opt-{{ f.key }}" name="{{ f.key }}"
                value="{{ entry.values|get_item:f.key }}">

@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 class OptionField:
     key: str
     label: str
-    widget: str = "text"  # text / bool / int / textarea / password / select
+    widget: str = "text"  # text / bool / int / textarea / secret_textarea / password / select
     help_text: str = ""
     choices: list = field(default_factory=list)  # select 用
     rows: int = 2  # textarea 行数
@@ -283,9 +283,10 @@ OptionGroup(
                           "仅在此额外填写 CDN 等其他域名",
             ),
             OptionField(
-                "ygg_private_key", "签名私钥（PEM）", widget="textarea",
+                "ygg_private_key", "签名私钥（PEM）", widget="secret_textarea",
                 rows=10, monospace=True,
-                help_text="保存前会校验 PEM 格式；留空保存不修改。从旧站迁移时粘贴原私钥即可",
+                help_text="保存前会校验 PEM 格式；为安全不回显已存私钥，"
+                          "留空保存不修改，粘贴新值即更换。从旧站迁移时粘贴原私钥即可",
             ),
         ],
     ),

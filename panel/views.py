@@ -358,7 +358,7 @@ def options_save(request):
             except ValueError:
                 continue
         else:
-            if widget == "password" and value.strip() == "":
+            if widget in ("password", "secret_textarea") and value.strip() == "":
                 continue
             Option.objects.set(key, value.strip())
         updated += 1

@@ -376,6 +376,30 @@ class TestP2PanelKeyManagement:
         assert "2048 位" in html
         assert "重新生成 4096 位密钥对" in html
 
+    def test_options_page_does_not_echo_private_key(self, client, db):
+        """私钥不再明文回显进页面（XSS/浏览器缓存泄露面），占位提示已配置。"""
+        from options.models import Option
+
+        c = self._super_client(client)
+        pem = self._pem()
+        Option.objects.set("ygg_private_key", pem)
+        html = c.get("/admin/options/yggdrasil").content.decode()
+        assert pem not in html
+        assert "BEGIN PRIVATE KEY" not in html
+        assert "已配置（留空不修改，粘贴新值以更换）" in html
+
+    def test_secret_textarea_empty_save_keeps_key(self, client, db):
+        """secret_textarea 留空保存不修改（与 password 控件同语义）。"""
+        from options.models import Option
+
+        c = self._super_client(client)
+        Option.objects.set("ygg_private_key", self._pem())
+        resp = c.post("/admin/options/save", {"ygg_private_key": ""})
+        assert resp.json()["code"] == 0
+        assert (Option.objects.get_value("ygg_private_key") or "").startswith(
+            "-----BEGIN"
+        )
+
 
 # ---- P2-25: 上传材质计分/衣柜/命名（对照 ProfileController.php:100-203）----
 
