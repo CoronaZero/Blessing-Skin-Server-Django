@@ -39,7 +39,9 @@
 
   function buildControls(canvas, viewer, hasCape) {
     var wrap = document.createElement("div");
-    wrap.className = "d-flex flex-wrap justify-content-center align-items-center gap-1";
+    // bs-viewer-controls：宿主页面重建 canvas 时按此标识清理旧控制条
+    wrap.className =
+      "bs-viewer-controls d-flex flex-wrap justify-content-center align-items-center gap-1";
     wrap.style.marginBottom = "8px";
 
     // 动作四态（顺序对齐原版 animationFactories：行走/奔跑/飞行/待机）
