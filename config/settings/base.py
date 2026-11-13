@@ -37,6 +37,24 @@ def env_bool(name: str, default: bool) -> bool:
 
 DEBUG = env_bool("DEBUG", True)
 
+
+def env_int(name: str, default: int) -> int:
+    """解析整数环境变量；缺失/非法回落默认值。"""
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+# 客户端 IP 识别的可信代理层数（Django 直连代理链：反代/CDN 各算一层）。
+# get_client_ip 取 XFF 右起第 N 跳：默认 1（单层反代=末跳）；
+# 前置 CDN 时设 2（末跳是 CDN 节点 IP，真实客户端在倒数第二跳）。
+# 宁少勿多——多配会采信客户端自带的可伪造段。
+CLIENT_IP_PROXY_DEPTH = max(1, env_int("CLIENT_IP_PROXY_DEPTH", 1))
+
 # SECRET_KEY：环境变量优先；开发模式缺失时生成进程内临时密钥（重启即失效）
 _secret_key = os.environ.get("SECRET_KEY", "")
 if not _secret_key:
