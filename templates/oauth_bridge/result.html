@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ title }} - {{ site_name|default:"Blessing Skin" }}{% endblock %}
+
+{% block content %}
+<div style="max-width:480px;margin:40px auto">
+  <div class="card">
+    <div class="card-body text-center">
+      <h1 style="font-size:20px">{{ title }}</h1>
+      <p style="color:var(--bs-text-secondary)">{{ message }}</p>
+      <a class="btn btn-primary" href="{{ back_url|default:"/user" }}">继续</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -22,6 +22,8 @@ urlpatterns = [
     path("", include("players.urls")),
     # OAuth2（对照原版 Passport /oauth/token 等端点）
     path("oauth/", include("oauth2_provider.urls", namespace="oauth2_provider")),
+    # Microsoft OAuth 桥接（子路径 microsoft/* 与 oauth2_provider 无冲突）
+    path("oauth/", include("oauth_bridge.urls")),
     path("api/yggdrasil/", include("yggdrasil.urls")),
     # 自研管理面板（自带 admin 已退役；/admin/login 旧路径跳转）
     path("admin/", include("panel.urls")),

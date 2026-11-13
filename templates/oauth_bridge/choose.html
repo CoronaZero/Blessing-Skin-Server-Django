@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}账号关联 - {{ site_name|default:"Blessing Skin" }}{% endblock %}
+
+{% block content %}
+<div style="max-width:520px;margin:40px auto">
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-body">
+      <h1 style="font-size:20px">关联 Microsoft 账号</h1>
+      <p style="margin:0;color:var(--bs-text-secondary);font-size:13px">
+        Microsoft 账号
+        <strong>{{ msa_email|default:msa_name|default:"（未提供邮箱）" }}</strong>
+        尚未关联本站账号，请选择：
+      </p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-body">
+      <h2 style="font-size:15px;margin:0 0 12px">绑定已有账号</h2>
+      <div id="bind-alert" style="display:none" class="alert alert-danger"></div>
+      <form id="bind-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="bind">
+        <div class="bs-field">
+          <label for="id-bind-email">站内邮箱</label>
+          <input class="form-control" id="id-bind-email" name="email"
+                 autocomplete="username" required>
+        </div>
+        <div class="bs-field">
+          <label for="id-bind-password">站内密码</label>
+          <input class="form-control" id="id-bind-password" name="password"
+                 type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary" type="submit" id="bind-submit"
+                style="width:100%">
+          验证并绑定
+        </button>
+      </form>
+    </div>
+  </div>
+
+  {% if can_create %}
+  <div class="card">
+    <div class="card-body">
+      <h2 style="font-size:15px;margin:0 0 12px">创建新账号</h2>
+      <div id="create-alert" style="display:none" class="alert alert-danger"></div>
+      <p style="font-size:13px;color:var(--bs-text-secondary)">
+        将以邮箱 <strong>{{ msa_email|default:"（未提供邮箱）" }}</strong>
+        注册新账号（无需密码），并自动完成邮箱验证。
+      </p>
+      <form id="create-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create">
+        {% if invitation_required %}
+        <div class="bs-field">
+          <label for="id-invite">邀请码</label>
+          <input class="form-control" id="id-invite" name="invitation_code" required>
+        </div>
+        {% endif %}
+        {% if captcha.provider == "turnstile" %}
+        <div class="bs-field" id="captcha-slot" data-sitekey="{{ captcha.sitekey }}"></div>
+        {% elif captcha.provider == "recaptcha" %}
+        <div class="bs-field">
+          <div id="captcha-slot" class="g-recaptcha"
+               data-sitekey="{{ captcha.sitekey }}"></div>
+        </div>
+        {% endif %}
+        <input type="hidden" name="captcha" id="captcha-token">
+        <button class="btn btn-outline-primary" type="submit" id="create-submit"
+                style="width:100%">
+          创建新账号
+        </button>
+      </form>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-body">
+      <h2 style="font-size:15px;margin:0">创建新账号</h2>
+      <p style="margin:8px 0 0;font-size:13px;color:var(--bs-text-secondary)">
+        站点未开放通过 Microsoft 注册新账号，仅可绑定已有账号。
+      </p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_foot %}
+<script>
+(function () {
+  function wire(formId, alertId, btnId) {
+    var form = document.getElementById(formId);
+    if (!form) return;
+    var alertBox = document.getElementById(alertId);
+    var btn = document.getElementById(btnId);
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      btn.disabled = true;
+      try {
+        var payload = await window.bsPost(
+          "/oauth/microsoft/choose", new FormData(form)
+        );
+        if (payload.code === 0) {
+          window.location.href =
+            (payload.data && payload.data.redirectTo) || "/user";
+          return;
+        }
+        alertBox.textContent = payload.message;
+        alertBox.style.display = "block";
+      } catch (err) {
+        alertBox.textContent = "网络异常，请稍后再试";
+        alertBox.style.display = "block";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+  wire("bind-form", "bind-alert", "bind-submit");
+  wire("create-form", "create-alert", "create-submit");
+})();
+</script>
+
+{% if captcha.provider == "turnstile" %}
+<script src="{% static 'js/turnstile.js' %}" defer></script>
+{% endif %}
+{% endblock %}
