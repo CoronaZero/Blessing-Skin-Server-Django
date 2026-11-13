@@ -107,7 +107,11 @@ class TestJoinIpCheck:
         assert has_joined(client).status_code == 200
 
     def test_forwarded_for_used_at_join(self, client, seeded):
-        """join 记录的是 X-Forwarded-For 首段（反代后真实客户端 IP）。"""
+        """join 记录的是 X-Forwarded-For 末跳（自家反代追加的真实客户端 IP）。
+
+        取首跳可被客户端自带 XFF 伪造（反代为追加语义），
+        限流/审计一律不可信，改取末跳（见 config.clientip）。
+        """
         tokens = authenticate(client)
         resp = client.post(
             BASE + "/sessionserver/session/minecraft/join",
@@ -121,8 +125,8 @@ class TestJoinIpCheck:
             HTTP_X_FORWARDED_FOR="9.9.9.9, 10.0.0.1",
         )
         assert resp.status_code == 204
-        assert has_joined(client, ip="9.9.9.9").status_code == 200
-        assert has_joined(client, ip="10.0.0.1").status_code == 204
+        assert has_joined(client, ip="10.0.0.1").status_code == 200
+        assert has_joined(client, ip="9.9.9.9").status_code == 204
 
 
 # ---- v3 算法下改名重算 UUID（原版 uuid 表重映射）----

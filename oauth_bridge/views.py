@@ -22,6 +22,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from accounts.captcha import verify_captcha
 from accounts.models import User
+from config.clientip import get_client_ip
 from config.jsonapi import FAILURE, SUCCESS, json_response
 from options.models import Option
 
@@ -34,13 +35,6 @@ from .sync import sync_binding_textures
 _MC_UUID = re.compile(r"^[0-9a-f]{32}$")
 # pending 引导会话有效期（秒）
 _PENDING_TTL = 600
-
-
-def _client_ip(request) -> str:
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "")
 
 
 def _safe_next(candidate: str) -> bool:
@@ -368,7 +362,7 @@ def _choose_create(request, pending: dict):
         return json_response("站点未开放 Microsoft 注册", FAILURE)
     if (Option.objects.get_value("disable_registration") or "0") in ("1", "true", "on"):
         return json_response("本站已关闭注册", FAILURE)
-    if not verify_captcha(request.POST.get("captcha"), ip=_client_ip(request)):
+    if not verify_captcha(request.POST.get("captcha"), ip=get_client_ip(request)):
         return json_response("人机验证未通过", FAILURE)
     email = pending.get("email", "")
     if not email or "@" not in email:
@@ -389,7 +383,7 @@ def _choose_create(request, pending: dict):
         if invitation is None:
             return json_response("邀请码无效或已被使用", FAILURE)
 
-    ip = _client_ip(request)
+    ip = get_client_ip(request)
     try:
         regs_limit = int(Option.objects.get_value("regs_per_ip") or 3)
     except ValueError:

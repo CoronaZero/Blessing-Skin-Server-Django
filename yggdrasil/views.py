@@ -49,7 +49,8 @@ def _json_ok(payload: dict, status: int = 200) -> HttpResponse:
 def _log(request, action, user=None, player=None, params=None):
     """接口审计日志：对照原版 ygg_log()，仅 YGG_VERBOSE_LOG 开启时落库。
 
-    IP 取反代后的真实客户端地址（XFF 首段，与 join/hasJoined 审计口径一致）。
+    IP 取 XFF 末跳（自家反代追加段，与 join/hasJoined 审计口径一致；
+    取值策略见 config.clientip）。
     """
     if not getattr(settings, "YGG_VERBOSE_LOG", False):
         return

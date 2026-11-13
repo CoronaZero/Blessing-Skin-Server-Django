@@ -7,6 +7,8 @@ from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpResponse
 
+from config.clientip import get_client_ip
+
 
 def error_response(status: int, error: str, message: str, cause: str = "") -> HttpResponse:
     payload = {"error": error, "errorMessage": message}
@@ -55,7 +57,7 @@ def throttle_by_ip(request, username=None) -> HttpResponse | None:
     if seconds <= 0:
         return None
 
-    ip = _client_ip(request)
+    ip = get_client_ip(request)
     idents = [f"{ip}:{request.path}"]
     if username:
         idents.append(f"{ip}:{request.path}:{str(username)[:64]}")
@@ -103,15 +105,8 @@ def time_ms() -> int:
     return int(time.time() * 1000)
 
 
-def _client_ip(request) -> str:
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "")
-
-
-# 公开别名（_log / join / hasJoined 等视图复用）
-client_ip = _client_ip
+# 公开别名（_log / join / hasJoined 等视图复用）；取值策略见 config.clientip
+client_ip = get_client_ip
 
 
 def get_bearer_user(request):

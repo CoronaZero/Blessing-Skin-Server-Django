@@ -19,6 +19,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
+from config.clientip import get_client_ip
 from config.jsonapi import FAILURE, SPECIAL, SUCCESS, json_response
 from options.models import Option
 
@@ -32,14 +33,6 @@ def _msa_login_enabled() -> bool:
     from oauth_bridge import options as msa_options
 
     return msa_options.msa_login_ready()
-
-
-def _client_ip(request) -> str:
-    """客户端 IP（X-Forwarded-For 首跳，无则 REMOTE_ADDR）。"""
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "")
 
 
 # ---- 登录 ----
@@ -78,7 +71,7 @@ def login_submit(request):
     if not identification or not password:
         return json_response("请填写邮箱/角色名与密码")
 
-    ip = _client_ip(request)
+    ip = get_client_ip(request)
     fails_key = "login_fails:" + hashlib.sha256(ip.encode()).hexdigest()
 
     # 验证码 provider 启用时无条件强制（verify_captcha 在关闭时返回 True，
@@ -154,7 +147,7 @@ def register_submit(request):
     if (Option.objects.get_value("disable_registration") or "0") in ("1", "true"):
         return json_response("本站已关闭注册")
 
-    if not verify_captcha(request.POST.get("captcha"), ip=_client_ip(request)):
+    if not verify_captcha(request.POST.get("captcha"), ip=get_client_ip(request)):
         return json_response("人机验证未通过")
 
     email = request.POST.get("email", "").strip()
@@ -184,7 +177,7 @@ def register_submit(request):
             return json_response("邀请码无效或已被使用")
 
     # regs_per_ip：同 IP 注册数上限（对照原版）
-    ip = _client_ip(request)
+    ip = get_client_ip(request)
     try:
         regs_limit = int(Option.objects.get_value("regs_per_ip") or 3)
     except ValueError:
@@ -251,11 +244,11 @@ def forgot_submit(request):
     if not email or "@" not in email:
         return json_response("请填写有效邮箱")
 
-    if not verify_captcha(request.POST.get("captcha"), ip=_client_ip(request)):
+    if not verify_captcha(request.POST.get("captcha"), ip=get_client_ip(request)):
         return json_response("人机验证未通过")
 
     # IP 限速 180s（对照原版 last_mail）
-    ip = _client_ip(request)
+    ip = get_client_ip(request)
     mail_key = "last_mail:" + hashlib.sha256(ip.encode()).hexdigest()
     if cache.get(mail_key) is not None:
         return json_response("邮件发送过于频繁，请稍后再试", SPECIAL)
