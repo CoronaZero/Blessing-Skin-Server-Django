@@ -19,6 +19,44 @@
   </div>
 </div>
 
+{# 正版角色分区：只读（不占上方本地角色网格），独立管理 #}
+{% if genuine_binding or genuine_bind_enabled %}
+<div class="card" style="margin-bottom:18px" id="genuine-section">
+  <div class="card-body">
+    <h2 style="font-size:15px;margin:0 0 12px">
+      正版角色
+      <span class="badge text-bg-secondary" style="font-size:11px;vertical-align:2px">只读</span>
+    </h2>
+
+    {% if genuine_binding %}
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div style="font-weight:600">{{ genuine_binding.mc_name }}</div>
+        <div style="font-size:12px;color:var(--bs-text-secondary);margin-top:2px">
+          UUID：{{ genuine_binding.mc_uuid }}
+        </div>
+        <div style="font-size:12px;color:var(--bs-text-secondary);margin-top:2px">
+          绑定时间：{{ genuine_binding.created_at|date:"Y-m-d" }} ·
+          皮肤由正版系统同步，站内不可修改
+        </div>
+      </div>
+      <button class="btn btn-outline-danger btn-sm" id="genuine-unbind-btn" type="button">
+        解绑正版角色
+      </button>
+    </div>
+    {% elif genuine_bind_enabled %}
+    <p style="margin:0 0 12px;font-size:13px;color:var(--bs-text-secondary)">
+      绑定 Minecraft 正版角色后，可用正版客户端进入指向本站的 authlib-injector 服务器；
+      正版角色在站内只读，不占用本地角色。
+    </p>
+    <a class="btn btn-outline-primary btn-sm" href="/oauth/microsoft/genuine">
+      <i class="bi bi-microsoft me-1" aria-hidden="true"></i>绑定正版角色
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 <div id="players-list" class="bs-grid"></div>
 {% endblock %}
 

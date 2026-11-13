@@ -31,6 +31,28 @@
       <button class="btn btn-outline-secondary" type="submit" style="justify-self:start">修改密码</button>
     </form>
 
+    <h3 style="font-size:14px;margin:24px 0 8px">Microsoft 账号</h3>
+    {% if msa_identity %}
+    <p style="font-size:13px;color:var(--bs-text-secondary);margin:0 0 8px">
+      已绑定 <strong>{{ msa_identity.email|default:msa_identity.display_name|default:"Microsoft 账号" }}</strong>
+      （{{ msa_identity.created_at|date:"Y-m-d" }} 绑定），可用它直接登录本站。
+    </p>
+    <button class="btn btn-outline-danger btn-sm" id="msa-unbind-btn" type="button">
+      解绑 Microsoft 账号
+    </button>
+    {% elif msa_login_enabled %}
+    <p style="font-size:13px;color:var(--bs-text-secondary);margin:0 0 8px">
+      绑定后可使用 Microsoft 账号直接登录本站。
+    </p>
+    <a class="btn btn-outline-primary btn-sm" href="/oauth/microsoft/login">
+      <i class="bi bi-microsoft me-1" aria-hidden="true"></i>绑定 Microsoft 账号
+    </a>
+    {% else %}
+    <p style="font-size:13px;color:var(--bs-text-secondary);margin:0">
+      站点未启用 Microsoft 登录。
+    </p>
+    {% endif %}
+
     {% if not user.is_admin %}
     <h3 style="font-size:14px;margin:24px 0 8px;color:var(--bs-danger)">注销账号</h3>
     <form id="delete-form" style="display:grid;gap:8px;max-width:380px">

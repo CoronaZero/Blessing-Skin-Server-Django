@@ -27,6 +27,13 @@ from .mailer import send_templated_mail
 from .models import PasswordReset, User
 
 
+def _msa_login_enabled() -> bool:
+    """Microsoft 登录入口是否展示（oauth_bridge 未配置时零开销回落 False）。"""
+    from oauth_bridge import options as msa_options
+
+    return msa_options.msa_login_ready()
+
+
 def _client_ip(request) -> str:
     """客户端 IP（X-Forwarded-For 首跳，无则 REMOTE_ADDR）。"""
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
@@ -51,6 +58,7 @@ def login_page(request):
             "captcha": get_captcha_requirements(),
             "site_name": Option.objects.get_value("site_name"),
             "next_url": next_url,
+            "msa_login_enabled": _msa_login_enabled(),
         },
     )
 
@@ -131,6 +139,11 @@ def register_page(request):
             in ("1", "true"),
             # 邀请链接 ?invite=<code> 预填（面板邀请码页一键复制）
             "invite_code": (request.GET.get("invite") or "").strip()[:32],
+            "msa_register_enabled": (
+                _msa_login_enabled()
+                and (Option.objects.get_value("microsoft_register_enabled") or "0")
+                .strip().lower() in ("1", "true", "on")
+            ),
         },
     )
 
@@ -399,12 +412,17 @@ def profile_view(request):
     """资料页（分页改造后专指资料设置）/ POST 修改资料。"""
     if request.method == "POST":
         return profile_submit(request)
+    from oauth_bridge.models import MsaIdentity
+
+    identity = MsaIdentity.objects.filter(user=request.user).first()
     return render(
         request,
         "accounts/profile.html",
         {
             "site_name": Option.objects.get_value("site_name"),
             "bs_user_json": _bs_user_json(request.user),
+            "msa_identity": identity,
+            "msa_login_enabled": _msa_login_enabled(),
         },
     )
 

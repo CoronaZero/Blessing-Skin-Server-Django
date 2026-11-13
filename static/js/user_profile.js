@@ -29,4 +29,15 @@
     window.bsToast(r.message, r.code === 0 ? "success" : "error");
     if (r.code === 0) setTimeout(function () { location.href = "/"; }, 1200);
   });
+
+  /* Microsoft 账号解绑（按钮可能不存在，安全判空） */
+  const msaUnbindBtn = document.getElementById("msa-unbind-btn");
+  if (msaUnbindBtn) {
+    msaUnbindBtn.addEventListener("click", async function () {
+      if (!window.confirm("确定解绑 Microsoft 账号？解绑后将进入冷却期，期间不可重新绑定。")) return;
+      const r = await window.bsPost("/oauth/microsoft/msa/unbind");
+      window.bsToast(r.message, r.code === 0 ? "success" : "error");
+      if (r.code === 0) setTimeout(function () { location.reload(); }, 900);
+    });
+  }
 })();

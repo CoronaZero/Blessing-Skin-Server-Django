@@ -100,12 +100,21 @@ def players_page(request):
         return list_players(request)
     from django.shortcuts import render
 
+    from oauth_bridge import options as msa_options
+    from oauth_bridge.models import MojangBinding
+
+    binding = MojangBinding.objects.filter(user=request.user).first()
     from options.models import Option as _Option
 
     return render(
         request,
         "users/players.html",
-        {"site_name": _Option.objects.get_value("site_name")},
+        {
+            "site_name": _Option.objects.get_value("site_name"),
+            # 正版角色分区：已绑定者始终可见（含开关关闭后），未绑定者按开关
+            "genuine_binding": binding,
+            "genuine_bind_enabled": msa_options.msa_bind_ready(),
+        },
     )
 
 

@@ -64,5 +64,16 @@
     if (r.code === 0) { this.reset(); load(); }
   });
 
+  /* 正版角色分区：解绑（按钮可能不存在，安全判空） */
+  const unbindBtn = document.getElementById("genuine-unbind-btn");
+  if (unbindBtn) {
+    unbindBtn.addEventListener("click", async function () {
+      if (!window.confirm("确定解绑正版角色？解绑后将进入冷却期，期间不可重新绑定。")) return;
+      const r = await window.bsPost("/oauth/microsoft/genuine/unbind");
+      window.bsToast(r.message, r.code === 0 ? "success" : "error");
+      if (r.code === 0) setTimeout(function () { location.reload(); }, 900);
+    });
+  }
+
   load();
 })();

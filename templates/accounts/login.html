@@ -47,6 +47,16 @@
         <a href="/auth/forgot">忘记密码？</a> ·
         <a href="/auth/register">注册新账号</a>
       </p>
+
+      {% if msa_login_enabled %}
+      <hr style="margin:20px 0 16px">
+      <a class="btn btn-outline-primary d-flex align-items-center justify-content-center gap-2"
+         style="width:100%"
+         href="/oauth/microsoft/login{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
+        <i class="bi bi-microsoft" aria-hidden="true"></i>
+        使用 Microsoft 账号登录
+      </a>
+      {% endif %}
     </div>
   </div>
 </div>
