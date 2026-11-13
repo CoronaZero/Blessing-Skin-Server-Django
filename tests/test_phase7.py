@@ -106,6 +106,40 @@ class TestSetupWizard:
         )
         assert resp.json()["code"] == 1
 
+    def test_validation_failure_releases_claim_lock(self, client, tmp_path, monkeypatch):
+        """校验失败须释放占锁：并发占锁改为 O_EXCL 后失败路径不能留死锁，
+        否则管理员永远无法重试安装。"""
+        from setup import views
+
+        lock = tmp_path / "install.lock"
+        monkeypatch.setattr(views, "LOCK_FILE", lock)
+        resp = client.post(
+            "/setup/",
+            data=json.dumps({
+                "site_name": "S", "admin_email": "a@x.com", "admin_password": "123",
+            }),
+            content_type="application/json",
+        )
+        assert resp.json()["code"] == 1
+        assert not lock.exists()
+
+    def test_existing_users_abort_also_releases_lock(self, client, tmp_path, monkeypatch):
+        from setup import views
+
+        lock = tmp_path / "install.lock"
+        monkeypatch.setattr(views, "LOCK_FILE", lock)
+        User.objects.create_user(email="old@x.com", nickname="old", password="password8")
+        resp = client.post(
+            "/setup/",
+            data=json.dumps({
+                "site_name": "S", "admin_email": "a@x.com",
+                "admin_password": "password8",
+            }),
+            content_type="application/json",
+        )
+        assert resp.json()["code"] == 1
+        assert not lock.exists()
+
 
 # ---- 批量导入 ----
 

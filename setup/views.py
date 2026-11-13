@@ -71,52 +71,64 @@ def wizard(request):
 
 @require_POST
 def submit(request):
-    if installation_locked():
+    # O_EXCL 原子占锁：并发提交仅一个胜出——关闭此前 exists() 检查与
+    # 建号之间的竞态窗口（两个并发提交可各建一个超管）
+    try:
+        with LOCK_FILE.open("x", encoding="utf-8") as fh:
+            fh.write("installing\n")
+    except FileExistsError:
         return json_response("站点已完成安装，如需重新安装请先删除 install.lock")
 
+    ok = False
     try:
-        payload = json.loads(request.body or b"{}")
-    except json.JSONDecodeError:
-        return json_response("请求数据格式错误")
+        try:
+            payload = json.loads(request.body or b"{}")
+        except json.JSONDecodeError:
+            return json_response("请求数据格式错误")
 
-    site_name = (payload.get("site_name") or "").strip()
-    site_url = (payload.get("site_url") or "").strip().rstrip("/")
-    admin_email = (payload.get("admin_email") or "").strip()
-    admin_password = payload.get("admin_password") or ""
-    admin_nickname = (payload.get("admin_nickname") or "Admin").strip()
+        site_name = (payload.get("site_name") or "").strip()
+        site_url = (payload.get("site_url") or "").strip().rstrip("/")
+        admin_email = (payload.get("admin_email") or "").strip()
+        admin_password = payload.get("admin_password") or ""
+        admin_nickname = (payload.get("admin_nickname") or "Admin").strip()
 
-    if not site_name:
-        return json_response("请填写站点名称")
-    if site_url and not site_url.startswith(("http://", "https://")):
-        site_url = "https://" + site_url
-    if "@" not in admin_email:
-        return json_response("请填写管理员邮箱")
-    if len(admin_password) < 8:
-        return json_response("管理员密码至少 8 位")
+        if not site_name:
+            return json_response("请填写站点名称")
+        if site_url and not site_url.startswith(("http://", "https://")):
+            site_url = "https://" + site_url
+        if "@" not in admin_email:
+            return json_response("请填写管理员邮箱")
+        if len(admin_password) < 8:
+            return json_response("管理员密码至少 8 位")
 
-    from accounts.models import User
+        from accounts.models import User
 
-    if User.objects.exists():
-        return json_response("数据库已有用户，疑似非全新安装，已中止")
+        if User.objects.exists():
+            return json_response("数据库已有用户，疑似非全新安装，已中止")
 
-    admin = User.objects.create_superuser(
-        email=admin_email, nickname=admin_nickname, password=admin_password
-    )
+        admin = User.objects.create_superuser(
+            email=admin_email, nickname=admin_nickname, password=admin_password
+        )
 
-    options = dict(DEFAULT_OPTIONS)
-    options["site_name"] = site_name
-    if site_url:
-        options["site_url"] = site_url
-    Option.objects.bulk_set(options)
-    _generate_ygg_keypair()
+        options = dict(DEFAULT_OPTIONS)
+        options["site_name"] = site_name
+        if site_url:
+            options["site_url"] = site_url
+        Option.objects.bulk_set(options)
+        _generate_ygg_keypair()
 
-    LOCK_FILE.write_text("installed\n", encoding="utf-8")
-    auth_login(request, admin)
-    return JsonResponse({
-        "code": SUCCESS,
-        "message": "安装完成",
-        "data": {"redirectTo": "/admin/"},
-    })
+        LOCK_FILE.write_text("installed\n", encoding="utf-8")
+        auth_login(request, admin)
+        ok = True
+        return JsonResponse({
+            "code": SUCCESS,
+            "message": "安装完成",
+            "data": {"redirectTo": "/admin/"},
+        })
+    finally:
+        if not ok:
+            # 校验失败/建号异常：释放占锁允许重试（未完成安装不落锁）
+            LOCK_FILE.unlink(missing_ok=True)
 
 
 def _generate_ygg_keypair():
