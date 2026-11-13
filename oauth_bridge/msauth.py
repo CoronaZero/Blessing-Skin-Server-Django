@@ -89,7 +89,13 @@ def _response_json(resp):
 
 
 def authorize_url(client_id: str, redirect_uri: str, scope: str, state: str) -> str:
-    """构造授权跳转地址（response_mode 固定 query，回调 GET 取 code 简单可靠）。"""
+    """构造授权跳转地址（response_mode 固定 query，回调 GET 取 code 简单可靠）。
+
+    不带 prompt 参数（对齐 minecraft-launcher-lib 标准实现）：prompt=
+    select_account 会强制 AAD 读取浏览器帐户会话 cookie 渲染帐户选择器，
+    在半失效的微软会话下触发 "The contextID supplied in the request did
+    not have a matching cookie"（server_error）。
+    """
     return AUTHORIZE_URL + "?" + urlencode({
         "client_id": client_id,
         "response_type": "code",
@@ -97,7 +103,6 @@ def authorize_url(client_id: str, redirect_uri: str, scope: str, state: str) -> 
         "redirect_uri": redirect_uri,
         "scope": scope,
         "state": state,
-        "prompt": "select_account",
     })
 
 
