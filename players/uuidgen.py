@@ -1,4 +1,4 @@
-﻿"""UUID 生成算法（对照原版 yggdrasil-api Profile::generateUuidV3 与 uuid4）。"""
+"""UUID 生成算法（对照原版 yggdrasil-api Profile::generateUuidV3 与 uuid4）。"""
 
 import hashlib
 import uuid as uuid_lib

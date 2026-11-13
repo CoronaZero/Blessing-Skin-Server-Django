@@ -1,4 +1,4 @@
-﻿{% if page_obj.has_other_pages %}
+{% if page_obj.has_other_pages %}
 <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;font-size:13px">
   {% if page_obj.has_previous %}
   <a class="btn btn-outline-secondary" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if action %}&action={{ action }}{% endif %}">上一页</a>

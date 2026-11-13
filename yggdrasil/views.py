@@ -1,4 +1,4 @@
-﻿"""Yggdrasil API 视图：认证服务器 + 会话服务器 + Profile。
+"""Yggdrasil API 视图：认证服务器 + 会话服务器 + Profile。
 
 对照 yggdrasil-api 插件全部端点语义（authlib-injector 规范）。
 """

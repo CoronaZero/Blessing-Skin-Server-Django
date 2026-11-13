@@ -1,4 +1,4 @@
-﻿"""yggdrasil 路由（对照原版 routes.php 全端点）。"""
+"""yggdrasil 路由（对照原版 routes.php 全端点）。"""
 
 from django.urls import path
 

@@ -1,4 +1,4 @@
-﻿"""textures 视图：皮肤库搜索/上传/纹理文件/头像/CustomSkinAPI。"""
+"""textures 视图：皮肤库搜索/上传/纹理文件/头像/CustomSkinAPI。"""
 
 import io
 import math

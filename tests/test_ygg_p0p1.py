@@ -1,4 +1,4 @@
-﻿"""Yggdrasil P0/P1 协议修复回归（定向）。"""
+"""Yggdrasil P0/P1 协议修复回归（定向）。"""
 
 import base64
 import json

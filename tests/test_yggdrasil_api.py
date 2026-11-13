@@ -1,4 +1,4 @@
-﻿"""Yggdrasil API 协议测试（TDD 先行）。
+"""Yggdrasil API 协议测试（TDD 先行）。
 
 对照 yggdrasil-api 插件协议端点（authlib-injector 规范）：
 - POST /api/yggdrasil/authserver/authenticate

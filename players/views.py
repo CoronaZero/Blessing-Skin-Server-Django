@@ -1,4 +1,4 @@
-﻿"""players 视图：用户角色管理。"""
+"""players 视图：用户角色管理。"""
 
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET, require_POST

@@ -1,4 +1,4 @@
-﻿"""用户中心 API 测试（TDD 先行）。
+"""用户中心 API 测试（TDD 先行）。
 
 对照原版 UserController / PlayerController / ClosetController / ReportController：
 - /user/profile         GET 页 / POST 修改资料（nickname/password/email/delete）

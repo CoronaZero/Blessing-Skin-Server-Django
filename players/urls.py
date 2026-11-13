@@ -1,4 +1,4 @@
-﻿"""players 路由：用户角色管理端点。"""
+"""players 路由：用户角色管理端点。"""
 
 from django.urls import path
 

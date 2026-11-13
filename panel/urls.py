@@ -1,4 +1,4 @@
-﻿"""panel 路由（/admin/ 前缀，替代自带 admin）。"""
+"""panel 路由（/admin/ 前缀，替代自带 admin）。"""
 
 from django.urls import path
 

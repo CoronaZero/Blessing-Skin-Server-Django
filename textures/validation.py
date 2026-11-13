@@ -1,4 +1,4 @@
-﻿"""纹理文件校验：格式/尺寸/比例（对照原版 SkinlibController::upload 链）。"""
+"""纹理文件校验：格式/尺寸/比例（对照原版 SkinlibController::upload 链）。"""
 
 import hashlib
 import io

@@ -1,4 +1,4 @@
-﻿"""皮肤等距 3D 立绘渲染器。
+"""皮肤等距 3D 立绘渲染器。
 
 忠实移植 bs-community/texture-renderer（BSD-3，见 LICENSE 注）：
 - 逐像素 3D 投影多边形（Point/Polygon 数学一致）

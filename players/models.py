@@ -1,4 +1,4 @@
-﻿"""players 应用：Minecraft 角色模型与 UUID 生成。"""
+"""players 应用：Minecraft 角色模型与 UUID 生成。"""
 
 from django.db import models
 

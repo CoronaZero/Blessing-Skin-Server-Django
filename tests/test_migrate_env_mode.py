@@ -1,4 +1,4 @@
-﻿"""migrate_from_php v2 测试：--env 驱动的完整站点迁移（含皮肤文件复制）。
+"""migrate_from_php v2 测试：--env 驱动的完整站点迁移（含皮肤文件复制）。
 
 v2 目标（对照用户需求）：
 - --env <path> 指向 PHP 站 .env：自动解析 DB 连接、SALT、PWD_METHOD，

@@ -1,4 +1,4 @@
-﻿"""面板邀请码管理页视图。"""
+"""面板邀请码管理页视图。"""
 
 from django.core.paginator import Paginator
 from django.shortcuts import render

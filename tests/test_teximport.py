@@ -1,4 +1,4 @@
-﻿"""teximport 全链路测试：URL 净化/解析、SSRF 防护、入队、审核、拉取、计分"""
+"""teximport 全链路测试：URL 净化/解析、SSRF 防护、入队、审核、拉取、计分"""
 
 import io
 import ipaddress

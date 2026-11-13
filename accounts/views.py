@@ -1,4 +1,4 @@
-﻿"""accounts 视图：登录/注册/找回/重置/邮箱验证。
+"""accounts 视图：登录/注册/找回/重置/邮箱验证。
 
 对照 PHP 原版 AuthController 全部登录语义，含三项安全修复：
 ① 账号枚举防护（option login_enumeration_protection，默认关保持原版行为）

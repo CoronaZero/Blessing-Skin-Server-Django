@@ -1,4 +1,4 @@
-﻿"""accounts 路由：/auth/* 全部认证端点（GET 页面 / POST 提交单视图分发）。"""
+"""accounts 路由：/auth/* 全部认证端点（GET 页面 / POST 提交单视图分发）。"""
 
 from django.urls import path
 

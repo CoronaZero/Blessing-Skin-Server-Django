@@ -1,4 +1,4 @@
-﻿"""公告 Markdown 测试（定向）。"""
+"""公告 Markdown 测试（定向）。"""
 
 import pytest
 
