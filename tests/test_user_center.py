@@ -259,6 +259,24 @@ class TestNotifications:
         resp = client_logged.post(f"/user/notifications/{n.id}/read")
         assert resp.json()["code"] == 1
 
+    def test_page_container_matches_js_selector(self, client_logged, user):
+        """UI 契约：通知页容器须与 user_notifications.js 的选择器一致。
+
+        真实事故：BS5 迁移把模板 .bs-card-body 改成 .card-body，
+        JS 仍查旧类 → box=null → TypeError 静默失败，页面空白
+        （API 层测试全绿拦不住，此测试锁前端两侧一致性）。
+        """
+        html = client_logged.get("/user/notifications").content.decode()
+        assert 'id="notifications-list"' in html
+        # 模板容器类
+        assert '<div class="card-body"></div>' in html
+        # JS 选择器同侧（静态文件级锁定）
+        from pathlib import Path as _P
+
+        js = _P("static/js/user_notifications.js").read_text(encoding="utf-8")
+        assert '#notifications-list .card-body' in js
+        assert ".bs-card-body" not in js  # 旧类选择器不得回流
+
 
 # ---- 举报 ----
 

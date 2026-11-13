@@ -10,9 +10,15 @@
   }
 
   async function load() {
-    const box = document.querySelector("#notifications-list .bs-card-body");
-    const payload = await window.bsFetch("/user/notifications");
-    if (payload.code !== 0) return;
+    const box = document.querySelector("#notifications-list .card-body");
+    if (box) {
+      const payload = await window.bsFetch("/user/notifications");
+      if (payload.code !== 0) return;
+      render(box, payload);
+    }
+  }
+
+  function render(box, payload) {
     box.innerHTML = "";
     if (!payload.data.length) {
       box.innerHTML =
