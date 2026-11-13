@@ -497,6 +497,10 @@ def join(request):
     selected_profile = payload.get("selectedProfile") or ""
     server_id = payload.get("serverId") or ""
 
+    # serverId 会拼进 cache 键：限长防键空间灌水（规范语义远短于 64）
+    if not isinstance(server_id, str) or len(server_id) > 64:
+        return error_response(400, "IllegalArgumentException", "serverId 非法")
+
     row = YggdrasilToken.objects.filter(access_token=access_token).first()
     if row is None or not row.is_valid():
         return error_response(403, "ForbiddenOperationException", "令牌无效")
@@ -525,6 +529,9 @@ def join(request):
 def has_joined(request):
     username = request.GET.get("username") or ""
     server_id = request.GET.get("serverId") or ""
+    # serverId 会拼进 cache 键：超长直接 fail-closed 204（与 join 限长同口径）
+    if len(server_id) > 64:
+        return HttpResponse(status=204)
 
     session_key = f"ygg_server:{server_id}:{username}"
     cached = cache.get(session_key)

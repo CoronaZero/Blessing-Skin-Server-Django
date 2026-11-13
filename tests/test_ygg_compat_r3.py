@@ -129,6 +129,37 @@ class TestJoinIpCheck:
         assert has_joined(client, ip="9.9.9.9").status_code == 204
 
 
+class TestServerIdBound:
+    """serverId 拼进 cache 键：限长防已认证用户灌缓存键空间。"""
+
+    def test_join_oversized_server_id_400(self, client, seeded):
+        tokens = authenticate(client)
+        resp = join_server(client, tokens, server_id="s" * 65)
+        assert resp.status_code == 400
+        assert resp.json()["error"] == "IllegalArgumentException"
+
+    def test_join_non_string_server_id_400(self, client, seeded):
+        tokens = authenticate(client)
+        resp = client.post(
+            BASE + "/sessionserver/session/minecraft/join",
+            data=json.dumps({
+                "accessToken": tokens["accessToken"],
+                "selectedProfile": tokens["selectedProfile"]["id"],
+                "serverId": {"a": 1},
+            }),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+
+    def test_hasjoined_oversized_server_id_fail_closed(self, client, seeded):
+        assert has_joined(client, server_id="s" * 65).status_code == 204
+
+    def test_normal_server_id_still_works(self, client, seeded):
+        tokens = authenticate(client)
+        assert join_server(client, tokens, server_id="x" * 64).status_code == 204
+        assert has_joined(client, server_id="x" * 64).status_code == 200
+
+
 # ---- v3 算法下改名重算 UUID（原版 uuid 表重映射）----
 
 
