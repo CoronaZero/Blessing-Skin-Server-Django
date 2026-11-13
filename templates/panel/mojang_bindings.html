@@ -1,0 +1,57 @@
+{% extends "panel/base.html" %}
+{% block title %}正版角色绑定{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h1 style="margin:0;font-size:20px">正版角色绑定</h1>
+  <form method="get" class="d-flex gap-2 flex-wrap">
+    <input class="form-control" name="q" value="{{ q }}"
+           placeholder="角色名/UUID/用户邮箱/昵称" style="min-width:220px">
+    <button class="btn btn-outline-secondary" type="submit">搜索</button>
+  </form>
+</div>
+
+<div class="alert alert-secondary" style="font-size:13px;margin-bottom:16px;padding:8px 12px">
+  <i class="bi bi-info-circle me-1"></i>
+  正版角色在站内为只读（不可改名、不可更换皮肤，皮肤由正版系统同步），此处仅提供查看与解绑；
+  解绑后立即生效（透传随之失效）并进入冷却期，与用户自助解绑同一规则。
+</div>
+
+<div class="card">
+  <div class="card-body table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <tr>
+        <th>ID</th><th>正版角色名</th><th>正版 UUID</th>
+        <th>所属用户</th><th>绑定时间</th><th>纹理同步</th><th>操作</th>
+      </tr>
+      {% for b in page_obj %}
+      <tr>
+        <td>{{ b.id }}</td>
+        <td>{{ b.mc_name }}</td>
+        <td><code style="font-size:11px">{{ b.mc_uuid }}</code></td>
+        <td>{{ b.user.email }}<span style="font-size:11px;color:var(--bs-text-secondary)">
+          （{{ b.user.nickname }}）</span></td>
+        <td style="white-space:nowrap">{{ b.created_at|date:"Y-m-d H:i" }}</td>
+        <td style="white-space:nowrap">
+          {% if b.textures_synced_at %}
+          {{ b.textures_synced_at|date:"Y-m-d H:i" }}
+          {% else %}—{% endif %}
+        </td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-danger" style="padding:3px 10px;font-size:12px"
+                  data-action="unbind" data-url="/admin/mojang-bindings/{{ b.id }}/unbind"
+                  data-confirm="确定解绑正版角色 {{ b.mc_name }}（属于 {{ b.user.email }}）？
+解绑后透传立即失效，且进入冷却期，期间该用户不可重新绑定。">解绑</button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="7" style="text-align:center;color:var(--bs-text-secondary);padding:24px">
+          没有正版角色绑定记录
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% include "panel/_pager.html" %}
+  </div>
+</div>
+{% endblock %}

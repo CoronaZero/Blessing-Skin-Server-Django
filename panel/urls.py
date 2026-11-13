@@ -27,4 +27,10 @@ urlpatterns = [
     path("players", views.players_page, name="players"),
     path("players/<int:pid>/delete", views.player_delete, name="player_delete"),
     path("players/<int:pid>/<str:kind>", views.player_set_texture, name="player_set_texture"),
+    path("mojang-bindings", views.mojang_bindings, name="mojang_bindings"),
+    path(
+        "mojang-bindings/<int:bid>/unbind",
+        views.mojang_binding_unbind,
+        name="mojang_binding_unbind",
+    ),
 ]

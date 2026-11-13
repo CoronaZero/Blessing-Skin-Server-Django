@@ -15,6 +15,7 @@ from accounts.models import User
 from config.jsonapi import FAILURE, SUCCESS, json_response
 from moderation.models import Report
 from notifications.models import Notification
+from oauth_bridge.models import MojangBinding, UnbindCooldown
 from options.models import Option
 from players.models import Player
 from textures.models import Texture
@@ -261,6 +262,45 @@ def yggdrasil_logs(request):
         "action_labels": LOG_ACTION_LABELS,
     })
     return render(request, "panel/yggdrasil_logs.html", ctx)
+
+
+# ---- 正版角色绑定管理（管理员+超管；角色为只读，仅查看与解绑）----
+
+
+@admin_required
+@require_GET
+def mojang_bindings(request):
+    q = (request.GET.get("q") or "").strip()
+    qs = MojangBinding.objects.select_related("user").order_by("-id")
+    if q:
+        qs = qs.filter(
+            Q(mc_name__icontains=q)
+            | Q(mc_uuid__icontains=q)
+            | Q(user__email__icontains=q)
+            | Q(user__nickname__icontains=q)
+        )
+    paginator = Paginator(qs, 20)
+    page = paginator.get_page(request.GET.get("page", 1))
+    ctx = _panel_ctx(request, "mojang_bindings")
+    ctx.update({"page_obj": page, "q": q})
+    return render(request, "panel/mojang_bindings.html", ctx)
+
+
+@admin_required
+@require_POST
+def mojang_binding_unbind(request, bid: int):
+    row = MojangBinding.objects.select_related("user").filter(id=bid).first()
+    if row is None:
+        return json_response("绑定记录不存在", FAILURE)
+    owner = row.user
+    mc_name = row.mc_name
+    row.delete()
+    # 与用户自助解绑同一规则：记冷却（防绕过冷却反复横跳）
+    UnbindCooldown.record(owner, "genuine")
+    return json_response(
+        f"已解绑 {owner.nickname or owner.email} 的正版角色「{mc_name}」",
+        SUCCESS,
+    )
 
 
 # ---- 选项面板（仅超管）----
