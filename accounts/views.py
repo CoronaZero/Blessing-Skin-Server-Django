@@ -16,6 +16,7 @@ from django.core.cache import cache
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from config.jsonapi import FAILURE, SPECIAL, SUCCESS, json_response
@@ -515,8 +516,13 @@ def avatar_submit(request):
 
 @login_required
 @require_GET
+@ensure_csrf_cookie
 def notifications_list(request):
-    """三协商：浏览器直达=通知页 / AJAX=JSON。"""
+    """三协商：浏览器直达=通知页 / AJAX=JSON。
+
+    ensure_csrf_cookie：通知页无表单，必须显式保证 csrftoken cookie
+    存在，否则页面内的 POST（单条/全部已读）会 403 静默失败。
+    """
     if request.headers.get("X-Requested-With") != "XMLHttpRequest":
         return render(
             request,

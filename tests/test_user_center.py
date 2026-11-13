@@ -306,6 +306,17 @@ class TestNotifications:
         assert '#notifications-list .card-body' in js
         assert ".bs-card-body" not in js  # 旧类选择器不得回流
 
+    def test_notifications_page_sets_csrf_cookie(self, client_logged, user):
+        """页面必须种下 csrftoken cookie（页面内 POST 的前置条件）。
+
+        真实事故：通知页无表单，浏览器若无 csrftoken cookie 则
+        全部已读/单条已读 POST 一律 403（返回 HTML，前端 JSON 解析
+        失败）→ 点击"无反应"。ensure_csrf_cookie 保证 cookie 存在。
+        """
+        resp = client_logged.get("/user/notifications")
+        assert resp.status_code == 200
+        assert "csrftoken" in resp.cookies
+
 
 # ---- 举报 ----
 

@@ -18,7 +18,7 @@
     }
   }
 
-  // 全部已读（后端限定本人范围）
+  // 全部已读（后端限定本人范围）；任何异常都必须给可见反馈，不得静默
   const readAllBtn = document.getElementById("read-all-btn");
   if (readAllBtn) {
     readAllBtn.addEventListener("click", async function () {
@@ -27,6 +27,8 @@
         const r = await window.bsPost(readAllBtn.dataset.url, new FormData());
         window.bsToast(r.message, r.code === 0 ? "success" : "error");
         if (r.code === 0) load();
+      } catch (err) {
+        window.bsToast("操作失败：" + err, "error");
       } finally {
         readAllBtn.disabled = false;
       }
@@ -58,8 +60,19 @@
       const btn = el.querySelector("[data-read]");
       if (btn) {
         btn.addEventListener("click", async function () {
-          const r = await window.bsPost("/user/notifications/" + n.id + "/read");
-          if (r.code === 0) load();
+          btn.disabled = true;
+          try {
+            const r = await window.bsPost("/user/notifications/" + n.id + "/read");
+            if (r.code === 0) {
+              load();
+            } else {
+              window.bsToast(r.message, "error");
+              btn.disabled = false;
+            }
+          } catch (err) {
+            window.bsToast("操作失败：" + err, "error");
+            btn.disabled = false;
+          }
         });
       }
       box.appendChild(el);
