@@ -53,7 +53,8 @@
       },
       {
         name: "奔跑",
-        icon: "bi-person-running",
+        // Bootstrap Icons 无跑步人形图标（person-running 不存在），以闪电作速度隐喻
+        icon: "bi-lightning-charge-fill",
         make: function () { return new skinview3d.RunningAnimation(); },
       },
       {

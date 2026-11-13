@@ -273,3 +273,29 @@ class TestNavbarDomOrder:
         pos_toggler = html.index('class="navbar-toggler"')
         assert pos_collapse < pos_right < pos_toggler
         assert 'href="/auth/login"' in html
+
+
+class TestBootstrapIconUsage:
+    """前端使用的 bi-* 图标类名必须在 vendor bootstrap-icons.min.css 中存在。
+
+    事故背景（bi-person-running）：Bootstrap Icons 并无跑步人形图标，
+    3D 预览控制条写了不存在的类名 → 按钮渲染空白。此契约扫描全部
+    JS 与模板，卡住一切图标类名的存在性。"""
+
+    def test_all_icon_classes_defined_in_vendor_css(self):
+        import re
+
+        css = Path(
+            "static/vendor/bootstrap/bootstrap-icons.min.css"
+        ).read_text(encoding="utf-8")
+        pattern = re.compile(r"bi-[a-z0-9-]+")
+        total = 0
+        for path in [
+            *Path("static/js").glob("*.js"),
+            *Path("templates").rglob("*.html"),
+        ]:
+            used = set(pattern.findall(path.read_text(encoding="utf-8")))
+            total += len(used)
+            missing = [c for c in sorted(used) if f".{c}::before" not in css]
+            assert not missing, f"{path} 使用了图标库中不存在的图标：{missing}"
+        assert total > 0, "应至少扫描到一个图标类名"
