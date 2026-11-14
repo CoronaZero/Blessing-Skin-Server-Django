@@ -299,3 +299,36 @@ class TestBootstrapIconUsage:
             missing = [c for c in sorted(used) if f".{c}::before" not in css]
             assert not missing, f"{path} 使用了图标库中不存在的图标：{missing}"
         assert total > 0, "应至少扫描到一个图标类名"
+
+
+class TestHomePageBackground:
+    """首页背景图：铺满整页（body 级，对照原版 hp-wrapper/fixed-bg）。
+
+    事故背景：背景图此前只挂在 container 内的 hero 横幅块上，
+    用户设置后只有首屏中间一块有图；hero 区保留遮罩与白字样式。
+    """
+
+    def test_bg_url_renders_full_page(self, client):
+        from options.models import Option
+
+        Option.objects.set("home_bg_url", "https://cdn.example.com/bg.jpg")
+        html = client.get("/").content.decode()
+        # 背景在 body 上（全页），hero 区不再自带图
+        assert 'class="hero-bg"' in html
+        assert "style=\"background-image:url('https://cdn.example.com/bg.jpg')\"" in html
+        assert '<div class="hero hero-with-bg">' in html
+
+    def test_no_bg_url_pure_background(self, client):
+        html = client.get("/").content.decode()
+        assert "hero-bg" not in html
+        assert "background-image:url" not in html
+        assert '<div class="hero">' in html
+
+    def test_dangerous_url_sanitized(self, client):
+        """javascript: 等危险 scheme 消毒为空，绝不注入（XSS 防线）。"""
+        from options.models import Option
+
+        Option.objects.set("home_bg_url", "javascript:alert(1)")
+        html = client.get("/").content.decode()
+        assert "javascript:" not in html
+        assert "hero-bg" not in html

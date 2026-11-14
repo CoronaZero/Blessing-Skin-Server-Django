@@ -107,24 +107,39 @@
 
 .bs-icon { width: 18px; height: 18px; flex: none; }
 
-/* ---- 首页背景图（仅首页 / 启用背景时加 body.hero-bg）---- */
+/* ---- 首页背景图（对照原版 hp-wrapper/fixed-bg：铺满整页，滚动时固定）---- */
+
+body.hero-bg {
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-color: #102a4c; /* 图片加载前的兜底色 */
+}
+/* iOS Safari 不支持视口级 fixed 背景（已知引擎限制），窄屏回落随滚动 */
+@media (max-width: 767.98px) {
+  body.hero-bg { background-attachment: scroll; }
+}
+/* 全页背景下的页脚可读性（卡片自带底色无需处理） */
+.hero-bg footer {
+  color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
 
 .hero {
   border-radius: var(--bs-border-radius);
   padding: 4rem 1rem 3rem;
   text-align: center;
 }
+/* hero 区叠加半透明遮罩：与全页背景拉开层次并保证白字可读 */
 .hero-with-bg {
   position: relative;
-  background-size: cover;
-  background-position: center;
   color: #fff;
-  background-color: #102a4c; /* 图片加载前的兜底色 */
 }
 .hero-with-bg::before {
-  /* 半透明遮罩：压住图片保证白字可读（含文字阴影双保险） */
   content: "";
   position: absolute; inset: 0;
+  border-radius: var(--bs-border-radius);
   background: rgba(10, 26, 47, 0.48);
 }
 .hero-with-bg > * { position: relative; }

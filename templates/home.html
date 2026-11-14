@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 {# 标题沿用 base 默认（站点名 - 站点名 会重复，父级已含后缀） #}
+{# 背景图上移到 body（对照原版 hp-wrapper/fixed-bg：铺满整页而非仅 hero 横幅块） #}
+
+{% block body_class %}{% if home_bg_url %}hero-bg{% endif %}{% endblock %}
+{% block body_attrs %}{% if home_bg_url %}style="background-image:url('{{ home_bg_url }}')"{% endif %}{% endblock %}
 
 {% block content %}
-<div class="hero {% if home_bg_url %}hero-with-bg{% endif %}"
-     {% if home_bg_url %}style="background-image:url('{{ home_bg_url }}')"{% endif %}>
+<div class="{% if home_bg_url %}hero hero-with-bg{% else %}hero{% endif %}">
   <h1 class="display-5 fw-bold mb-3">{{ site_name|default:"Blessing Skin" }}</h1>
   <p class="lead fs-6 mb-4 mx-auto" style="max-width:560px;white-space:pre-line">
     {% if site_description %}{{ site_description }}{% else %}

@@ -52,7 +52,8 @@ OPTION_REGISTRY: list[OptionGroup] = [
             ),
             OptionField(
                 "home_bg_url", "首页背景图链接", widget="textarea", rows=2,
-                help_text="填写图片 URL（如 https://cdn.example.com/bg.jpg），仅首页顶部横幅展示，"
+                help_text="填写图片 URL（如 https://cdn.example.com/bg.jpg），"
+                          "铺满首页整页（cover + 滚动固定），hero 区自动叠深色遮罩保证白字可读，"
                           "留空则使用纯色背景；请在图片主题下检查文字遮罩效果",
             ),
         ],
