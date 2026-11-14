@@ -42,6 +42,7 @@ class TestLoginLockout:
         for _ in range(4):
             _login(client, password="wrong-pass")
         assert _login(client).json()["code"] == 0  # 未达阈值，成功登录
+        client.logout()  # 成功登录即登录态：后续失败分支前登出（guest 拦截）
         for _ in range(4):  # 清零后再失败 4 次仍不锁
             assert _login(client, password="wrong-pass").json()["code"] != 0
         assert _login(client).json()["code"] == 0

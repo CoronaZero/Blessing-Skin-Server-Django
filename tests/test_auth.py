@@ -140,6 +140,8 @@ class TestLogin:
         client.post(
             "/auth/login", {"identification": "steve@x.com", "password": "correct-pass-8"}
         )
+        # 登录成功即登录态：继续测密码错误分支前先登出（guest 拦截会拦已登录请求）
+        client.logout()
         # 计数清零后不需要验证码
         resp = client.post(
             "/auth/login", {"identification": "steve@x.com", "password": "bad"}
@@ -202,6 +204,8 @@ class TestRegister:
             "/auth/register",
             register_payload(email="a1@x.com", invitation_code=code.code),
         )
+        # 注册成功即登录态：测邀请码复用分支前先登出（guest 拦截会拦已登录请求）
+        client.logout()
         second = client.post(
             "/auth/register",
             register_payload(email="b2@x.com", invitation_code=code.code),

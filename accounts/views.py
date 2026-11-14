@@ -7,6 +7,7 @@
 """
 
 import hashlib
+from functools import wraps
 
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as auth_login
@@ -41,6 +42,38 @@ def _msa_login_enabled() -> bool:
 # ---- 登录 ----
 
 
+def _safe_next(candidate: str) -> bool:
+    """仅放行站内相对路径（绝对地址/协议相对地址一律拒绝）。"""
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    return url_has_allowed_host_and_scheme(candidate, allowed_hosts=None)
+
+
+def guest_only(view):
+    """已登录用户访问 guest 页（登录/注册）重定向到用户中心。
+
+    对照原版 guest middleware（RedirectIfAuthenticated：
+    Auth::check() ? redirect('user')）——登录/注册四路由原版均套
+    guest 组，移植时遗漏。GET 走 302；POST（两表单均为 AJAX bsPost）
+    返回带 redirectTo 的 JSON，与登录成功响应形态一致，前端自然跳转。
+    尊重安全校验后的 next；forgot/reset 不在原版 guest 组，不拦。
+    """
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return view(request, *args, **kwargs)
+        next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
+        target = next_url if (next_url and _safe_next(next_url)) else "/user"
+        if request.method == "POST":
+            return json_response("已登录，无需重复操作", SUCCESS, {"redirectTo": target})
+        from django.shortcuts import redirect as _redirect
+
+        return _redirect(target)
+
+    return wrapper
+
+
+@guest_only
 @require_GET
 def login_page(request):
     """登录页（Tailwind 风格）；受保护页跳转来时回显安全校验后的 next。"""
@@ -59,13 +92,7 @@ def login_page(request):
     )
 
 
-def _safe_next(candidate: str) -> bool:
-    """仅放行站内相对路径（绝对地址/协议相对地址一律拒绝）。"""
-    from django.utils.http import url_has_allowed_host_and_scheme
-
-    return url_has_allowed_host_and_scheme(candidate, allowed_hosts=None)
-
-
+@guest_only
 @require_POST
 def login_submit(request):
     identification = request.POST.get("identification", "").strip()
@@ -139,6 +166,7 @@ def _valid_email(email: str) -> bool:
 # ---- 注册 ----
 
 
+@guest_only
 @require_GET
 def register_page(request):
     return render(
@@ -162,6 +190,7 @@ def register_page(request):
     )
 
 
+@guest_only
 @require_POST
 def register_submit(request):
     # disable-registration 内嵌能力

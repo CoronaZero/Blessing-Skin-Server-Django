@@ -76,3 +76,65 @@ class TestLoginNextRoundtrip:
         """//evil.com 协议相对地址忽略（浏览器会当外站处理）。"""
         resp = self._login(client, next_value="//evil.example.net")
         assert resp.json()["data"]["redirectTo"] == "/user"
+
+
+class TestGuestOnly:
+    """已登录用户访问 guest 页（登录/注册）重定向。
+
+    对照原版 guest middleware（RedirectIfAuthenticated → redirect('user')）：
+    login/register 四路由原版均套 guest 组；forgot/reset 不拦（保持原版）。
+    """
+
+    @pytest.fixture()
+    def user(self):
+        return User.objects.create_user(
+            email="u@x.com", nickname="u", password="password8"
+        )
+
+    def _logged_in(self, client, user):
+        client.force_login(user)
+        return client
+
+    def test_logged_in_get_login_redirects(self, client, user):
+        resp = self._logged_in(client, user).get("/auth/login")
+        assert resp.status_code == 302
+        assert resp["Location"] == "/user"
+
+    def test_logged_in_login_respects_safe_next(self, client, user):
+        """next 为站内路径时跳 next，外站 next 回落 /user。"""
+        c = self._logged_in(client, user)
+        assert c.get("/auth/login?next=/skinlib")["Location"] == "/skinlib"
+        assert (
+            c.get("/auth/login?next=https://evil.example.net/x")["Location"]
+            == "/user"
+        )
+
+    def test_logged_in_post_login_returns_redirect_to(self, client, user):
+        """POST 拦截返回与登录成功同形态的 JSON（前端 bsPost 自然跳转），
+        且不执行任何登录逻辑。"""
+        resp = self._logged_in(client, user).post(
+            "/auth/login", {"identification": "u@x.com", "password": "wrong"}
+        )
+        data = resp.json()
+        assert data["code"] == 0
+        assert data["data"]["redirectTo"] == "/user"
+
+    def test_logged_in_register_page_redirects(self, client, user):
+        resp = self._logged_in(client, user).get("/auth/register")
+        assert resp.status_code == 302
+        assert resp["Location"] == "/user"
+
+    def test_logged_in_post_register_blocked(self, client, user):
+        resp = self._logged_in(client, user).post(
+            "/auth/register", {"email": "n@x.com", "password": "password8"}
+        )
+        assert resp.json()["data"]["redirectTo"] == "/user"
+        assert not User.objects.filter(email="n@x.com").exists()
+
+    def test_anonymous_still_sees_login_page(self, client, db):
+        """匿名用户不受影响（回归）。"""
+        assert client.get("/auth/login").status_code == 200
+
+    def test_forgot_still_accessible_logged_in(self, client, user):
+        """forgot/reset 不在原版 guest 组，已登录可访问（锁定该语义）。"""
+        assert self._logged_in(client, user).get("/auth/forgot").status_code == 200
