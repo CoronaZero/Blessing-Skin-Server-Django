@@ -110,3 +110,19 @@ class TestProfilePageBinding:
         MsaIdentity.objects.create(user=user, sub="sub-1", email="ms@live.com")
         resp = self._get(client, user)
         assert b'href="/oauth/microsoft/login"' not in resp.content
+
+    def test_admin_profile_msa_present_without_delete_form(self, client):
+        """管理员资料页：注销表单不渲染，Microsoft 区须仍在。
+
+        user_profile.js 顺序绑定事件，注销表单缺失曾中断后续绑定
+        （管理员点「解绑 Microsoft 账号」无任何反应）——此组合锁定触发条件。
+        """
+        admin = User.objects.create_user(
+            email="adm@x.com", nickname="adm", password="password8",
+            permission=User.Permission.ADMIN, verified=True,
+        )
+        MsaIdentity.objects.create(user=admin, sub="sub-a", email="a@live.com")
+        client.force_login(admin)
+        resp = client.get("/user/profile")
+        assert b"msa-unbind-btn" in resp.content
+        assert b'id="delete-form"' not in resp.content

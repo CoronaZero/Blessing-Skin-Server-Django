@@ -1,9 +1,19 @@
-/* 资料设置页：昵称/密码/注销。 */
+/* 资料设置页：昵称/密码/注销/Microsoft 解绑。
+ *
+ * 全部绑定安全判空：delete-form 仅非管理员渲染（模板 is_admin 豁免）、
+ * msa-unbind-btn 仅绑定了 Microsoft 账号的用户渲染——顺序绑定中任一
+ * 元素缺失若直接 addEventListener 会抛 TypeError，中断后续所有绑定。
+ */
 
 (function () {
   "use strict";
 
-  document.getElementById("nick-form").addEventListener("submit", async function (e) {
+  function wire(id, handler) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("submit", handler);
+  }
+
+  wire("nick-form", async function (e) {
     e.preventDefault();
     const fd = new FormData(this);
     fd.set("action", "nickname");
@@ -11,7 +21,7 @@
     window.bsToast(r.message, r.code === 0 ? "success" : "error");
   });
 
-  document.getElementById("pass-form").addEventListener("submit", async function (e) {
+  wire("pass-form", async function (e) {
     e.preventDefault();
     const fd = new FormData(this);
     fd.set("action", "password");
@@ -20,7 +30,7 @@
     if (r.code === 0) this.reset();
   });
 
-  document.getElementById("delete-form").addEventListener("submit", async function (e) {
+  wire("delete-form", async function (e) {
     e.preventDefault();
     if (!window.confirm("确定永久注销账号？所有数据不可恢复！")) return;
     const fd = new FormData(this);
@@ -30,7 +40,6 @@
     if (r.code === 0) setTimeout(function () { location.href = "/"; }, 1200);
   });
 
-  /* Microsoft 账号解绑（按钮可能不存在，安全判空） */
   const msaUnbindBtn = document.getElementById("msa-unbind-btn");
   if (msaUnbindBtn) {
     msaUnbindBtn.addEventListener("click", async function () {
