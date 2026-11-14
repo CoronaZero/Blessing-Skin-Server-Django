@@ -83,9 +83,15 @@ class TestProfile:
             assert resp.json()["code"] == 1, bad
         assert User.objects.count() == 1  # 原账号邮箱未被污染
 
-    def test_register_rejects_invalid_email(self, client):
+    @pytest.mark.parametrize("bad", [
+        "bad-email",      # 无 @
+        "a@b",            # 含 @ 但域名无点（旧校验放行、EmailValidator 拒绝）
+        "<svg>@x.com",    # 注入字符
+        "x" * 101 + "@x.com",  # 超模型列上限
+    ])
+    def test_register_rejects_invalid_email(self, client, bad):
         resp = client.post("/auth/register", {
-            "email": "bad-email", "password": "password8", "nickname": "N",
+            "email": bad, "password": "password8", "nickname": "N",
         })
         assert resp.json()["code"] == 1
         assert User.objects.count() == 0

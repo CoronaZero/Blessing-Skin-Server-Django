@@ -204,7 +204,7 @@ def register_submit(request):
     password = request.POST.get("password", "")
     nickname = (request.POST.get("nickname") or "").strip()
 
-    if not email or "@" not in email:
+    if not _valid_email(email):
         return json_response("请填写有效邮箱")
     if len(password) < 8 or len(password) > 32:
         return json_response("密码长度需为 8-32 位")
