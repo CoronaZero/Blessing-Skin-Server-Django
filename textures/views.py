@@ -465,6 +465,26 @@ def serve_avatar(request, size: int, player_name: str):
     return HttpResponse(avatar, content_type="image/png")
 
 
+@require_GET
+def serve_texture_avatar(request, tid: int):
+    """纹理头像（64px，favicon 用）：仅公开皮肤纹理可渲染。
+
+    未登录访客的标签页图标取站点默认皮肤（default_skin_tid）；
+    私密纹理/披风/不存在一律 404（浏览器对 favicon 404 静默回退）。
+    """
+    t = Texture.objects.filter(tid=tid, public=True).first()
+    if t is None or t.type not in ("steve", "alex"):
+        return HttpResponseNotFound()
+    try:
+        skin = texture_storage.read(t.hash)
+    except (TextureFileNotFoundError, ValueError):
+        return HttpResponseNotFound()
+    avatar = render_avatar(skin, 64)
+    resp = HttpResponse(avatar, content_type="image/png")
+    resp["Cache-Control"] = "public, max-age=3600"
+    return resp
+
+
 @login_required
 @require_GET
 def serve_my_avatar(request, size: int):

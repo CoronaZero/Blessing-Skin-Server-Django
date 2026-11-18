@@ -20,6 +20,9 @@
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap-icons.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  {# 动态标签页图标：登录用户=本人头像 / 未登录=站点默认皮肤头像（无则占位图） #}
+  <link rel="icon" type="image/png"
+        href="{{ favicon_url|default:'/static/icons/user.svg' }}">
   {% block extra_head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}" {% block body_attrs %}{% endblock %}>

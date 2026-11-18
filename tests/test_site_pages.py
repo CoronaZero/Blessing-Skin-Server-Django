@@ -112,6 +112,128 @@ class TestCorePagesSmoke:
         assert resp.status_code == 200
         assert "dashboard-notifications" in resp.content.decode()
 
+
+class TestDynamicFavicon:
+    """标签页图标：登录用户头像 / 未登录默认皮肤头像 / 兜底占位图。"""
+
+    def _make_skin(self, owner, *, public=True, type_="steve", name="S"):
+        from textures.models import Texture
+
+        return Texture.objects.create(
+            name=name, type=type_, hash=("a" if public else "b") * 64,
+            size=1, uploader=owner, public=public,
+        )
+
+    def _owner(self):
+        return User.objects.create_user(
+            email="o@x.com", nickname="o", password="password8"
+        )
+
+    def test_anonymous_with_default_skin_uses_texture_avatar(self, client, db):
+        from options.models import Option
+
+        skin = self._make_skin(self._owner())
+        Option.objects.set("default_skin_tid", str(skin.tid))
+        html = client.get("/").content.decode()
+        assert f'href="/avatar/texture/{skin.tid}.png?v={skin.tid}"' in html
+
+    def test_anonymous_without_default_skin_uses_fallback(self, client, db):
+        html = client.get("/").content.decode()
+        assert 'href="/static/icons/user.svg"' in html
+        assert 'rel="icon"' in html
+
+    def test_logged_in_uses_my_avatar(self, client, db):
+        user = self._owner()
+        client.force_login(user)
+        html = client.get("/user").content.decode()
+        assert 'href="/avatar/me/64.png?v=0"' in html
+
+    def test_logged_in_avatar_tid_versions_url(self, client, db):
+        owner = self._owner()
+        skin = self._make_skin(owner)
+        owner.avatar = skin.tid
+        owner.save(update_fields=["avatar"])
+        client.force_login(owner)
+        html = client.get("/user").content.decode()
+        assert f'href="/avatar/me/64.png?v={skin.tid}"' in html
+
+    def test_panel_pages_also_have_favicon(self, client, db):
+        admin = User.objects.create_user(
+            email="adm@x.com", nickname="adm", password="password8",
+            permission=User.Permission.SUPER_ADMIN,
+        )
+        client.force_login(admin)
+        html = client.get("/admin/").content.decode()
+        assert 'href="/avatar/me/64.png?v=0"' in html
+
+
+class TestTextureAvatarEndpoint:
+    """未登录 favicon 的纹理头像端点：仅公开皮肤可渲染。"""
+
+    @pytest.fixture(autouse=True)
+    def _tmp_storage(self, tmp_path, settings):
+        from django.core.files.storage import FileSystemStorage
+
+        settings.TEXTURE_STORAGE_ROOT = str(tmp_path / "t")
+        from textures import storage as sm
+
+        sm.texture_storage._storage = FileSystemStorage(
+            location=settings.TEXTURE_STORAGE_ROOT
+        )
+        yield
+        sm.texture_storage._storage = None
+    def _make_skin(self, owner, *, public=True, type_="steve", name="S"):
+        from textures.models import Texture
+
+        return Texture.objects.create(
+            name=name, type=type_, hash=("a" if public else "b") * 64,
+            size=1, uploader=owner, public=public,
+        )
+
+    def _owner(self):
+        return User.objects.create_user(
+            email="o@x.com", nickname="o", password="password8"
+        )
+
+    def test_public_skin_renders(self, client, db):
+        from textures import storage as sm
+
+        skin = self._make_skin(self._owner())
+        # 落盘合法皮肤图
+        import io
+
+        from PIL import Image
+
+        img = Image.new("RGBA", (64, 64), (255, 0, 0, 255))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        sm.texture_storage.save_bytes(skin.hash, buf.getvalue())
+        resp = client.get(f"/avatar/texture/{skin.tid}.png")
+        assert resp.status_code == 200
+        assert resp["Content-Type"] == "image/png"
+    def test_private_texture_404(self, client, db):
+        skin = self._make_skin(self._owner(), public=False)
+        assert client.get(f"/avatar/texture/{skin.tid}.png").status_code == 404
+
+    def test_cape_type_404(self, client, db):
+        skin = self._make_skin(self._owner(), type_="cape")
+        assert client.get(f"/avatar/texture/{skin.tid}.png").status_code == 404
+
+    def test_missing_tid_404(self, client, db):
+        assert client.get("/avatar/texture/9999.png").status_code == 404
+
+
+class TestUploadPageSmoke:
+    """上传页与用户中心导航冒烟（原 TestCorePagesSmoke 方法，独立 fixture）。"""
+
+    @pytest.fixture()
+    def logged_client(self, client):
+        User.objects.create_user(
+            email="u@x.com", nickname="u", password="password8"
+        )
+        client.login(username="u@x.com", password="password8")
+        return client
+
     def test_user_center_nav_links_to_split_pages(self, logged_client):
         """仪表盘侧栏导航指向分页（角色/衣柜/通知/资料）。"""
         html = logged_client.get("/user").content.decode()

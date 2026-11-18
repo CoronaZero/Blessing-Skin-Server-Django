@@ -54,6 +54,9 @@ urlpatterns = [
     # 皮肤立绘预览（对照原版 /preview/{tid}；另支持 hash 定位）
     path("preview/<int:tid>", views.preview_texture, name="preview"),
     path("avatar/<int:size>/<str:player_name>", views.serve_avatar, name="avatar"),
+    # 纹理头像（64px，未登录访客的 favicon：站点默认皮肤；仅公开纹理）
+    path("avatar/texture/<int:tid>.png", views.serve_texture_avatar,
+         name="texture_avatar"),
     # 当前登录用户头像（头像字段 → 回落角色皮肤）；须排在玩家名路由之前
     path("avatar/me/<int:size>.png", views.serve_my_avatar, name="my_avatar"),
     path("avatar/me/<int:size>", views.serve_my_avatar),
