@@ -7,6 +7,7 @@
 """
 
 import hashlib
+from datetime import UTC
 from functools import wraps
 
 from django.contrib.auth import authenticate
@@ -436,14 +437,8 @@ def user_dashboard(request):
     announcement = _md.markdown(raw_upper) if raw_upper else ""
     has_more = "<!--more-->" in announcement_raw
 
-    # 签到状态（与 daily_sign 的 20h 冷却一致）
-    from datetime import timedelta
-
-    last_sign = request.user.last_sign_at
-    can_sign = not (last_sign and timezone.now() - last_sign < timedelta(hours=20))
-    next_sign = (last_sign or timezone.now()) + timedelta(hours=20)
-    # 显示层约定：按 TIME_ZONE 渲染（裸 strftime 会输出 UTC，差 8 小时）
-    next_sign_time = timezone.localtime(next_sign).strftime("%m-%d %H:%M")
+    # 签到状态（选项驱动，与 daily_sign 同一套判定）
+    can_sign, next_sign_text = _sign_state(request.user)
     return render(
         request,
         "accounts/dashboard.html",
@@ -455,7 +450,7 @@ def user_dashboard(request):
             "announcement_raw": announcement_raw,
             "has_more": has_more,
             "can_sign": can_sign,
-            "next_sign_time": next_sign_time,
+            "next_sign_text": next_sign_text,
         },
     )
 
@@ -704,34 +699,103 @@ def resend_verification(request):
     return json_response("验证邮件已发送，请查收（含垃圾箱）", SUCCESS)
 
 
+def _sign_options() -> tuple[bool, int, int, int]:
+    """签到选项 (after_zero, gap_hours, score_min, score_max)。
+
+    对照 PHP 原版 config/options.php 默认值：sign_after_zero=false、
+    sign_gap_time=24、sign_score="10,100"。
+    """
+    after_zero = (Option.objects.get_value("sign_after_zero") or "false").strip().lower() in (
+        "1", "true", "on",
+    )
+    try:
+        gap_hours = int(Option.objects.get_value("sign_gap_time") or 24)
+    except ValueError:
+        gap_hours = 24
+    raw = (Option.objects.get_value("sign_score") or "10,100").strip()
+    try:
+        lo_s, hi_s = raw.split(",", 1)
+        score_min, score_max = int(lo_s), int(hi_s)
+    except ValueError:
+        score_min, score_max = 10, 100
+    if score_max < score_min:
+        score_min, score_max = score_max, score_min
+    return after_zero, gap_hours, score_min, score_max
+
+
+def _sign_state(user) -> tuple[bool, str]:
+    """签到状态 (可签?, 下次可签剩余文案)。
+
+    对照原版 UserController::sign 的 remainingTime 与前端 scoreUtils：
+    - sign_after_zero：今天（站点时区）已签 → 明天 00:00 后可签；
+      上次签到早于今天零点 → 可签
+    - 否则：last_sign + sign_gap_time 小时后可签
+    文案：剩余 <60 分钟 →「N 分钟」，否则「N 小时」（截断取整）。
+    库内恒存 UTC——零点按 settings.TIME_ZONE 本地化后换算回 UTC 比较。
+    """
+    from datetime import timedelta
+
+    after_zero, gap_hours, _lo, _hi = _sign_options()
+    now = timezone.now()
+    last = user.last_sign_at
+    if after_zero:
+        local_now = timezone.localtime(now)
+        day_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        cutoff = day_start.astimezone(UTC)
+        if last is None or last < cutoff:
+            return True, ""
+        next_sign = day_start + timedelta(days=1)
+    else:
+        if last is None or last + timedelta(hours=gap_hours) <= now:
+            return True, ""
+        next_sign = last + timedelta(hours=gap_hours)
+    remaining = (next_sign - now).total_seconds()
+    if remaining < 3600:
+        return False, f"{max(0, int(remaining // 60))} 分钟"
+    return False, f"{int(remaining // 3600)} 小时"
+
+
 @login_required
 @require_POST
 def daily_sign(request):
-    """每日签到（对照原版 sign：隔天可签，积分 score_per_sign）。
+    """每日签到（对照原版 UserController::sign：选项驱动冷却 + 范围随机积分）。
+
+    - sign_after_zero=true：每日当地时间 00:00 重置（今天已签 → 明天零点）
+    - 否则 last_sign + sign_gap_time 小时后可再签（PHP 默认 24 小时）
+    - 积分 = rand(sign_score 范围，PHP 默认 10,100)
 
     冷却校验 + 计分 + 记录时间以单条条件 UPDATE 原子完成：读-改-写
     模式下并发双请求可重复加分；状态变更同时限定 POST（GET 不触发）。
     """
+    import random
     from datetime import timedelta
 
     from django.db.models import F, Q
-    from django.utils import timezone
 
     user = request.user
     now = timezone.now()
-    window = timedelta(hours=20)
-    try:
-        award = int(Option.objects.get_value("score_per_sign") or 0)
-    except ValueError:
-        award = 0
-    updated = User.objects.filter(uid=user.uid).filter(
-        Q(last_sign_at__isnull=True) | Q(last_sign_at__lt=now - window),
-    ).update(
+    after_zero, gap_hours, score_min, score_max = _sign_options()
+
+    if after_zero:
+        local_now = timezone.localtime(now)
+        day_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        cutoff = day_start.astimezone(UTC)
+        can_filter = Q(last_sign_at__isnull=True) | Q(last_sign_at__lt=cutoff)
+    else:
+        can_filter = Q(last_sign_at__isnull=True) | Q(
+            last_sign_at__lte=now - timedelta(hours=gap_hours)
+        )
+
+    award = random.randint(score_min, score_max)
+    updated = User.objects.filter(uid=user.uid).filter(can_filter).update(
         score=F("score") + award,
         last_sign_at=now,
     )
     if not updated:
         return json_response("今天已经签到过了")
     user.refresh_from_db()
+    _, next_text = _sign_state(user)
     message = f"签到成功，积分 +{award}" if award else "签到成功"
-    return json_response(message, SUCCESS, {"score": user.score})
+    return json_response(
+        message, SUCCESS, {"score": user.score, "next_sign_text": next_text}
+    )

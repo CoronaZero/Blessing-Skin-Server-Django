@@ -135,7 +135,19 @@ OptionGroup(
             OptionField("score_per_storage", "公开纹理每 KB 扣分", widget="int"),
             OptionField("private_score_per_storage", "私密纹理每 KB 扣分", widget="int"),
             OptionField("score_per_closet_item", "收藏扣分", widget="int"),
-            OptionField("score_per_sign", "签到得分", widget="int"),
+            OptionField(
+                "sign_score", "签到积分范围",
+                help_text="格式 min,max（如 10,100），每次签到在该范围随机（对照原版 sign_score）",
+            ),
+            OptionField(
+                "sign_gap_time", "签到冷却（小时）", widget="int",
+                help_text="上次签到后多少小时可再签（对照原版默认 24）；"
+                          "「签到按每日零点重置」开启时此值不生效",
+            ),
+            OptionField(
+                "sign_after_zero", "签到按每日零点重置", widget="bool",
+                help_text="开启后每天 00:00（按站点时区）即可再签，忽略冷却小时数",
+            ),
             OptionField("score_award_per_texture", "上传奖励（抵扣）", widget="int"),
             OptionField("user_initial_score", "新用户初始积分", widget="int"),
         ],

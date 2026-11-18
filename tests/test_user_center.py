@@ -468,82 +468,168 @@ class TestReports:
         assert resp.json()["code"] == 1
 
 
-# ---- 签到 ----
+
+# ---- 签到（选项驱动，对照原版 sign_score/sign_gap_time/sign_after_zero）----
 
 
 class TestSign:
-    def test_daily_sign_awards_score(self, client_logged, user):
+    def _set(self, **opts):
         from options.models import Option
 
-        Option.objects.set("score_per_sign", "10")
-        before = user.score
-        from datetime import timedelta
+        for k, v in opts.items():
+            Option.objects.set(k, str(v))
 
-        from django.utils import timezone
+    def _last_sign(self, user, **delta):
+        import datetime as dt
 
-        user.last_sign_at = timezone.now() - timedelta(days=2)
+        from django.utils import timezone as dj_tz
+
+        user.last_sign_at = dj_tz.now() - dt.timedelta(**delta)
         user.save()
+
+    def test_daily_sign_awards_range_score(self, client_logged, user):
+        """积分取 sign_score 范围随机值（确定性用 10,10）。"""
+        self._set(sign_score="10,10")
+        before = user.score
+        self._last_sign(user, days=2)
         resp = client_logged.post("/user/sign")
         assert resp.json()["code"] == 0
         user.refresh_from_db()
         assert user.score == before + 10
 
-    def test_double_sign_rejected(self, client_logged, user):
-        client_logged.post("/user/sign")
+    def test_default_gap_24h_blocks_repeat(self, client_logged, user):
+        """默认 24 小时冷却：刚签过立即再签被拒。"""
+        self._set(sign_score="5,5")
+        self._last_sign(user, days=2)
+        assert client_logged.post("/user/sign").json()["code"] == 0
+        assert client_logged.post("/user/sign").json()["code"] == 1
+
+    def test_gap_elapsed_allows_sign(self, client_logged, user):
+        """冷却已过（25 小时前签到）可再签。"""
+        self._set(sign_score="5,5", sign_gap_time="24")
+        self._last_sign(user, hours=25)
+        assert client_logged.post("/user/sign").json()["code"] == 0
+
+    def test_sign_message_includes_award(self, client_logged, user):
+        """签到成功提示带本次积分（范围确定性 10,10）。"""
+        self._set(sign_score="10,10")
+        self._last_sign(user, days=2)
         resp = client_logged.post("/user/sign")
-        assert resp.json()["code"] == 1
+        assert "积分 +10" in resp.json()["message"]
+
+    def test_sign_message_without_award(self, client_logged, user):
+        """范围 0,0 时不出现「积分 +0」赘述。"""
+        self._set(sign_score="0,0")
+        self._last_sign(user, days=2)
+        assert client_logged.post("/user/sign").json()["message"] == "签到成功"
 
     def test_get_sign_rejected(self, client_logged):
         """状态变更限定 POST：GET 不触发签到（防 CSRF 惯用语）。"""
         assert client_logged.get("/user/sign").status_code == 405
 
-    def test_sign_message_includes_award(self, client_logged, user):
-        """签到成功提示须带上本次增加的积分。"""
-        from datetime import timedelta
+    def test_after_zero_daily_reset(self, client_logged, user):
+        """零点模式：昨天签过 → 今天可签；今天签过 → 拒绝。"""
+        self._set(sign_after_zero="1", sign_score="5,5")
+        self._last_sign(user, days=1)
+        assert client_logged.post("/user/sign").json()["code"] == 0
+        assert client_logged.post("/user/sign").json()["code"] == 1
 
-        from django.utils import timezone
-
-        from options.models import Option
-
-        Option.objects.set("score_per_sign", "10")
-        user.last_sign_at = timezone.now() - timedelta(days=2)
-        user.save()
+    def test_after_zero_ignores_gap_hours(self, client_logged, user):
+        """零点模式下 sign_gap_time 不生效：昨天签的即使不足 24h 也可签。"""
+        self._set(sign_after_zero="1", sign_gap_time="48", sign_score="5,5")
+        self._last_sign(user, hours=20)  # 不足 48h，但跨过今天零点
         resp = client_logged.post("/user/sign")
         assert resp.json()["code"] == 0
-        assert "积分 +10" in resp.json()["message"]
 
-    def test_sign_message_without_award(self, client_logged, user):
-        """award=0 时不出现「积分 +0」的赘述。"""
-        from datetime import timedelta
+    def test_response_carries_next_sign_text(self, client_logged, user):
+        """签到成功响应带下次可签文案（按钮即时刷新用）。"""
+        self._set(sign_score="5,5", sign_gap_time="24")
+        self._last_sign(user, days=2)
+        resp = client_logged.post("/user/sign")
+        text = resp.json()["data"]["next_sign_text"]
+        assert text.endswith("小时") or text.endswith("分钟")
 
-        from django.utils import timezone
 
+class TestSignStateText:
+    """_sign_state 剩余时长文案（对照原版 remainingTimeText）。"""
+
+    def _user(self):
+        from accounts.models import User as _U
+
+        return _U.objects.create_user(
+            email="s@x.com", nickname="s", password="password8"
+        )
+
+    def _set(self, **opts):
         from options.models import Option
 
-        Option.objects.set("score_per_sign", "0")
-        user.last_sign_at = timezone.now() - timedelta(days=2)
-        user.save()
-        resp = client_logged.post("/user/sign")
-        assert resp.json()["message"] == "签到成功"
+        for k, v in opts.items():
+            Option.objects.set(k, str(v))
 
-    def test_next_sign_time_follows_time_zone(self, client_logged, user):
-        """「下一次可签到时间」须按 TIME_ZONE 渲染（显示层约定），非 UTC。"""
+    def _last_sign(self, user, **delta):
         import datetime as dt
 
-        from django.test import override_settings
         from django.utils import timezone as dj_tz
 
-        # 19 小时前签到 → 冷却内，页面显示「已签到 · <next> 后可再签」
-        last_sign = dj_tz.now() - dt.timedelta(hours=19)
-        user.last_sign_at = last_sign
+        user.last_sign_at = dj_tz.now() - dt.timedelta(**delta)
         user.save()
-        next_sign = last_sign + dt.timedelta(hours=20)
-        expected_utc = next_sign.strftime("%m-%d %H:%M")
-        with override_settings(TIME_ZONE="Asia/Shanghai"):
-            html = client_logged.get("/user").content.decode()
-            # 期望值须在同一 override 上下文中计算
-            expected_local = dj_tz.localtime(next_sign).strftime("%m-%d %H:%M")
-        # Asia/Shanghai 与 UTC 相差 8 小时，两者文本必不相同
-        assert expected_local != expected_utc
-        assert f"已签到 · {expected_local} 后可再签" in html
-        assert f"已签到 · {expected_utc} 后可再签" not in html
+
+    def test_gap_not_elapsed_shows_hours(self):
+        from accounts.views import _sign_state
+
+        self._set(sign_gap_time="24")
+        u = self._user()
+        self._last_sign(u, minutes=30)  # 剩 23.5 小时 → 23 小时
+        can, text = _sign_state(u)
+        assert can is False
+        assert text == "23 小时"
+
+    def test_gap_below_one_hour_shows_minutes(self):
+        from accounts.views import _sign_state
+
+        self._set(sign_gap_time="24")
+        u = self._user()
+        self._last_sign(u, hours=23, minutes=30)  # 剩 30 分钟
+        can, text = _sign_state(u)
+        assert can is False
+        assert text.endswith("分钟")
+
+    def test_gap_elapsed_week(self):
+        from accounts.views import _sign_state
+
+        self._set(sign_gap_time="24")
+        u = self._user()
+        self._last_sign(u, hours=25)
+        assert _sign_state(u) == (True, "")
+
+    def test_after_zero_today_signed(self):
+        from accounts.views import _sign_state
+
+        self._set(sign_after_zero="1")
+        u = self._user()
+        self._last_sign(u, minutes=1)
+        can, text = _sign_state(u)
+        assert can is False
+        assert text
+
+    def test_after_zero_after_yesterday(self):
+        from accounts.views import _sign_state
+
+        self._set(sign_after_zero="1")
+        u = self._user()
+        self._last_sign(u, days=1)
+        assert _sign_state(u) == (True, "")
+
+    def test_never_signed(self):
+        from accounts.views import _sign_state
+
+        u = self._user()
+        assert _sign_state(u) == (True, "")
+
+    def test_dashboard_shows_hours_text(self, client_logged, user):
+        """仪表盘按钮显示「N 小时后可再签」，不再显示具体时刻。"""
+        self._set(sign_gap_time="24")
+        self._last_sign(user, minutes=30)
+        html = client_logged.get("/user").content.decode()
+        assert "已签到 · 23 小时后可再签" in html
+        assert "后可再签" in html

@@ -34,7 +34,7 @@
     </div>
     <button class="btn btn-primary w-100 mt-3" id="sign-btn"
             {% if not can_sign %}disabled{% endif %}>
-      {% if can_sign %}每日签到{% else %}已签到 · {{ next_sign_time }} 后可再签{% endif %}
+      {% if can_sign %}每日签到{% else %}已签到 · {{ next_sign_text }}后可再签{% endif %}
     </button>
   </aside>
 

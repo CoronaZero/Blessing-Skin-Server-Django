@@ -34,7 +34,10 @@ DEFAULT_OPTIONS = {
     "score_per_storage": "1",
     "private_score_per_storage": "1",
     "score_per_closet_item": "1",
-    "score_per_sign": "5",
+    # 签到（对照原版 config/options.php 默认值）
+    "sign_score": "10,100",
+    "sign_gap_time": "24",
+    "sign_after_zero": "false",
     "score_award_per_texture": "0",
     "user_initial_score": "0",
     "max_upload_file_size": "2048",
