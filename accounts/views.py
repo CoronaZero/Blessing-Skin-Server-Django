@@ -653,6 +653,25 @@ def notification_read_all(request):
 
 
 @login_required
+@require_POST
+def notification_delete(request, notification_id: int):
+    """删除单条通知（严格限定本人范围）。"""
+    n = request.user.notifications.filter(id=notification_id).first()
+    if n is None:
+        return json_response("通知不存在")
+    n.delete()
+    return json_response("已删除该通知", SUCCESS)
+
+
+@login_required
+@require_POST
+def notification_clear(request):
+    """清空本人全部通知。"""
+    deleted, _ = request.user.notifications.all().delete()
+    return json_response(f"已清空 {deleted} 条通知", SUCCESS)
+
+
+@login_required
 @require_GET
 def announcement_page(request):
     """独立公告页（管理员 Markdown，全站可读）。"""

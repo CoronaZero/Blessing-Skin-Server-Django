@@ -369,6 +369,49 @@ class TestNotifications:
         resp = client_logged.post(f"/user/notifications/{n.id}/read")
         assert resp.json()["code"] == 1
 
+    def test_delete_own_notification(self, client_logged, user):
+        n = Notification.objects.create(recipient=user, title="t", content="c")
+        resp = client_logged.post(f"/user/notifications/{n.id}/delete")
+        assert resp.json()["code"] == 0
+        assert not Notification.objects.filter(id=n.id).exists()
+
+    def test_delete_other_users_notification_rejected(self, client_logged, user):
+        other = User.objects.create_user(
+            email="n3@x.com", nickname="n3", password="password8"
+        )
+        n = Notification.objects.create(recipient=other, title="x", content="y")
+        resp = client_logged.post(f"/user/notifications/{n.id}/delete")
+        assert resp.json()["code"] == 1
+        assert Notification.objects.filter(id=n.id).exists()
+
+    def test_delete_get_rejected(self, client_logged, user):
+        """删除限定 POST（防 GET 惯用语误删）。"""
+        n = Notification.objects.create(recipient=user, title="t")
+        assert client_logged.get(
+            f"/user/notifications/{n.id}/delete"
+        ).status_code == 405
+        assert Notification.objects.filter(id=n.id).exists()
+
+    def test_clear_all_only_own(self, client_logged, user):
+        Notification.objects.create(recipient=user, title="a")
+        Notification.objects.create(recipient=user, title="b")
+        other = User.objects.create_user(
+            email="n4@x.com", nickname="n4", password="password8"
+        )
+        kept = Notification.objects.create(recipient=other, title="keep")
+        resp = client_logged.post("/user/notifications/clear")
+        assert resp.json()["code"] == 0
+        assert not Notification.objects.filter(recipient=user).exists()
+        assert Notification.objects.filter(id=kept.id).exists()
+
+    def test_clear_all_empty_ok(self, client_logged, user):
+        resp = client_logged.post("/user/notifications/clear")
+        assert resp.json()["code"] == 0
+        assert "0 条" in resp.json()["message"]
+
+    def test_clear_all_requires_login(self, client):
+        assert client.post("/user/notifications/clear").status_code == 302
+
     def test_page_container_matches_js_selector(self, client_logged, user):
         """UI 契约：通知页容器须与 user_notifications.js 的选择器一致。
 
