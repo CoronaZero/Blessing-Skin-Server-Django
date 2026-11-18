@@ -22,20 +22,16 @@ from textures.models import Texture
 from yggdrasil.models import YggdrasilLog
 
 from .captcha_test import captcha_test  # noqa: F401  re-export for urls
-from .guards import _is_super, admin_required, super_admin_required
+from .guards import (
+    _is_super,
+    _panel_ctx,
+    admin_required,
+    super_admin_required,
+)
 from .invitations import invitations_generate, invitations_page  # noqa: F401
 from .mail_test import mail_test  # noqa: F401  re-export for urls
 from .players import player_delete, player_set_texture, players_page  # noqa: F401
 from .registry import OPTION_REGISTRY
-
-
-def _panel_ctx(request, active):
-    return {
-        "active": active,
-        "is_super": _is_super(request.user),
-        "site_name": Option.objects.get_value("site_name") or "Blessing Skin",
-    }
-
 
 # ---- 概览 ----
 

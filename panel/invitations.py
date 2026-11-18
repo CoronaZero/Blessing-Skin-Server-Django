@@ -7,7 +7,7 @@ from django.views.decorators.http import require_GET, require_POST
 from config.jsonapi import SUCCESS, json_response
 from invitation.models import InvitationCode
 
-from .guards import admin_required
+from .guards import _panel_ctx, admin_required
 
 
 @admin_required
@@ -18,18 +18,9 @@ def invitations_page(request):
     ).order_by("-generated_at")
     paginator = Paginator(qs, 30)
     page = paginator.get_page(request.GET.get("page", 1))
-    from options.models import Option
-
-    return render(
-        request,
-        "panel/invitations.html",
-        {
-            "active": "invitations",
-            "is_super": True,
-            "page_obj": page,
-            "site_name": Option.objects.get_value("site_name") or "Blessing Skin",
-        },
-    )
+    ctx = _panel_ctx(request, "invitations")
+    ctx.update({"page_obj": page})
+    return render(request, "panel/invitations.html", ctx)
 
 
 @admin_required

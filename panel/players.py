@@ -8,11 +8,10 @@ from django.views.decorators.http import require_GET, require_POST
 
 from accounts.models import User
 from config.jsonapi import FAILURE, SUCCESS, json_response
-from options.models import Option
 from players.models import Player
 from textures.models import Texture
 
-from .guards import admin_required
+from .guards import _panel_ctx, admin_required
 
 
 @admin_required
@@ -28,17 +27,9 @@ def players_page(request):
         )
     paginator = Paginator(qs, 20)
     page = paginator.get_page(request.GET.get("page", 1))
-    return render(
-        request,
-        "panel/players.html",
-        {
-            "active": "players",
-            "is_super": request.user.permission >= 2,
-            "page_obj": page,
-            "q": q,
-            "site_name": Option.objects.get_value("site_name") or "Blessing Skin",
-        },
-    )
+    ctx = _panel_ctx(request, "players")
+    ctx.update({"page_obj": page, "q": q})
+    return render(request, "panel/players.html", ctx)
 
 
 def _can_operate(request, player) -> "str|None":

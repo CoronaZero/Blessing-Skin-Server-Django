@@ -36,3 +36,18 @@ def super_admin_required(view):
         return view(request, *args, **kwargs)
 
     return wrapper
+
+
+def _panel_ctx(request, active):
+    """面板页面公共上下文（放本模块避免 views <-> 独立视图文件循环导入）。
+
+    is_super 必须按真实权限计算——曾因硬编码 True 导致普通管理员
+    在邀请码页看到「站点选项 / Yggdrasil 日志」的超管专属侧边栏入口。
+    """
+    from options.models import Option
+
+    return {
+        "active": active,
+        "is_super": _is_super(request.user),
+        "site_name": Option.objects.get_value("site_name") or "Blessing Skin",
+    }
