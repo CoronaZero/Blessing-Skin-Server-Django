@@ -127,4 +127,24 @@
       '"></use></svg>'
     );
   };
+
+  // ---- 验证码重置（Turnstile / reCAPTCHA 通用）----
+  // token 一次性：被服务端 siteverify 消费后即失效。表单提交失败（如密码错）
+  // 后必须重置 widget，否则用户须手动刷新页面才能再次提交。
+  window.bsCaptchaReset = function () {
+    try {
+      if (typeof window.turnstile !== "undefined") {
+        window.turnstile.reset();
+      } else if (
+        typeof window.grecaptcha !== "undefined" &&
+        typeof window.grecaptcha.reset === "function"
+      ) {
+        window.grecaptcha.reset();
+      }
+      const tokenInput = document.getElementById("captcha-token");
+      if (tokenInput) tokenInput.value = "";
+    } catch (err) {
+      /* 重置失败不影响表单错误提示 */
+    }
+  };
 })();

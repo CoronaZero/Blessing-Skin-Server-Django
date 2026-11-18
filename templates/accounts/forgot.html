@@ -50,15 +50,8 @@
     alertBox.className = "alert " + (payload.code === 0 ? "alert-success" : "alert-error");
     alertBox.textContent = payload.message;
     alertBox.style.display = "block";
-    // Turnstile token 一次性：失败后重置 widget
-    if (typeof window.turnstile !== "undefined") {
-      const slot = document.getElementById("captcha-slot");
-      if (slot) {
-        window.turnstile.reset();
-        const tokenInput = document.getElementById("captcha-token");
-        if (tokenInput) tokenInput.value = "";
-      }
-    }
+    // 验证码 token 一次性：被服务端消费后即失效，统一重置 helper
+    window.bsCaptchaReset();
   });
 })();
 </script>

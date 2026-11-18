@@ -80,6 +80,8 @@
       }
       alertBox.textContent = payload.message;
       alertBox.style.display = "block";
+      // 验证码 token 已被服务端消费：重置 widget 供用户直接重试
+      window.bsCaptchaReset();
       if (payload.code === 2) {
         document.getElementById("id-identification").focus();
       } else {

@@ -75,3 +75,40 @@ class TestLoginCaptchaEnforced:
             "email": "new@x.com", "password": "password8", "nickname": "N",
         })
         assert resp.json()["code"] != 0
+
+
+class TestCaptchaResetAfterFailure:
+    """验证码 token 一次性：表单提交失败后前端必须重置 widget。
+
+    真实事故：登录密码输错后 CF Turnstile 已被消费，widget 不重置，
+    用户必须手动刷新页面才能再次提交。
+    """
+
+    def test_base_js_defines_reset_helper(self):
+        from pathlib import Path
+
+        js = Path("static/js/base.js").read_text(encoding="utf-8")
+        assert "window.bsCaptchaReset" in js
+        assert "turnstile.reset" in js
+        assert "grecaptcha.reset" in js
+
+    @pytest.mark.parametrize("page", [
+        "/auth/login",
+        "/auth/register",
+        "/auth/forgot",
+    ])
+    def test_auth_pages_reset_on_failure(self, client, page):
+        html = client.get(page).content.decode()
+        assert "bsCaptchaReset" in html, f"{page} 失败分支未调用验证码重置"
+
+    def test_msa_choose_page_resets_on_failure(self):
+        from pathlib import Path
+
+        tpl = Path(
+            "templates/oauth_bridge/choose.html"
+        ).read_text(encoding="utf-8")
+        assert "bsCaptchaReset" in tpl
+        # forgot 页旧的内联重置逻辑须已迁移到统一 helper（不留双份）
+        forgot = Path("templates/accounts/forgot.html").read_text(encoding="utf-8")
+        assert "turnstile.reset" not in forgot
+        assert "bsCaptchaReset" in forgot

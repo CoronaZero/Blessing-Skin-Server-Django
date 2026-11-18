@@ -99,6 +99,8 @@
       }
       alertBox.textContent = payload.message;
       alertBox.style.display = "block";
+      // 验证码 token 已被服务端消费：重置 widget 供用户直接重试
+      window.bsCaptchaReset();
     } catch (err) {
       alertBox.textContent = "网络异常，请稍后再试";
       alertBox.style.display = "block";
