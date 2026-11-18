@@ -133,6 +133,50 @@ class TestSendTestEmailCommand:
         assert "mailer" in text
 
 
+class TestFromName:
+    """发件人显示名（对照 Laravel MAIL_FROM_NAME 语义）。"""
+
+    def _from_email(self, db, **opts):
+        for k, v in opts.items():
+            Option.objects.set(k, v)
+        from accounts.mailer import _configured_from_email
+
+        return _configured_from_email()
+
+    def test_address_only_without_name(self, db):
+        assert self._from_email(
+            db, mail_from_address="noreply@skin.test"
+        ) == "noreply@skin.test"
+
+    def test_name_wraps_address(self, db):
+        assert self._from_email(
+            db, mail_from_address="noreply@skin.test", mail_from_name="皮肤站"
+        ) == '"皮肤站" <noreply@skin.test>'
+
+    def test_defaults_to_settings_from(self, db):
+        assert self._from_email(db) == "noreply@blessing-skin.local"
+
+    def test_quoted_name_escaped(self, db):
+        raw = '坏"名字\\x'
+        out = self._from_email(
+            db, mail_from_address="noreply@skin.test", mail_from_name=raw
+        )
+        assert out.startswith('"') and "\\\\" in out
+        assert "<noreply@skin.test>" in out
+
+    def test_templated_mail_uses_display_name(self, client, db):
+        """端到端：找回密码邮件的发件人带显示名。"""
+        from django.core import mail
+
+        Option.objects.set("mail_from_name", "梦幻皮肤站")
+        User.objects.create_user(
+            email="d@x.com", nickname="d", password="password8"
+        )
+        client.post("/auth/forgot", {"email": "d@x.com"})
+        assert mail.outbox
+        assert mail.outbox[-1].from_email == '"梦幻皮肤站" <noreply@blessing-skin.local>'
+
+
 class TestSetupWritesSiteUrl:
     def test_install_wizard_accepts_site_url(self, client, tmp_path, monkeypatch, db):
         import json

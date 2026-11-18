@@ -33,16 +33,30 @@ def get_option_smtp_connection():
     )
 
 
+def _configured_from_email() -> str:
+    """发件人：地址 + 可选显示名（对照 Laravel MAIL_FROM_NAME 语义）。
+
+    显示名存在时组装为 RFC 5322 的 "Name <addr>" 形式
+    （Django 自动处理非 ASCII 名的编码）；仅地址时原样返回。
+    """
+    configured = (Option.objects.get_value("mail_from_address") or "").strip()
+    from_addr = configured or settings.DEFAULT_FROM_EMAIL
+    name = (Option.objects.get_value("mail_from_name") or "").strip()
+    if not name:
+        return from_addr
+    # 显示名含引号/反斜杠时按 RFC 5322 quoted-string 转义，防头部注入
+    safe_name = name.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{safe_name}" <{from_addr}>'
+
+
 def send_option_mail(subject, message, recipient_list, html_message=None):
     """用 option 配置的 SMTP 发送邮件（html_message 提供时为双通道）。"""
     from django.core.mail import send_mail
 
-    configured = (Option.objects.get_value("mail_from_address") or "").strip()
-    from_addr = configured or settings.DEFAULT_FROM_EMAIL
     return send_mail(
         subject=subject,
         message=message,
-        from_email=from_addr,
+        from_email=_configured_from_email(),
         recipient_list=recipient_list,
         html_message=html_message,  # None 时纯文本；提供时邮件客户端友好渲染
         fail_silently=True,

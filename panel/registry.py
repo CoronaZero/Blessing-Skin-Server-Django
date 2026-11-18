@@ -268,9 +268,13 @@ OptionGroup(
                 "mail_encryption", "加密方式", widget="select",
                 choices=[("ssl", "SSL（465）"), ("tls", "TLS/STARTTLS（587）")],
             ),
-            OptionField("mail_username", "用户名"),
+OptionField("mail_username", "用户名"),
             OptionField("mail_password", "密码/授权码", widget="password"),
             OptionField("mail_from_address", "发件人地址"),
+            OptionField(
+                "mail_from_name", "发件人名称",
+                help_text="收件箱显示的发件人（如站点名），留空则仅显示发件地址",
+            ),
         ],
     ),
     OptionGroup(
