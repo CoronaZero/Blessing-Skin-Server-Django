@@ -448,6 +448,35 @@ class TestSign:
         """状态变更限定 POST：GET 不触发签到（防 CSRF 惯用语）。"""
         assert client_logged.get("/user/sign").status_code == 405
 
+    def test_sign_message_includes_award(self, client_logged, user):
+        """签到成功提示须带上本次增加的积分。"""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from options.models import Option
+
+        Option.objects.set("score_per_sign", "10")
+        user.last_sign_at = timezone.now() - timedelta(days=2)
+        user.save()
+        resp = client_logged.post("/user/sign")
+        assert resp.json()["code"] == 0
+        assert "积分 +10" in resp.json()["message"]
+
+    def test_sign_message_without_award(self, client_logged, user):
+        """award=0 时不出现「积分 +0」的赘述。"""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from options.models import Option
+
+        Option.objects.set("score_per_sign", "0")
+        user.last_sign_at = timezone.now() - timedelta(days=2)
+        user.save()
+        resp = client_logged.post("/user/sign")
+        assert resp.json()["message"] == "签到成功"
+
     def test_next_sign_time_follows_time_zone(self, client_logged, user):
         """「下一次可签到时间」须按 TIME_ZONE 渲染（显示层约定），非 UTC。"""
         import datetime as dt

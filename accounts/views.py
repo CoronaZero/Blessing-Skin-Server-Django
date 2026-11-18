@@ -706,4 +706,5 @@ def daily_sign(request):
     if not updated:
         return json_response("今天已经签到过了")
     user.refresh_from_db()
-    return json_response("签到成功", SUCCESS, {"score": user.score})
+    message = f"签到成功，积分 +{award}" if award else "签到成功"
+    return json_response(message, SUCCESS, {"score": user.score})
