@@ -233,6 +233,12 @@ class TestLoginCallback:
         assert resp.status_code == 302
         user.refresh_from_db()
         assert user.msa_identity.sub == "sub-1"
+        # 绑定成功站内通知
+        from notifications.models import Notification
+
+        assert Notification.objects.filter(
+            recipient=user, title="Microsoft 账号已绑定"
+        ).exists()
 
     def test_code_injection_into_victim_session_rejected(self, client, user, monkeypatch):
         """P1 防授权码注入：攻击者会话发起的 bind 流程，拿到受害者会话
@@ -420,6 +426,12 @@ class TestGenuineCallback:
         binding = MojangBinding.objects.get(user=user)
         assert binding.mc_uuid == "a" * 32
         assert binding.mc_name == "Notch"
+        # 绑定成功站内通知
+        from notifications.models import Notification
+
+        assert Notification.objects.filter(
+            recipient=user, title="正版角色绑定成功"
+        ).exists()
 
     def test_uuid_conflict_rejected(self, client, user, monkeypatch):
         other = User.objects.create_user(

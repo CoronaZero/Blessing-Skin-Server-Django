@@ -797,6 +797,7 @@ def upload_texture(request, uuid: str, type_: str):
             return fallback
 
     texture = Texture.objects.filter(hash=result.digest, uploader=user).first()
+    charged = 0
     if texture is None:
         import math
 
@@ -816,6 +817,7 @@ def upload_texture(request, uuid: str, type_: str):
             ):
                 return error_response(403, "ForbiddenOperationException", "积分不足")
             user.refresh_from_db()
+            charged = cost
         texture = Texture.objects.create(
             name=name,
             type=texture_type,
@@ -842,4 +844,13 @@ def upload_texture(request, uuid: str, type_: str):
     player.save(update_fields=[f"tid_{type_}"])
     _log(request, f"upload_{type_}", user=user, player=player,
          params={"hash": result.digest})
+
+    from notifications.services import notify
+
+    kind = "皮肤" if type_ == "skin" else "披风"
+    detail = f"，消耗 {charged} 积分" if charged else ""
+    notify(
+        user, "材质上传成功",
+        f"通过游戏客户端上传的{kind}「{name}」已应用到角色 {player.name}{detail}。",
+    )
     return HttpResponse(status=204)

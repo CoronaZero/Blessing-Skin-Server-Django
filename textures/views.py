@@ -406,6 +406,19 @@ def upload(request):
     if not texture_storage.exists(result.digest):
         texture_storage.save_bytes(result.digest, result.normalized)
 
+    from notifications.services import notify
+
+    kind = "披风" if texture_type == "cape" else "皮肤"
+    if cost > 0:
+        detail = f"，消耗 {cost} 积分"
+    elif cost < 0:
+        detail = f"，获得 {-cost} 积分"
+    else:
+        detail = ""
+    notify(
+        user, f"{kind}上传成功",
+        f"你上传的{kind}「{name}」已上传成功{detail}。",
+    )
     return json_response("上传成功", SUCCESS, {"tid": texture.tid})
 
 

@@ -128,6 +128,12 @@ class TestProfile:
         assert resp.json()["code"] == 0
         user.refresh_from_db()
         assert user.verify_password("newpassword9")
+        # 改密安全提醒通知
+        from notifications.models import Notification
+
+        assert Notification.objects.filter(
+            recipient=user, title="密码已修改"
+        ).exists()
 
     def test_change_email_conflict(self, client_logged, user):
         User.objects.create_user(email="taken@x.com", nickname="t", password="x")

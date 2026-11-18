@@ -193,6 +193,13 @@ def _login_callback(request, payload: dict, code: str):
             user=user, sub=sub,
             email=identity.get("email", ""), display_name=identity.get("name", ""),
         )
+        from notifications.services import notify
+
+        notify(
+            user, "Microsoft 账号已绑定",
+            f"Microsoft 账号（{identity.get('email') or sub}）已绑定到你的站内账号，"
+            "之后可用它直接登录。",
+        )
         # 已登录绑定：直接回个人资料页（绑定状态区即反馈）
         return redirect("/user/profile")
 
@@ -261,6 +268,13 @@ def _genuine_callback(request, code: str):
     binding = MojangBinding.objects.create(user=user, mc_uuid=mc_uuid, mc_name=mc_name)
     # 纹理同步失败不阻塞绑定（透传时会再补）
     sync_binding_textures(binding, profile)
+    from notifications.services import notify
+
+    notify(
+        user, "正版角色绑定成功",
+        f"正版角色「{mc_name}」已绑定，可用正版客户端进入指向本站的 "
+        "authlib-injector 服务器。",
+    )
     return _result(
         request, "绑定成功",
         f"正版角色「{mc_name}」绑定成功，可在「我的角色」页管理",
@@ -355,6 +369,13 @@ def _choose_bind(request, pending: dict):
         user=user, sub=pending["sub"],
         email=pending.get("email", ""), display_name=pending.get("name", ""),
     )
+    from notifications.services import notify
+
+    notify(
+        user, "Microsoft 账号已绑定",
+        f"Microsoft 账号（{pending.get('email') or pending['sub']}）已绑定到你的站内账号，"
+        "之后可用它直接登录。",
+    )
     request.session.pop("msa_pending", None)
     auth_login(request, user)
     login_guard.clear(ip)
@@ -421,6 +442,12 @@ def _choose_create(request, pending: dict):
     MsaIdentity.objects.create(
         user=user, sub=pending["sub"],
         email=email, display_name=pending.get("name", ""),
+    )
+    from notifications.services import notify
+
+    notify(
+        user, "Microsoft 账号已绑定",
+        f"Microsoft 账号（{email}）已绑定到你的站内账号，之后可用它直接登录。",
     )
     request.session.pop("msa_pending", None)
     auth_login(request, user)

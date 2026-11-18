@@ -165,6 +165,23 @@ class TestUploadApi:
         user.refresh_from_db()
         assert user.score < before  # 扣分
 
+    def test_upload_sends_notification_with_cost(self, auth_client, user):
+        """上传成功后站内通知：含消耗积分与结果。"""
+        from notifications.models import Notification
+        from options.models import Option
+
+        Option.objects.set("score_per_storage", "1")
+        Option.objects.set("score_per_closet_item", "1")
+        Option.objects.set("score_award_per_texture", "0")
+        resp = self._upload(auth_client, name="大红皮肤")
+        assert resp.json()["code"] == 0
+        n = Notification.objects.filter(
+            recipient=user, title="皮肤上传成功"
+        ).first()
+        assert n is not None
+        assert "大红皮肤" in n.content
+        assert "消耗" in n.content and "积分" in n.content
+
     def test_upload_insufficient_score(self, auth_client, user):
         from options.models import Option
 

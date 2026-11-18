@@ -519,6 +519,14 @@ def profile_submit(request):
         from yggdrasil.models import YggdrasilToken
 
         YggdrasilToken.objects.filter(owner=user).delete()
+
+        from notifications.services import notify
+
+        notify(
+            user, "密码已修改",
+            "你的账号密码刚刚被修改，全部登录令牌已失效。如非本人操作，"
+            "请立即通过「忘记密码」重置并联系管理员。",
+        )
         return json_response("密码已更新", SUCCESS)
 
     if action == "email":
