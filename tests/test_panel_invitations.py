@@ -33,6 +33,22 @@ class TestInvitationsPanel:
         assert resp.json()["code"] == 0
         assert InvitationCode.objects.count() == 100
 
+    def test_generate_records_generator(self, super_client):
+        """生成邀请码须记录生成者（后续对账用）。"""
+        resp = super_client.post("/admin/invitations/generate", {"amount": "2"})
+        assert resp.json()["code"] == 0
+        op = User.objects.get(email="op@x.com")
+        assert set(
+            InvitationCode.objects.values_list("generated_by", flat=True)
+        ) == {op.uid}
+
+    def test_page_shows_generator(self, super_client):
+        op = User.objects.get(email="op@x.com")
+        InvitationCode.objects.create(generated_by=op)
+        html = super_client.get("/admin/invitations").content.decode()
+        assert "生成者" in html
+        assert op.nickname in html
+
     def test_plain_admin_can_manage(self, client):
         User.objects.create_user(
             email="ad@x.com", nickname="ad", password="password8",

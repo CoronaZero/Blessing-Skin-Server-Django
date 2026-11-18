@@ -13,7 +13,9 @@ from .guards import admin_required
 @admin_required
 @require_GET
 def invitations_page(request):
-    qs = InvitationCode.objects.select_related("used_by").order_by("-generated_at")
+    qs = InvitationCode.objects.select_related(
+        "used_by", "generated_by"
+    ).order_by("-generated_at")
     paginator = Paginator(qs, 30)
     page = paginator.get_page(request.GET.get("page", 1))
     from options.models import Option
@@ -40,5 +42,5 @@ def invitations_generate(request):
         amount = 10
     amount = max(1, min(amount, 100))  # 上限防滥用
     for _ in range(amount):
-        InvitationCode.objects.create()
+        InvitationCode.objects.create(generated_by=request.user)
     return json_response(f"已生成 {amount} 个邀请码", SUCCESS)

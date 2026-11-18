@@ -19,6 +19,14 @@ class InvitationCode(models.Model):
     code = models.CharField(
         "邀请码", max_length=32, unique=True, default=generate_invitation_code
     )
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="generated_invitation_codes",
+        verbose_name="生成者",
+    )
     used_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

@@ -14,7 +14,7 @@
 <div class="card">
   <div class="card-body table-responsive">
     <table class="table table-hover align-middle mb-0">
-      <tr><th>邀请码</th><th>状态</th><th>使用者</th><th>使用时间</th><th>生成时间</th></tr>
+      <tr><th>邀请码</th><th>状态</th><th>生成者</th><th>使用者</th><th>使用时间</th><th>生成时间</th></tr>
       {% for inv in page_obj %}
       <tr>
         <td>
@@ -34,12 +34,13 @@
           {% if inv.used_by %}<span style="color:var(--bs-danger)">已使用</span>
           {% else %}<span style="color:var(--bs-success)">可用</span>{% endif %}
         </td>
+        <td>{{ inv.generated_by.nickname|default:"—" }}</td>
         <td>{{ inv.used_by.nickname|default:"—" }}</td>
         <td>{{ inv.used_at|date:"Y-m-d H:i"|default:"—" }}</td>
         <td>{{ inv.generated_at|date:"Y-m-d H:i" }}</td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" style="text-align:center;color:var(--bs-text-secondary);padding:24px">
+      <tr><td colspan="6" style="text-align:center;color:var(--bs-text-secondary);padding:24px">
         暂无邀请码，点击右上角「生成」创建
       </td></tr>
       {% endfor %}
