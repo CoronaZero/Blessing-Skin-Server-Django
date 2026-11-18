@@ -305,6 +305,16 @@ def mojang_binding_unbind(request, bid: int):
 
 # ---- 选项面板（仅超管）----
 
+# 面板拆展示、存储合一的虚拟键：签到积分范围两输入框 → sign_score="min,max"
+_VIRTUAL_OPTION_KEYS = {"sign_score_from", "sign_score_to"}
+
+
+def _sign_score_parts() -> tuple[str, str]:
+    """从 sign_score 选项拆出 (下限, 上限) 文本（缺省对齐原版 10,100）。"""
+    raw = (Option.objects.get_value("sign_score") or "10,100").strip()
+    lo, _, hi = raw.partition(",")
+    return lo.strip() or "10", hi.strip() or "100"
+
 
 @super_admin_required
 @require_GET
@@ -319,6 +329,8 @@ def options_page(request, section: str = "general"):
         if group.section != section:
             continue
         values = {f.key: Option.objects.get_value(f.key, "") for f in group.fields}
+        if any(f.key in _VIRTUAL_OPTION_KEYS for f in group.fields):
+            values["sign_score_from"], values["sign_score_to"] = _sign_score_parts()
         groups.append({"group": group, "values": values})
     ctx = _panel_ctx(request, "options")
     ctx.update({
@@ -346,8 +358,26 @@ def options_save(request):
         Option.objects.set("ygg_private_key", new_key)
         Option.objects.set("ygg_public_key", derived)
     updated = 0
+    # 虚拟键合并保存：签到积分两输入框 → sign_score="min,max"（上下限反填自动交换）
+    sign_from = request.POST.get("sign_score_from")
+    sign_to = request.POST.get("sign_score_to")
+    if sign_from is not None and sign_to is not None:
+        try:
+            lo = max(0, int(sign_from))
+            hi = max(0, int(sign_to))
+        except ValueError:
+            pass
+        else:
+            if hi < lo:
+                lo, hi = hi, lo
+            Option.objects.set("sign_score", f"{lo},{hi}")
+            updated += 1
     for key, value in request.POST.items():
-        if key not in known or key == "ygg_private_key":
+        if (
+            key not in known
+            or key == "ygg_private_key"
+            or key in _VIRTUAL_OPTION_KEYS
+        ):
             continue
         widget = widget_of[key]
         if widget == "bool":

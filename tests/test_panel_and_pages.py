@@ -67,6 +67,56 @@ class TestPanelOptionsSave:
         assert Option.objects.get_value("evil_key") is None
 
 
+class TestSignScoreSplitFields:
+    """签到积分范围：面板两个输入框（下限/上限）↔ 存储单选项 "min,max"。"""
+
+    def test_page_renders_two_inputs_with_parts(self, client, db):
+        client.force_login(_admin(User.Permission.SUPER_ADMIN))
+        Option.objects.set("sign_score", "5,20")
+        html = client.get("/admin/options/users").content.decode()
+        assert 'name="sign_score_from"' in html
+        assert 'name="sign_score_to"' in html
+        assert 'value="5"' in html
+        assert 'value="20"' in html
+        # 不再暴露合并格式的单输入框
+        assert 'name="sign_score"' not in html
+
+    def test_page_defaults_when_unset(self, client, db):
+        client.force_login(_admin(User.Permission.SUPER_ADMIN))
+        html = client.get("/admin/options/users").content.decode()
+        assert 'value="10"' in html
+        assert 'value="100"' in html
+
+    def test_save_merges_into_sign_score(self, client, db):
+        client.force_login(_admin(User.Permission.SUPER_ADMIN))
+        resp = client.post("/admin/options/save", {
+            "sign_score_from": "3", "sign_score_to": "15",
+        })
+        assert resp.json()["code"] == 0
+        assert Option.objects.get_value("sign_score") == "3,15"
+        # 虚拟键不落库
+        assert Option.objects.get_value("sign_score_from") is None
+        assert Option.objects.get_value("sign_score_to") is None
+
+    def test_save_swaps_reversed_range(self, client, db):
+        client.force_login(_admin(User.Permission.SUPER_ADMIN))
+        client.post("/admin/options/save", {
+            "sign_score_from": "50", "sign_score_to": "10",
+        })
+        assert Option.objects.get_value("sign_score") == "10,50"
+
+    def test_sign_reads_merged_value(self, client, db):
+        """面板保存后签到逻辑读取新范围（端到端串联）。"""
+        from accounts.views import _sign_options
+
+        client.force_login(_admin(User.Permission.SUPER_ADMIN))
+        client.post("/admin/options/save", {
+            "sign_score_from": "7", "sign_score_to": "7",
+        })
+        _, _, lo, hi = _sign_options()
+        assert (lo, hi) == (7, 7)
+
+
 class TestDefaultTextures:
     def test_create_player_applies_defaults(self, client, db):
         user = User.objects.create_user(email="u@x.com", nickname="u", password="x")

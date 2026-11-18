@@ -135,10 +135,12 @@ OptionGroup(
             OptionField("score_per_storage", "公开纹理每 KB 扣分", widget="int"),
             OptionField("private_score_per_storage", "私密纹理每 KB 扣分", widget="int"),
             OptionField("score_per_closet_item", "收藏扣分", widget="int"),
+            # 面板拆两个输入框，保存时合并为 sign_score="min,max"（对齐原版存储）
             OptionField(
-                "sign_score", "签到积分范围",
-                help_text="格式 min,max（如 10,100），每次签到在该范围随机（对照原版 sign_score）",
+                "sign_score_from", "签到积分下限", widget="int",
+                help_text="每次签到在「下限 ~ 上限」范围内随机获得积分（对照原版 sign_score）",
             ),
+            OptionField("sign_score_to", "签到积分上限", widget="int"),
             OptionField(
                 "sign_gap_time", "签到冷却（小时）", widget="int",
                 help_text="上次签到后多少小时可再签（对照原版默认 24）；"
