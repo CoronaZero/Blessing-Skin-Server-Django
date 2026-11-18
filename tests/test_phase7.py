@@ -39,6 +39,20 @@ class TestSetupWizard:
         resp = client.get("/setup/")
         assert resp.status_code == 302
 
+    def test_wizard_redirects_when_users_exist_without_lock(
+        self, client, tmp_path, monkeypatch
+    ):
+        """锁文件丢失（容器重建）但已有用户：向导仍须封闭。"""
+        from setup import views
+
+        monkeypatch.setattr(views, "LOCK_FILE", tmp_path / "no.lock")
+        User.objects.create_user(
+            email="u@x.com", nickname="u", password="password8"
+        )
+        resp = client.get("/setup/")
+        assert resp.status_code == 302
+        assert resp["Location"] == "/"
+
     def test_submit_creates_admin_and_options(self, client, tmp_path, monkeypatch):
         from setup import views
 

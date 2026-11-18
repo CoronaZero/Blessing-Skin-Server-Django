@@ -62,9 +62,22 @@ def installation_locked() -> bool:
     return LOCK_FILE.exists()
 
 
+def _installed() -> bool:
+    """已安装判定：锁文件或已有用户。
+
+    锁文件不在版本控制内——容器重建/重新 clone 后锁会丢失，仅凭锁判定
+    会让向导重新开放；已有用户同样视为已安装（数据在即已装过）。
+    """
+    if installation_locked():
+        return True
+    from accounts.models import User
+
+    return User.objects.exists()
+
+
 @require_GET
 def wizard(request):
-    if installation_locked():
+    if _installed():
         return redirect("/")
     return render(request, "setup.html")
 
