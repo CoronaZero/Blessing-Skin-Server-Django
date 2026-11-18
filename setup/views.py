@@ -66,16 +66,17 @@ def installation_locked() -> bool:
 
 
 def _installed() -> bool:
-    """已安装判定：锁文件或已有用户。
+    """已安装判定：锁文件、已有用户或已有站点选项（任一即视为已装）。
 
     锁文件不在版本控制内——容器重建/重新 clone 后锁会丢失，仅凭锁判定
-    会让向导重新开放；已有用户同样视为已安装（数据在即已装过）。
+    会让向导重新开放；已有用户/选项同样证明装过（数据在即已装）。
     """
     if installation_locked():
         return True
     from accounts.models import User
+    from options.models import Option
 
-    return User.objects.exists()
+    return User.objects.exists() or Option.objects.exists()
 
 
 @require_GET
@@ -87,6 +88,12 @@ def wizard(request):
 
 @require_POST
 def submit(request):
+    # 已装站早拒绝：不写锁文件、不进任何初始化逻辑（防锁丢失场景下
+    # options 全量覆盖等边缘副作用；并发首装由下方 O_EXCL 占锁保证）
+    if _installed():
+        return json_response(
+            "站点已完成安装，如需重新安装请清空数据库并删除 install.lock"
+        )
     # O_EXCL 原子占锁：并发提交仅一个胜出——关闭此前 exists() 检查与
     # 建号之间的竞态窗口（两个并发提交可各建一个超管）
     try:

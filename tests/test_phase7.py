@@ -53,6 +53,42 @@ class TestSetupWizard:
         assert resp.status_code == 302
         assert resp["Location"] == "/"
 
+    def test_wizard_redirects_when_options_exist_without_lock(
+        self, client, tmp_path, monkeypatch
+    ):
+        """已有站点选项（如 CLI/迁移初始化）同样视为已装。"""
+        from options.models import Option
+        from setup import views
+
+        monkeypatch.setattr(views, "LOCK_FILE", tmp_path / "no.lock")
+        Option.objects.set("site_name", "已有站")
+        resp = client.get("/setup/")
+        assert resp.status_code == 302
+
+    def test_submit_rejected_when_installed_and_options_untouched(
+        self, client, tmp_path, monkeypatch
+    ):
+        """已装站 POST /setup 被拒，且不得覆盖既有站点选项。"""
+        from options.models import Option
+        from setup import views
+
+        monkeypatch.setattr(views, "LOCK_FILE", tmp_path / "no.lock")
+        Option.objects.set("site_name", "生产站")
+        resp = client.post(
+            "/setup/",
+            data=json.dumps({
+                "site_name": "攻击者站点",
+                "admin_email": "evil@x.com",
+                "admin_password": "password8",
+            }),
+            content_type="application/json",
+        )
+        assert resp.json()["code"] != 0
+        assert Option.objects.get_value("site_name") == "生产站"
+        assert not User.objects.filter(email="evil@x.com").exists()
+        # 早拒绝不落锁文件
+        assert not (tmp_path / "no.lock").exists()
+
     def test_submit_creates_admin_and_options(self, client, tmp_path, monkeypatch):
         from setup import views
 
@@ -105,7 +141,9 @@ class TestSetupWizard:
             content_type="application/json",
         )
         assert resp.json()["code"] == 1
-        assert "非全新安装" in resp.json()["message"]
+        assert "已完成安装" in resp.json()["message"]
+        # 早拒绝：不落锁文件
+        assert not (tmp_path / "install.lock").exists()
 
     def test_weak_admin_password_rejected(self, client, tmp_path, monkeypatch):
         from setup import views
