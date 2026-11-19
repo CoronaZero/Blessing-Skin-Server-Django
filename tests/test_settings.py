@@ -26,6 +26,7 @@ MANAGED_ENV_VARS = [
     "DB_DATABASE",
     "DB_USERNAME",
     "DB_PASSWORD",
+    "REDIS_URL",
 ]
 
 
@@ -198,7 +199,6 @@ class TestTimeZone:
         base = load_base(monkeypatch, tmp_path)
         assert base.TIME_ZONE == "UTC"
         assert base.USE_TZ is True
-
     def test_env_override_accepted(self, monkeypatch, tmp_path):
         base = load_base(monkeypatch, tmp_path, TIME_ZONE="Asia/Shanghai")
         assert base.TIME_ZONE == "Asia/Shanghai"
@@ -212,3 +212,29 @@ class TestTimeZone:
         """非法 IANA 名直接拒绝启动，而非静默回落 UTC。"""
         with pytest.raises(ImproperlyConfigured, match="时区无效"):
             load_base(monkeypatch, tmp_path, TIME_ZONE="Mars/Olympus")
+
+
+class TestCaches:
+    """cache 后端选择（多 worker 共享，OAuth state 跨进程存活的前提。"""
+
+    def test_default_falls_back_to_database_cache(self, monkeypatch, tmp_path):
+        """未配置 REDIS_URL：DatabaseCache（零依赖回落），定位 django_cache_table。"""
+        base = load_base(monkeypatch, tmp_path)
+        assert base.CACHES["default"]["BACKEND"] == (
+            "django.core.cache.backends.db.DatabaseCache"
+        )
+        assert base.CACHES["default"]["LOCATION"] == "django_cache_table"
+
+    def test_redis_url_selects_redis_cache(self, monkeypatch, tmp_path):
+        base = load_base(monkeypatch, tmp_path, REDIS_URL="redis://127.0.0.1:6379/1")
+        assert base.CACHES["default"]["BACKEND"] == (
+            "django.core.cache.backends.redis.RedisCache"
+        )
+        assert base.CACHES["default"]["LOCATION"] == "redis://127.0.0.1:6379/1"
+
+    def test_blank_redis_url_ignored(self, monkeypatch, tmp_path):
+        """REDIS_URL 留空/纯空白视同未配置（回落数据库）。"""
+        base = load_base(monkeypatch, tmp_path, REDIS_URL="   ")
+        assert base.CACHES["default"]["BACKEND"] == (
+            "django.core.cache.backends.db.DatabaseCache"
+        )

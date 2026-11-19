@@ -23,3 +23,13 @@ STORAGES = {
 # Yggdrasil 节流默认关闭（限流专项测试用 override_settings 打开）
 YGG_RATE_LIMIT_SECONDS = 0
 YGG_MAX_BODY_BYTES = 1024 * 1024
+
+# 测试 cache 覆盖回 LocMemCache：内存 SQLite 单进程测试无多 worker 需求；
+# 显式覆盖避免①继承 base 的 DatabaseCache 后全用例 conftest cache.clear()
+# 依赖建表、②测机存在 REDIS_URL 时连到真实 Redis 污染数据。
+# 生产多 worker 共享语义由 test_cache_backend.py 用独立句柄直接验证。
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}

@@ -37,5 +37,6 @@ USER blessing
 
 EXPOSE 8000
 
-# 数据库迁移与入口启动（gunicorn + uvicorn worker，生产就绪）
-CMD ["sh", "-c", "python manage.py migrate --no-input && exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --worker-class uvicorn.workers.UvicornWorker --access-logfile -"]
+# 数据库迁移 + cache 表建立（DatabaseCache 后端的表不进迁移体系，
+# createcachetable 幂等，Redis 模式下无操作）与入口启动（生产就绪）
+CMD ["sh", "-c", "python manage.py migrate --no-input && python manage.py createcachetable && exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --worker-class uvicorn.workers.UvicornWorker --access-logfile -"]

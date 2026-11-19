@@ -294,4 +294,27 @@ STORAGES = {
     },
 }
 
+# ---- 缓存（多 worker 共享）----
+# gunicorn --workers 3 下默认 LocMemCache 是进程内存：state 写进 worker A
+# 的内存、回调落到 worker B 时读不到——OAuth「授权状态已过期或无效」约 2/3
+# 概率触发（首个跨 worker 强一致数据暴露）。必须换进程外共享后端：
+# - REDIS_URL 配置时用 Redis（redis://host:port/db）
+# - 缺省回落 DatabaseCache（零新依赖；cache 表由 createcachetable 建立，
+#   启动命令 migrate 前自动执行，见 Dockerfile/启动链）
+_redis_url = (os.environ.get("REDIS_URL") or "").strip()
+if _redis_url:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _redis_url,
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+            "LOCATION": "django_cache_table",
+        }
+    }
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
