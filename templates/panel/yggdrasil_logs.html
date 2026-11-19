@@ -17,8 +17,8 @@
 
 <div class="card">
   <div class="card-body table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <tr><th>时间</th><th>动作</th><th>用户</th><th>角色</th><th>参数</th><th>IP</th></tr>
+    <table class="table table-hover align-middle mb-0" style="table-layout:fixed">
+      <tr><th style="width:1%;white-space:nowrap">时间</th><th style="width:1%;white-space:nowrap">动作</th><th style="width:1%;white-space:nowrap">用户</th><th style="width:1%;white-space:nowrap">角色</th><th>参数</th><th style="width:1%;white-space:nowrap">IP</th></tr>
       {% for log in page_obj %}
       <tr>
         <td style="white-space:nowrap">{{ log.time|date:"Y-m-d H:i:s" }}</td>
@@ -27,8 +27,15 @@
         </td>
         <td>{% if log.user %}{{ log.user.nickname }}{% else %}-{% endif %}</td>
         <td>{% if log.player %}{{ log.player.name }}{% else %}-{% endif %}</td>
-        <td style="font-family:monospace;font-size:12px;max-width:320px;word-break:break-all">
-          {{ log.parameters|truncatechars:60 }}
+        <td>
+          {% if log.parameters %}
+          {# 长参数：截断预览 + 点击展开（手机上不再逐字符断行占数行）#}
+          <code class="ygg-params"
+                style="font-family:monospace;font-size:12px;word-break:break-all;display:none">{{ log.parameters }}</code>
+          <span class="ygg-params-preview"
+                style="font-family:monospace;font-size:12px;cursor:pointer;color:var(--bs-primary)"
+                title="点击展开完整参数">{{ log.parameters|truncatechars:24 }}</span>
+          {% else %}-{% endif %}
         </td>
         <td style="white-space:nowrap">{{ log.ip|default:"-" }}</td>
       </tr>
@@ -41,4 +48,21 @@
     {% include "panel/_pager.html" %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_foot %}
+<script>
+(function () {
+  // 参数列：点击截断预览 ⇄ 完整内容切换
+  document.querySelectorAll(".ygg-params-preview").forEach(function (el) {
+    el.addEventListener("click", function () {
+      var full = el.closest("td").querySelector(".ygg-params");
+      if (full) {
+        el.style.display = "none";
+        full.style.display = "inline";
+      }
+    });
+  });
+})();
+</script>
 {% endblock %}

@@ -285,6 +285,27 @@ class TestP2PanelYggLogPage:
         assert "srv-x" in html
         assert "BYE-MARKER" not in html
 
+    def test_params_column_mobile_friendly(self, client, db):
+        """参数列手机适配契约：短截断预览 + 完整内容折叠 + 无写死像素宽。
+
+        真实事故：手机上 max-width:320px + 逐字符断行让长 hash 占掉
+        四五行竖向空间——预览默认显示，点击展开完整参数。
+        """
+        from yggdrasil.models import YggdrasilLog
+
+        c = self._super_client(client)
+        params = '{"serverId": "' + "a" * 64 + '"}'
+        YggdrasilLog.objects.create(action="join", parameters=params)
+        html = c.get("/admin/yggdrasil/logs").content.decode()
+        # 完整参数存在但默认隐藏（display:none，点击展开）
+        assert "word-break:break-all;display:none" in html
+        assert "ygg-params-preview" in html
+        assert "ygg-params" in html
+        # 不再写死 320px 像素宽
+        assert "max-width:320px" not in html
+        # 截断预览走短长度
+        assert "truncatechars:24" in html or "…" in html
+
     def test_plain_admin_gets_404(self, client, db):
         User.objects.create_user(
             email="ad@x.com", nickname="ad", password="password8",
