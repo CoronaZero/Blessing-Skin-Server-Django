@@ -46,15 +46,18 @@ class TestStateCrossWorker:
 
 class TestDeploymentContracts:
     def test_startup_commands_include_createcachetable(self):
-        """部署文档契约：agent.md 与 Dockerfile 启动命令均含 createcachetable。
+        """部署契约：Dockerfile 启动命令含 createcachetable（CI 可见）。
 
         DatabaseCache 的表不在迁移体系内（django_cache_table 由
         createcachetable 建立），漏掉启动命令 = 上线即 500。
+        agent.md 在 .gitignore 中（本地文档），存在时一并检查，
+        CI checkout 无此文件自然跳过——不得断言其必然存在。
         """
-        agent = Path("agent.md").read_text(encoding="utf-8")
-        assert "createcachetable" in agent
         dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
         assert "createcachetable" in dockerfile
+        agent = Path("agent.md")
+        if agent.exists():
+            assert "createcachetable" in agent.read_text(encoding="utf-8")
 
     def test_settings_source_has_no_default_memcache(self):
         """CACHES 配置行必须为共享后端（无内存后端混入）。"""
