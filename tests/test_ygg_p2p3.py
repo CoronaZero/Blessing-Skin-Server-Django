@@ -288,8 +288,10 @@ class TestP2PanelYggLogPage:
     def test_params_column_mobile_friendly(self, client, db):
         """参数列手机适配契约：短截断预览 + 完整内容折叠 + 无写死像素宽。
 
-        真实事故：手机上 max-width:320px + 逐字符断行让长 hash 占掉
+        真实事故 ①：手机上 max-width:320px + 逐字符断行让长 hash 占掉
         四五行竖向空间——预览默认显示，点击展开完整参数。
+        真实事故 ②：table-layout:fixed +width:1%"修复"反而让 nowrap
+        列被压到溢出堆叠——表格布局回归项目朴素样式（仅 table-responsive）。
         """
         from yggdrasil.models import YggdrasilLog
 
@@ -305,6 +307,11 @@ class TestP2PanelYggLogPage:
         assert "max-width:320px" not in html
         # 截断预览走短长度
         assert "truncatechars:24" in html or "…" in html
+        # 表格布局回归朴素样式：无 fixed 布局、无 colgroup 极窄列
+        # （fixed + width:1% 在手机上使 nowrap 列溢出堆叠进第一列）
+        assert "table-layout:fixed" not in html
+        assert "<colgroup>" not in html
+        assert 'width:1%' not in html
 
     def test_plain_admin_gets_404(self, client, db):
         User.objects.create_user(

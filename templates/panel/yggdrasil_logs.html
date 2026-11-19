@@ -17,8 +17,13 @@
 
 <div class="card">
   <div class="card-body table-responsive">
-    <table class="table table-hover align-middle mb-0" style="table-layout:fixed">
-      <tr><th style="width:1%;white-space:nowrap">时间</th><th style="width:1%;white-space:nowrap">动作</th><th style="width:1%;white-space:nowrap">用户</th><th style="width:1%;white-space:nowrap">角色</th><th>参数</th><th style="width:1%;white-space:nowrap">IP</th></tr>
+    {# 与其余面板表格页同款朴素布局：table-responsive 横向滚动； #}
+    {# 手机痛根在参数列——由「24 字符截断 + 点击展开」解决，勿再动表格布局 #}
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr><th>时间</th><th>动作</th><th>用户</th><th>角色</th><th>参数</th><th>IP</th></tr>
+      </thead>
+      <tbody>
       {% for log in page_obj %}
       <tr>
         <td style="white-space:nowrap">{{ log.time|date:"Y-m-d H:i:s" }}</td>
@@ -44,6 +49,7 @@
         暂无日志。未设置 YGG_VERBOSE_LOG 环境变量时接口日志不会落库。
       </td></tr>
       {% endfor %}
+      </tbody>
     </table>
     {% include "panel/_pager.html" %}
   </div>
