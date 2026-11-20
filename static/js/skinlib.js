@@ -41,9 +41,15 @@
     data.data.forEach(function (item) {
       const card = document.createElement("div");
       card.className = "bs-card";
+      // 公开纹理走伪静态指纹 URL（/preview/{tid}-{hash8}-h{height}.png）：
+      // 换皮后 hash 变即换 URL，CDN 可按 immutable 一年缓存，回源零渲染；
+      // 私密纹理回落鉴权端点（CDN 不缓存非公开内容）
+      const imgUrl = item.public
+        ? "/preview/" + item.tid + "-" + item.hash.slice(0, 8) + "-h150.png"
+        : "/preview/" + item.tid + "?height=150";
       card.innerHTML =
         '<div style="padding:12px;cursor:pointer" data-tid="' + item.tid + '">' +
-        '<img src="/preview/' + item.tid + '?height=150" alt="' + escapeHtml(item.name) + '"' +
+        '<img src="' + imgUrl + '" alt="' + escapeHtml(item.name) + '"' +
         '     style="width:100%;border-radius:6px;background:' +
         "var(--bs-primary-light)" + '">' +
         '<div style="margin-top:8px;font-weight:600">' + escapeHtml(item.name) + "</div>" +

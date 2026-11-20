@@ -53,6 +53,12 @@ urlpatterns = [
     path("textures/<str:hash_value>", views.serve_texture, name="texture"),
     # 皮肤立绘预览（对照原版 /preview/{tid}；另支持 hash 定位）
     path("preview/<int:tid>", views.preview_texture, name="preview"),
+    # 伪静态指纹预览（CDN 长缓存；仅公开纹理；hash8 即内容指纹）
+    re_path(
+        r"^preview/(?P<tid>\d+)-(?P<hash8>[0-9a-f]{8})-h(?P<height>\d+)\.png$",
+        views.preview_texture_static,
+        name="preview_static",
+    ),
     path("avatar/<int:size>/<str:player_name>", views.serve_avatar, name="avatar"),
     # 纹理头像（64px，未登录访客的 favicon：站点默认皮肤；仅公开纹理）
     path("avatar/texture/<int:tid>.png", views.serve_texture_avatar,

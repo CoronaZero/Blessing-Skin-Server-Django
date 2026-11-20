@@ -548,8 +548,6 @@ def preview_texture(request, tid: int):
     按可枚举的 tid 任意人可渲染他人私密纹理）；height 容错收敛到
     64..1024，并纳入缓存键（此前不同 height 互串缓存）。
     """
-    from django.core.cache import cache
-
     texture = Texture.objects.filter(tid=tid).first()
     if texture is None:
         return HttpResponseNotFound()
@@ -566,6 +564,46 @@ def preview_texture(request, tid: int):
     except ValueError:
         height = 200
     height = max(64, min(height, 1024))
+
+    fmt, image_bytes = _render_preview_cached(texture, height, use_png)
+    if image_bytes is None:
+        return HttpResponse(status=404)
+    resp = HttpResponse(image_bytes, content_type=f"image/{fmt.lower()}")
+    resp["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
+@login_required
+@require_GET
+def preview_texture_static(request, tid: int, hash8: str, height: int):
+    """伪静态指纹预览：/preview/{tid}-{hash8}-h{height}.png。
+
+    面向 CDN 的长缓存端点（皮肤库卡片图）：URL 内嵌内容指纹，
+    换皮后 hash 变即换 URL，故可安全发 max-age=1 年 + immutable。
+    仅服务公开纹理——CDN 节点不应缓存非公开内容；hash8 不匹配
+    （旧 URL 访问新内容）一律 404，防 CDN 旧 URL 污染。
+    """
+    texture = Texture.objects.filter(tid=tid, public=True).first()
+    if texture is None or not texture.hash.startswith(hash8):
+        return HttpResponseNotFound()
+    try:
+        height = int(height)
+    except (TypeError, ValueError):
+        height = 200
+    height = max(64, min(height, 1024))
+
+    fmt, image_bytes = _render_preview_cached(texture, height, use_png=True)
+    if image_bytes is None:
+        return HttpResponse(status=404)
+    resp = HttpResponse(image_bytes, content_type=f"image/{fmt.lower()}")
+    resp["Cache-Control"] = "public, max-age=31536000, immutable"
+    return resp
+
+
+def _render_preview_cached(texture, height: int, use_png: bool):
+    """渲染（或取服务端 cache）：返回 (fmt, bytes)；文件缺失/超限 (fmt, None)。"""
+    from django.core.cache import cache
+
     cache_key = f"preview:t{texture.tid}:{'png' if use_png else 'webp'}:h{height}"
     cached = cache.get(cache_key)
     if cached is None:
@@ -579,7 +617,7 @@ def preview_texture(request, tid: int):
                 fmt = "PNG"
         except (TextureFileNotFoundError, ValueError):
             # 渲染超像素上限/文件缺失均为 404，不 500
-            return HttpResponse(status=404)
+            return "PNG", None
         if not use_png:
             try:
                 img = Image.open(io.BytesIO(image_bytes))
@@ -596,11 +634,7 @@ def preview_texture(request, tid: int):
         except Exception:  # noqa: BLE001 - options 表未就绪时短缓存
             persist = False
         cache.set(cache_key, cached, 3600 * 24 * 365 if persist else 60)
-
-    fmt, image_bytes = cached
-    resp = HttpResponse(image_bytes, content_type=f"image/{fmt.lower()}")
-    resp["Cache-Control"] = "public, max-age=86400"
-    return resp
+    return cached
 
 
 # ---- 用户衣柜（对照原版 ClosetController）----
