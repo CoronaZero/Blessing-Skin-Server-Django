@@ -15,8 +15,7 @@
 <form id="pm-options" data-section="{{ current_section }}">
   {% csrf_token %}
   {% for entry in option_groups %}
-  {# 紧凑多列：字段自动分列填满卡片（PC 宽屏 2 列、超宽 3 列），
-     手机/窄屏自动回落单列；textarea 类大块字段跨整行 #}
+  {# 紧凑多列：PC 宽屏自动 2-3 列、窄屏单列；textarea 跨整行（{# #} 不支持换行，注释勿跨行） #}
   <div class="card" style="margin-bottom:12px">
     <div class="card-body" style="padding:12px 16px">
       <h2 style="font-size:15px;margin:0 0 10px">{{ entry.group.title }}</h2>
