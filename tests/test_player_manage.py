@@ -35,6 +35,45 @@ class TestPlayerManagePage:
         assert "pm-rename-form" in html
         assert "pm-delete-btn" in html
 
+    def test_3d_viewer_canvas_with_skin_and_cape(self, client, user, player):
+        """3D 预览契约：canvas 拼装角色皮肤+披风（hash 直供，非 2D 立绘）。"""
+        from textures.models import ClosetItem
+
+        skin = Texture.objects.create(
+            name="S", type="alex", hash="a" * 64, size=1,
+            uploader=user, public=True,
+        )
+        cape = Texture.objects.create(
+            name="C", type="cape", hash="b" * 64, size=1,
+            uploader=user, public=True,
+        )
+        player.tid_skin = skin
+        player.tid_cape = cape
+        player.save()
+        html = self._client(client, user).get(
+            f"/user/players/{player.pid}"
+        ).content.decode()
+        assert 'id="pm-viewer-3d"' in html
+        assert f'data-skin="/textures/{skin.hash}"' in html
+        assert f'data-cape="/textures/{cape.hash}"' in html
+        assert 'data-model="slim"' in html  # alex 类型 → slim
+        # 3D 库与装配脚本已引入
+        assert "skinview3d.bundle.js" in html
+        assert "js/skin-viewer.js" in html
+
+    def test_3d_viewer_without_cape_omits_attribute(self, client, user, player):
+        skin = Texture.objects.create(
+            name="S", type="steve", hash="c" * 64, size=1,
+            uploader=user, public=True,
+        )
+        player.tid_skin = skin
+        player.save()
+        html = self._client(client, user).get(
+            f"/user/players/{player.pid}"
+        ).content.decode()
+        assert "data-cape=" not in html
+        assert 'data-model="default"' in html  # steve → 宽臂
+
     def test_page_lists_closet_items(self, client, user, player):
         skin = Texture.objects.create(
             name="S", type="steve", hash="a" * 64, size=1,

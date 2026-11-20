@@ -7,17 +7,15 @@
   <div class="col-12 col-lg-4 col-xl-3">
     <div class="card">
       <div class="card-body" style="text-align:center">
-        <img src="{% if preview_skin %}/preview/{{ preview_skin.tid }}?png{% else %}{% endif %}"
-             alt="皮肤预览" id="pm-skin-preview"
-             style="width:100%;border-radius:8px;background:var(--bs-primary-light)"
-             {% if not preview_skin %}hidden{% endif %}>
-        <div id="pm-no-skin" style="color:var(--bs-text-secondary);padding:24px 0"
-             {% if preview_skin %}hidden{% endif %}>
-          尚未设置皮肤{% if preview_skin %}（下方为默认皮肤占位）{% endif %}
-        </div>
-        {% if not has_own_skin and preview_skin %}
+        {# 3D 预览：角色皮肤+披风拼装（无皮肤时仍用默认皮肤占位渲染） #}
+        <canvas id="pm-viewer-3d" width="280" height="360"
+                data-skin="/textures/{{ preview_skin.hash }}"
+                data-model="{% if preview_skin.type == 'alex' %}slim{% else %}default{% endif %}"
+                {% if preview_cape %}data-cape="/textures/{{ preview_cape.hash }}"{% endif %}
+                style="max-width:100%;border-radius:8px;background:var(--bs-primary-light)"></canvas>
+        {% if not has_own_skin %}
         <p style="font-size:11px;color:var(--bs-text-secondary);margin:6px 0 0">
-          ↑ 显示的是站点默认皮肤占位，可在右侧选择衣柜皮肤
+          {% if preview_skin %}↑ 显示的是站点默认皮肤占位，可在右侧选择衣柜皮肤{% else %}尚未设置皮肤{% endif %}
         </p>
         {% endif %}
         <h2 style="margin:12px 0 4px;font-size:18px">{{ player.name }}</h2>
@@ -107,5 +105,21 @@
 {% endblock %}
 
 {% block extra_foot %}
+<script src="{% static 'vendor/skinview3d.bundle.js' %}"></script>
+<script src="{% static 'js/skin-viewer.js' %}"></script>
 <script src="{% static 'js/player-manage.js' %}"></script>
+<script>
+(function () {
+  const canvas = document.getElementById("pm-viewer-3d");
+  if (canvas && window.bsInitSkinViewer) {
+    window.bsInitSkinViewer(canvas, {
+      skin: canvas.dataset.skin,
+      cape: canvas.dataset.cape || null,
+      model: canvas.dataset.model,
+      width: 280,
+      height: 360,
+    });
+  }
+})();
+</script>
 {% endblock %}
