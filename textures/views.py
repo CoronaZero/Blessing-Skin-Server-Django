@@ -402,9 +402,16 @@ def upload(request):
         size=size_kb,
         uploader=user,
         public=is_public,
+        likes=1,  # 原版上传即自收藏（SkinlibController.php:317）
     )
     if not texture_storage.exists(result.digest):
         texture_storage.save_bytes(result.digest, result.normalized)
+
+    # 原版 SkinlibController.php:327：上传后自动加入上传者衣柜
+    # （cost 已含 score_per_closet_item，费用语义本就覆盖此项）
+    from .models import ClosetItem
+
+    ClosetItem.objects.create(owner=user, texture=texture, item_name=name)
 
     from notifications.services import notify
 
@@ -692,6 +699,8 @@ def closet_add(request):
     from .models import ClosetItem
 
     item = ClosetItem.objects.create(owner=request.user, texture=texture, item_name=name)
+    # 对照原版 ClosetController.php:117：加入衣柜即收藏，likes +1
+    Texture.objects.filter(tid=texture.tid).update(likes=F("likes") + 1)
     return json_response("已加入衣柜", SUCCESS, {"item_id": item.id})
 
 
@@ -739,6 +748,13 @@ def closet_remove(request, item_id: int):
     item = request.user.closet.filter(id=item_id).first()
     if item is None:
         return json_response("衣柜项不存在")
+    from django.db.models.functions import Greatest
+
+    # 对照原版 ClosetController.php:187：移出衣柜即取消收藏，likes - 1
+    #（Greatest 防1历史漂移计数变负）
+    Texture.objects.filter(tid=item.texture_id).update(
+        likes=Greatest(F("likes") - 1, 0)
+    )
     item.delete()
     return json_response("已移出衣柜", SUCCESS)
 
