@@ -11,6 +11,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db.models import F
 from django.http import HttpResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -47,6 +48,36 @@ def _json_ok(payload: dict, status: int = 200) -> HttpResponse:
     )
 
 
+def _retention_days() -> int:
+    """日志保留天数选项（ygg_log_retention_days）；0/非法 = 不清理。"""
+    from options.models import Option
+
+    try:
+        return max(0, int(Option.objects.get_value("ygg_log_retention_days") or 0))
+    except ValueError:
+        return 0
+
+
+def _cleanup_expired_logs(throttled: bool = False) -> None:
+    """惰性清理过期日志（ygg_log_retention_days 天前）。
+
+    不跑定时任务：面板日志页 GET 与 _log 写入两条路径顺带触发；
+    写入路径经 cache 节流（6 小时至多一次），DELETE 压力可忽略。
+    """
+    from datetime import timedelta
+
+    days = _retention_days()
+    if days <= 0:
+        return
+    if throttled and cache.get("ygg_log_cleanup_throttle") is not None:
+        return
+    YggdrasilLog.objects.filter(
+        time__lt=timezone.now() - timedelta(days=days)
+    ).delete()
+    if throttled:
+        cache.set("ygg_log_cleanup_throttle", 1, 6 * 3600)
+
+
 def _log(request, action, user=None, player=None, params=None):
     """接口审计日志：对照原版 ygg_log()，仅 YGG_VERBOSE_LOG 开启时落库。
 
@@ -62,6 +93,8 @@ def _log(request, action, user=None, player=None, params=None):
         parameters=json.dumps(params, ensure_ascii=False)[:512] if params else "",
         ip=client_ip(request),
     )
+    # 惰性清理（节流）：有流量的站点即便管理员从不进面板也能滚动清理
+    _cleanup_expired_logs(throttled=True)
 
 
 # ---- 根端点（authlib-injector 发现）----

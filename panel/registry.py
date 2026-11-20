@@ -290,9 +290,14 @@ OptionField("mail_username", "用户名"),
             OptionField("ygg_token_expire_1", "令牌有效期（秒）", widget="int"),
             OptionField("ygg_token_expire_2", "刷新窗口（秒）", widget="int"),
             OptionField("ygg_tokens_limit", "每人令牌上限", widget="int"),
-            OptionField("ygg_search_profile_max", "批量查询上限", widget="int"),
+OptionField("ygg_search_profile_max", "批量查询上限", widget="int"),
             OptionField("ygg_rate_limit", "节流间隔（毫秒）", widget="int",
                         help_text="同一用户/IP 两次请求的最小间隔，1000=1 秒"),
+            OptionField(
+                "ygg_log_retention_days", "日志保留天数", widget="int",
+                help_text="接口日志（YGG_VERBOSE_LOG 开启时落库）仅保留最近 N 天，"
+                          "过期在写入与面板页访问时惰性清理（不跑定时任务）；0=永久保留",
+            ),
             OptionField("ygg_enable_ali", "API 地址指示（ALI）", widget="bool",
                         help_text="用户输入域名即可自动发现 API 地址，建议开启"),
             OptionField(

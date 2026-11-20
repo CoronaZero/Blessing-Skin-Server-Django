@@ -242,6 +242,10 @@ LOG_ACTION_LABELS = {
 @super_admin_required
 @require_GET
 def yggdrasil_logs(request):
+    # 惰性清理入口之一：管理员打开日志页顺带清一次过期日志
+    from yggdrasil.views import _cleanup_expired_logs
+
+    _cleanup_expired_logs()
     qs = (
         YggdrasilLog.objects.select_related("user", "player")
         .order_by("-time", "-id")
