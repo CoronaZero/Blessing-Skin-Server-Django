@@ -504,7 +504,12 @@ def render_skin_portrait(skin_bytes: bytes, ratio: int = 12,
 
 
 def render_cape_portrait(cape_bytes: bytes, height: int = 200) -> bytes:
-    """披风立绘（对照 CapeRenderer：裁 (1,1) 起 10:16 区域并缩放）。"""
+    """披风立绘（对照 CapeRenderer：裁 (1,1) 起 10:16 区域并缩放）。
+
+    缩放用 NEAREST（邻近采样）：像素画不应平滑插值——LANCZOS 会把
+    色块边缘糊成渐变（GD imagecopyresized 无平滑 = NEAREST 语义，
+    本实现此前误用 LANCZOS 反而偏离原版）。
+    """
     cape = open_image_capped(cape_bytes).convert("RGBA")
     hd = cape.width // 64
     out_w = int(height / 16 * 10)
@@ -512,7 +517,7 @@ def render_cape_portrait(cape_bytes: bytes, height: int = 200) -> bytes:
     canvas = Image.new("RGBA", (hp * 2 + out_w, vp * 2 + height), (0, 0, 0, 0))
     region = cape.crop((1 * hd, 1 * hd, 1 * hd + cape.width * 10 // 64,
                         1 * hd + cape.height * 16 // 32))
-    region = region.resize((out_w, height), Image.LANCZOS)
+    region = region.resize((out_w, height), Image.NEAREST)
     canvas.alpha_composite(region, (hp, vp))
     buf = io.BytesIO()
     canvas.save(buf, format="PNG")
