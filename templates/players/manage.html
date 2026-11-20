@@ -22,15 +22,7 @@
         <p style="margin:0;font-size:12px;color:var(--bs-text-secondary)">
           UUID: {{ player.uuid }}
         </p>
-        <img src="/preview/{{ preview_cape.tid }}?png" alt="披风预览"
-             id="pm-cape-preview"
-             style="width:70%;margin-top:12px;border-radius:8px"
-             {% if not preview_cape %}hidden{% endif %}>
-        {% if not has_own_cape and preview_cape %}
-        <p style="font-size:11px;color:var(--bs-text-secondary);margin:6px 0 0">
-          ↑ 显示的是站点默认披风占位
-        </p>
-        {% endif %}
+        {# 披风随 3D 预览展示（pm-viewer-3d 拼装），不再单独平铺 #}
       </div>
     </div>
 

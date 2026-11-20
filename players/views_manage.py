@@ -44,7 +44,6 @@ def player_manage_page(request, pid: int):
             "preview_skin": preview_skin,
             "preview_cape": preview_cape,
             "has_own_skin": player.tid_skin is not None,
-            "has_own_cape": player.tid_cape is not None,
             "closet_skins": closet_skins,
             "closet_capes": closet_capes,
             "site_name": Option.objects.get_value("site_name"),
