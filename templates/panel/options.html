@@ -15,11 +15,14 @@
 <form id="pm-options" data-section="{{ current_section }}">
   {% csrf_token %}
   {% for entry in option_groups %}
-  <div class="card" style="margin-bottom:16px">
-    <div class="card-body">
-      <h2 style="font-size:15px;margin:0 0 14px">{{ entry.group.title }}</h2>
+  {# 紧凑多列：字段自动分列填满卡片（PC 宽屏 2 列、超宽 3 列），
+     手机/窄屏自动回落单列；textarea 类大块字段跨整行 #}
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body" style="padding:12px 16px">
+      <h2 style="font-size:15px;margin:0 0 10px">{{ entry.group.title }}</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:10px 32px">
       {% for f in entry.group.fields %}
-      <div class="bs-field" style="max-width:520px">
+      <div class="bs-field"{% if f.widget == 'textarea' or f.widget == 'secret_textarea' %} style="grid-column:1/-1"{% endif %}>
         <label for="opt-{{ f.key }}">{{ f.label }}</label>
         {% if f.widget == 'bool' %}
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -57,14 +60,15 @@
         {% endif %}
       </div>
       {% endfor %}
+      </div>
     </div>
   </div>
   {% endfor %}
 
   {% if current_section == 'yggdrasil' %}
-  <div class="card" style="margin-bottom:16px">
-    <div class="card-body">
-      <h2 style="font-size:15px;margin:0 0 14px">Yggdrasil 材质签名密钥</h2>
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body" style="padding:12px 16px">
+      <h2 style="font-size:15px;margin:0 0 10px">Yggdrasil 材质签名密钥</h2>
       <p style="font-size:12px;color:var(--bs-text-secondary);margin:0 0 8px">
         当前私钥：{% if ygg_key_bits %}{{ ygg_key_bits }} 位
         （{% if ygg_key_bits >= 4096 %}符合推荐长度{% else %}低于原版要求的 4096 位，建议重新生成{% endif %}）
@@ -87,9 +91,9 @@
   {% endif %}
 
   {% if current_section == 'services' %}
-  <div class="card" style="margin-bottom:16px">
-    <div class="card-body">
-      <h2 style="font-size:15px;margin:0 0 12px">连通性测试</h2>
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body" style="padding:12px 16px">
+      <h2 style="font-size:15px;margin:0 0 10px">连通性测试</h2>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-outline-secondary" id="pm-captcha-test" type="button">
           测试验证码
