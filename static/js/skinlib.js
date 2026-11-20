@@ -54,9 +54,17 @@
         "var(--bs-primary-light)" + '">' +
         '<div style="margin-top:8px;font-weight:600">' + escapeHtml(item.name) + "</div>" +
         '<div style="font-size:12px;color:var(--bs-text-secondary);display:flex;' +
-        'justify-content:space-between;margin-top:2px">' +
-        "<span>" + (item.type === "cape" ? "披风" : "皮肤") + "</span>" +
+        'justify-content:space-between;align-items:center;margin-top:2px">' +
+        "<span>" + (item.type === "cape" ? "披风" : "皮肤") +
+        (item.public
+          ? ' <span style="color:var(--bs-success)">公开</span>'
+          : ' <span style="color:var(--bs-warning-emphasis)">私密</span>') +
+        "</span>" +
         "<span>♥ " + item.likes + "</span>" +
+        "</div>" +
+        '<div style="font-size:12px;color:var(--bs-text-secondary);margin-top:2px;' +
+        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+        "上传者：" + escapeHtml(item.uploader || "—") +
         "</div></div>";
       card.querySelector("[data-tid]").addEventListener("click", function () {
         window.location.href = "/skinlib/show?tid=" + item.tid;
