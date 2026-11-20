@@ -137,8 +137,9 @@ class TestDefaultTextures:
         player = Player.objects.create(uid=user, name="NoCapeGuy")
         client.force_login(user)
         html = client.get(f"/user/players/{player.pid}").content.decode()
-        assert f"/preview/{cape.tid}" in html
-        assert "默认披风占位" in html
+        # 平铺占位图已移除（67cfd03）：默认披风经 3D canvas 拼装展示
+        assert f'data-cape="/textures/{cape.hash}"' in html
+        assert f"/preview/{cape.tid}" not in html
 
 
 class TestUserCenterSplitPages:
