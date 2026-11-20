@@ -596,7 +596,7 @@ def avatar_submit(request):
 @require_GET
 @ensure_csrf_cookie
 def notifications_list(request):
-    """三协商：浏览器直达=通知页 / AJAX=JSON。
+    """三协商：浏览器直达=通知页 / AJAX=JSON（分页，每页 20 条）。
 
     ensure_csrf_cookie：通知页无表单，必须显式保证 csrftoken cookie
     存在，否则页面内的 POST（单条/全部已读）会 403 静默失败。
@@ -608,8 +608,18 @@ def notifications_list(request):
             {"site_name": Option.objects.get_value("site_name")},
         )
 
-    qs = request.user.notifications.all().order_by("-created_at")[:50]
-    data = [
+    from django.core.paginator import Paginator
+
+    try:
+        page_no = int(request.GET.get("page") or 1)
+    except ValueError:
+        page_no = 1
+    # get_page 自动钳制越界页码（0/负数/超上限回落末页）；
+    # -id 为第二排序键：同 created_at（同秒批量产生）时保持稳定倒序
+    page = Paginator(
+        request.user.notifications.all().order_by("-created_at", "-id"), 20
+    ).get_page(page_no)
+    items = [
         {
             "id": n.id,
             "title": n.title,
@@ -617,11 +627,19 @@ def notifications_list(request):
             "read": n.read_at is not None,
             # 显示层格式化：按 settings.TIME_ZONE 本地化（.env 可配），
             # 前端直接渲染字符串，不再显示带 +00:00 偏移的原始 ISO 串
-            "created_at": timezone.localtime(n.created_at).strftime("%Y-%m-%d %H:%M"),
+            "created_at": timezone.localtime(n.created_at).strftime(
+                "%Y-%m-%d %H:%M"
+            ),
         }
-        for n in qs
+        for n in page.object_list
     ]
-    return json_response("", SUCCESS, data)
+    return json_response("", SUCCESS, {
+        "items": items,
+        "page": page.number,
+        "num_pages": page.paginator.num_pages,
+        "has_prev": page.has_previous(),
+        "has_next": page.has_next(),
+    })
 
 
 @login_required

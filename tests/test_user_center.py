@@ -306,8 +306,13 @@ class TestNotifications:
             headers={"X-Requested-With": "XMLHttpRequest"},
         )
         assert resp.json()["code"] == 0
-        assert len(resp.json()["data"]) == 1
-        assert resp.json()["data"][0]["title"] == "欢迎"
+        data = resp.json()["data"]
+        # 分页响应契约：items + 分页元信息（单页时 has_* 为 False）
+        assert len(data["items"]) == 1
+        assert data["items"][0]["title"] == "欢迎"
+        assert data["page"] == 1
+        assert data["num_pages"] == 1
+        assert data["has_prev"] is False and data["has_next"] is False
 
     def test_list_time_localized_and_formatted(self, client_logged, user):
         """时间按 settings.TIME_ZONE 本地化为 Y-m-d H:i（不再 ISO+偏移）。"""
@@ -324,7 +329,7 @@ class TestNotifications:
                 "/user/notifications",
                 headers={"X-Requested-With": "XMLHttpRequest"},
             )
-        assert resp.json()["data"][0]["created_at"] == "2026-11-13 14:30"
+        assert resp.json()["data"]["items"][0]["created_at"] == "2026-11-13 14:30"
 
     def test_mark_read(self, client_logged, user):
         n = Notification.objects.create(recipient=user, title="t", content="c")
@@ -411,6 +416,52 @@ class TestNotifications:
 
     def test_clear_all_requires_login(self, client):
         assert client.post("/user/notifications/clear").status_code == 302
+
+    def test_pagination_20_per_page(self, client_logged, user):
+        """25 条通知 → 两页（20 + 5），元信息齐全；不再静默截断。"""
+        for i in range(25):
+            Notification.objects.create(recipient=user, title=f"n{i}")
+        resp = client_logged.get(
+            "/user/notifications",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        data = resp.json()["data"]
+        assert data["num_pages"] == 2
+        assert len(data["items"]) == 20
+        assert data["has_next"] is True and data["has_prev"] is False
+        # 第一页为最新（按 created_at 倒序，同秒内按主键序）
+        titles = {n["title"] for n in data["items"]}
+        assert "n24" in titles and "n5" in titles and "n4" not in titles
+
+        resp = client_logged.get(
+            "/user/notifications?page=2",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        data = resp.json()["data"]
+        assert data["page"] == 2
+        assert len(data["items"]) == 5
+        assert data["has_prev"] is True and data["has_next"] is False
+
+    def test_pagination_out_of_range_clamped(self, client_logged, user):
+        """越界/非法页码钳制而非报错（Django get_page 语义）：
+        PageNotAnInteger（"abc"）→ 第一页；EmptyPage（0/负数/超上限）→ 末页。"""
+        for i in range(25):
+            Notification.objects.create(recipient=user, title=f"n{i}")
+
+        def _page(param):
+            resp = client_logged.get(
+                f"/user/notifications?page={param}",
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+            return resp.json()["data"]
+
+        data = _page("abc")
+        assert data["page"] == 1 and data["items"]
+        # 0 / 负数 / 超上限 → 末页（get_page EmptyPage 回落语义）
+        for bad in ("0", "-3", "99"):
+            data = _page(bad)
+            assert data["page"] == 2
+            assert len(data["items"]) == 5, f"page={bad} 不应返回空"
 
     def test_page_container_matches_js_selector(self, client_logged, user):
         """UI 契约：通知页容器须与 user_notifications.js 的选择器一致。

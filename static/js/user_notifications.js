@@ -1,7 +1,9 @@
-/* 通知页：全量通知 + 已读标记 + 单条删除 + 清空全部。 */
+/* 通知页：分页列表 + 已读标记 + 单条删除 + 清空全部。 */
 
 (function () {
   "use strict";
+
+  var currentPage = 1;
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -9,12 +11,21 @@
     });
   }
 
-  async function load() {
+  async function load(page) {
     const box = document.querySelector("#notifications-list .card-body");
     if (box) {
-      const payload = await window.bsFetch("/user/notifications");
+      if (page) currentPage = page;
+      const payload = await window.bsFetch(
+        "/user/notifications?page=" + currentPage
+      );
       if (payload.code !== 0) return;
-      render(box, payload);
+      const info = payload.data || {};
+      // 当前页被删空（如删除末页最后一条）后自动回落上一页
+      if (!info.items || (!info.items.length && currentPage > 1)) {
+        load(currentPage - 1);
+        return;
+      }
+      render(box, info);
     }
   }
 
@@ -28,7 +39,7 @@
       try {
         const r = await window.bsPost(btn.dataset.url, new FormData());
         window.bsToast(r.message, r.code === 0 ? "success" : "error");
-        if (r.code === 0) load();
+        if (r.code === 0) load(1); // 批量操作后回第一页
       } catch (err) {
         window.bsToast("操作失败：" + err, "error");
       } finally {
@@ -39,14 +50,43 @@
   wireTopButton("read-all-btn");
   wireTopButton("clear-all-btn", "确定清空全部通知？该操作不可恢复。");
 
-  function render(box, payload) {
+  function renderPager(box, info) {
+    if (info.num_pages <= 1) return;
+    const pager = document.createElement("div");
+    pager.style.cssText =
+      "display:flex;gap:10px;justify-content:center;margin-top:16px;font-size:13px";
+    if (info.has_prev) {
+      const prev = document.createElement("button");
+      prev.className = "btn btn-outline-secondary";
+      prev.style.fontSize = "13px";
+      prev.textContent = "上一页";
+      prev.addEventListener("click", function () { load(info.page - 1); });
+      pager.appendChild(prev);
+    }
+    const label = document.createElement("span");
+    label.style.cssText =
+      "align-self:center;color:var(--bs-text-secondary)";
+    label.textContent = info.page + " / " + info.num_pages;
+    pager.appendChild(label);
+    if (info.has_next) {
+      const next = document.createElement("button");
+      next.className = "btn btn-outline-secondary";
+      next.style.fontSize = "13px";
+      next.textContent = "下一页";
+      next.addEventListener("click", function () { load(info.page + 1); });
+      pager.appendChild(next);
+    }
+    box.appendChild(pager);
+  }
+
+  function render(box, info) {
     box.innerHTML = "";
-    if (!payload.data.length) {
+    if (!info.items.length) {
       box.innerHTML =
         '<p style="color:var(--bs-text-secondary);text-align:center;padding:32px 0">暂无通知</p>';
       return;
     }
-    payload.data.forEach(function (n) {
+    info.items.forEach(function (n) {
       const el = document.createElement("div");
       el.style.cssText =
         "border-bottom:1px solid var(--bs-border);padding:14px 0;" + (n.read ? "opacity:0.6;" : "");
@@ -79,6 +119,7 @@
       }
       box.appendChild(el);
     });
+    renderPager(box, info);
   }
 
   async function postRow(btn, url) {
@@ -86,7 +127,7 @@
     try {
       const r = await window.bsPost(url);
       if (r.code === 0) {
-        load();
+        load(); // 保持当前页刷新（删空时 load 内自动回落上一页）
       } else {
         window.bsToast(r.message, "error");
         btn.disabled = false;
@@ -97,5 +138,5 @@
     }
   }
 
-  load();
+  load(1);
 })();
