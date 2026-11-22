@@ -37,8 +37,6 @@ class TestPlayerManagePage:
 
     def test_3d_viewer_canvas_with_skin_and_cape(self, client, user, player):
         """3D 预览契约：canvas 拼装角色皮肤+披风（hash 直供，非 2D 立绘）。"""
-        from textures.models import ClosetItem
-
         skin = Texture.objects.create(
             name="S", type="alex", hash="a" * 64, size=1,
             uploader=user, public=True,
