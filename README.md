@@ -13,27 +13,29 @@ Blessing Skin Server 的 **Django 重写版**：一个 Minecraft 皮肤站，让
 | 领域 | 能力 |
 |---|---|
 | 认证 | 邮箱/角色名登录、注册、邮箱验证、一次性密码重置、Cloudflare Turnstile / reCAPTCHA 验证码（默认关闭） |
+| Microsoft 账号 | Azure AD v2 OAuth 登录/注册（按 sub 绑定防接管）；**正版角色绑定**（Xbox/XSTS 链路验证，只读角色）；**正版验证透传**（绑定过的玩家可用正版客户端进入指向本站的 authlib-injector 服务器，上游确认后放行） |
+| 好友系统 | `/api/yggdrasil/minecraftservices/*` 全套端点：好友申请状态机、在线状态、ETag/304、429 限频（对照原版 authlib 10.0.77） |
 | 密码兼容 | PHP 原版全部 10 种哈希算法可校验（MD5/SHA 系裸散列、`$2y$` bcrypt、Argon2），登录自动升级 Argon2 |
-| 皮肤库 | 上传（PNG 校验/尺寸/比例/重编码消毒）、搜索分类排序分页、hash 去重、积分计费 |
-| 渲染 | 2D 头像五种尺寸实时渲染；纹理详情页 **3D 实时预览**（skinview3d，本地托管、零 CDN） |
-| Yggdrasil | authenticate / refresh / validate / invalidate / signout / join / hasJoined / Profile 查询 / 材质上传（RSA 签名），authlib-injector 全规范 |
-| 用户中心 | 角色管理（四档命名规则）、衣柜、通知、签到、举报、资料修改 |
+| 皮肤库 | 上传（PNG 校验/尺寸/比例/重编码消毒）、搜索分类排序分页、hash 去重、积分计费；2D 预览伪静态指纹端点（CDN 一年 immutable 缓存） |
+| 渲染 | 2D 头像五种尺寸实时渲染；3D 实时预览（skinview3d 本地托管，四态动作控制条；详情页/上传页/角色管理页全覆盖） |
+| Yggdrasil | authenticate / refresh / validate / invalidate / signout / join / hasJoined / Profile 查询 / 材质上传（RSA 签名），authlib-injector 全规范；用户中心内置「拖拽添加启动器」卡片 |
+| 用户中心 | 角色管理（四档命名规则）、衣柜、通知（分页/删除/批量已读）、签到（范围随机积分/零点重置可选）、举报、资料修改 |
 | OAuth2 | 密码模式 + 授权码 + 刷新令牌（对照原版 Laravel Passport 端点与 scope） |
-| 管理后台 | Django Admin 全量定制：用户封禁、纹理管理、举报处理、邀请码、Ygg 令牌吊销 |
+| 管理后台 | **自研管理面板**（`/admin/`，非 Django Admin）：用户/角色（分级操作：超管可改管理员）/皮肤库/举报/邀请码（生成者对账）/Yggdrasil 日志（保留天数可选）/正版角色绑定管理/站点选项 |
 | 内嵌能力 | 邀请码注册、批量导入（CLI）、关闭注册、角色数限制、邮箱域名限制（原官方插件能力内置化） |
-| 运维 | 安装向导、`migrate_from_php` 数据迁移、健康探针、ghcr 镜像 |
+| 运维 | 安装向导（已装后封闭）、`migrate_from_php` 数据迁移、健康探针、动态 favicon、进程外共享 cache（Redis/DB）、ghcr 镜像 |
 
 ## 与原版（PHP）的主要差异
 
 - **插件系统 → 能力内嵌**：不再支持运行时 PHP 插件加载，高频插件能力改为内置功能（管理后台开关控制）
 - **数据库 Schema 全新设计**，提供迁移命令从 PHP 版无损搬迁（见下文「数据迁移」）
-- **管理后台使用 Django Admin**，替代原版自研后台
+- **管理后台为自研面板**（`panel/`，选项注册表驱动），替代 Django Admin 与原版后台
 - **安全修复**（源自对原版的静态安全审查）：
   - OAuth 登录绑定第三方用户 ID（防账号接管）
   - 密码重置链接一次性 + 哈希落库
   - Yggdrasil 限流按 IP（原版可被伪造用户名撑爆缓存）、请求体大小上限
   - 账号枚举防护开关（默认开启）
-- **前端 Tailwind 设计系统重写**，14 个自绘 SVG 图标，全部静态资源本地提供（不使用第三方 CDN）
+- **前端 Bootstrap 5.3.8 本地 vendor**（零 CDN），暗色模式；皮肤/披风预览像素画采用邻近采样保持锐利
 - **3D 预览前端化**（原版为后端 Imagick 静态投影），观感与性能大幅提升
 
 ## 环境要求
@@ -65,7 +67,7 @@ python manage.py runserver
 
 ## 配置
 
-基础设施配置走 **环境变量**（`.env` 自动加载，样例见 [`.env.example`](.env.example)）；站点业务配置（站点名、SMTP、验证码、积分规则等）在 **管理后台 → Options** 中修改（Option 表存储，运行时生效）。
+基础设施配置走 **环境变量**（`.env` 自动加载，样例见 [`.env.example`](.env.example)）；站点业务配置（站点名、SMTP、验证码、积分规则、Microsoft OAuth 等百余项）在 **管理后台 → 站点选项** 中修改（Option 表存储，运行时生效）。
 
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
@@ -75,6 +77,11 @@ python manage.py runserver
 | `DB_CONNECTION` | `sqlite` | `sqlite` / `mysql` / `pgsql` |
 | `DB_HOST` / `DB_PORT` | 127.0.0.1 + 端口 | 数据库地址 |
 | `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` | — | 库名与凭据 |
+| `REDIS_URL` | 空（用数据库 cache） | 进程外共享缓存（多 worker 部署必需）。缺省回落 DatabaseCache（`django_cache_table`，启动命令中的 `createcachetable` 建表）；配置如 `redis://127.0.0.1:6379/0` |
+| `TIME_ZONE` | `UTC` | 显示时区（IANA 名，如 `Asia/Shanghai`）；仅影响页面时间显示，数据库恒存 UTC |
+| `COOKIE_SECURE` | `false` | HTTPS 部署建议置 1（Session/CSRF Cookie 仅加密传输） |
+| `CLIENT_IP_PROXY_DEPTH` | `1` | 可信代理层数；前置 CDN 时设 2（详见 agent.md 坑 12，宁少勿多） |
+| `YGG_VERBOSE_LOG` | `false` | Yggdrasil 接口审计日志落库（面板可配保留天数） |
 | `SALT` | 空 | 迁移场景：原站 `SALTED2*` 算法历史用户校验所需 |
 
 Settings 分层：`config/settings/{base,dev,test,prod}.py`；`manage.py` 默认 dev，容器入口默认 prod，`DJANGO_SETTINGS_MODULE` 可覆盖。
@@ -165,7 +172,7 @@ docker run -d --name blessing-skin \
   ghcr.io/coronazero/blessing-skin-server-django:latest
 ```
 
-镜像特性：多阶段构建、非 root 运行、whitenoise 静态托管（无需 Nginx）、启动时自动 `migrate`、gunicorn + uvicorn worker、`/healthz` 探针。
+镜像特性：多阶段构建、非 root 运行、whitenoise 静态托管（无需 Nginx）、启动时自动 `migrate` + `createcachetable`、gunicorn + uvicorn worker、`/healthz` 探针。
 
 首次访问 `http://<host>:8000/setup/` 完成安装向导。
 
@@ -174,10 +181,14 @@ docker run -d --name blessing-skin \
 ```bash
 pip install -r requirements.txt
 python manage.py migrate
+python manage.py createcachetable    # 进程外共享 cache 建表（多 worker 必需，幂等）
 python manage.py collectstatic
 gunicorn config.wsgi -b 0.0.0.0:8000 -w 4
 # 或 ASGI：uvicorn config.asgi:application --host 0.0.0.0 --port 8000
 ```
+
+> **多 worker 提示**：缺省使用数据库 cache（零额外依赖），需保证上文的
+> `createcachetable` 已执行；切换 Redis 则设 `REDIS_URL`，无需建表。
 
 ### 批量导入存量纹理
 
@@ -189,7 +200,7 @@ python manage.py import_textures /path/to/pngs --uploader 爱莉      # 指定�
 
 ## 开发约定
 
-- **TDD**：先测试后实现（`pytest`，SQLite 内存库），312+ 项契约/回归测试
+- **TDD**：先测试后实现（`pytest`，SQLite 内存库），1000+ 项契约/回归测试
 - **原子提交**：`feat/fix/chore/docs/test/refactor: 中文描述`，GPG 签名
 - **代码风格**：`ruff check .` 零告警；命名英文、注释中文
 - **行为对照**：与 PHP 原版同输入同输出为验收标准（hasher 已知向量、Yggdrasil 协议用例、上传校验链测试锚定原版行为）
@@ -201,13 +212,16 @@ python manage.py import_textures /path/to/pngs --uploader 爱莉      # 指定�
 ├── accounts/        # 用户、密码兼容层（10 种 PHP 算法）、认证后端、验证码
 ├── players/         # 角色 + UUID 生成（v3 离线算法/v4）
 ├── textures/        # 校验消毒、存储、2D/3D 渲染、皮肤库 API、批量导入
-├── yggdrasil/       # authlib-injector 认证服务（JWT、会话、RSA 签名）
+├── yggdrasil/       # authlib-injector 认证服务（JWT、会话、RSA 签名、好友端点）
+├── oauth_bridge/    # Microsoft OAuth（登录/正版角色绑定/hasJoined 透传）
+├── panel/           # 自研管理面板（选项注册表、权限分级、各管理页）
+├── teximport/       # 站外皮肤导入（队列、审核、SSRF 防护）
 ├── moderation/      # 举报
 ├── notifications/   # 站内通知
 ├── invitation/      # 邀请码（内嵌能力）
 ├── setup/           # 安装向导
-├── templates/       # Django 模板（Tailwind 设计系统）
-└── static/          # 自绘图标、设计系统 CSS、交互 JS、skinview3d vendor
+├── templates/       # Django 模板（Bootstrap 5.3.8）
+└── static/          # 交互 JS、设计系统 CSS、图标、vendor（Bootstrap/skinview3d，含 .map）
 ```
 
 ## License
