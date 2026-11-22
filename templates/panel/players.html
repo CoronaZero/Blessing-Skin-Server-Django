@@ -30,7 +30,21 @@
           {% else %}—{% endif %}
         </td>
         <td style="white-space:nowrap">
-          {% if not p.uid.is_admin %}
+          {# 后端 _can_operate 同款分级：超管可操作管理员角色（仅其他超管只读）；#}
+          {# 普通管理员对一切管理员/超管角色只读 #}
+          {% if is_super %}
+            {% if p.uid.permission != 2 %}
+            <button class="btn btn-outline-secondary btn-sm"
+                    data-set-skin="{{ p.pid }}">改皮肤</button>
+            <button class="btn btn-outline-secondary btn-sm"
+                    data-set-cape="{{ p.pid }}">改披风</button>
+            <button class="btn btn-danger" style="padding:3px 10px;font-size:12px"
+                    data-action="delete" data-url="/admin/players/{{ p.pid }}/delete"
+                    data-confirm="确定删除角色 {{ p.name }}（属于 {{ p.uid.email }}）？该操作不可恢复。">删除</button>
+            {% else %}
+            <span style="font-size:11px;color:var(--bs-text-secondary)">超管角色（只读）</span>
+            {% endif %}
+          {% elif not p.uid.is_admin %}
           <button class="btn btn-outline-secondary btn-sm"
                   data-set-skin="{{ p.pid }}">改皮肤</button>
           <button class="btn btn-outline-secondary btn-sm"
