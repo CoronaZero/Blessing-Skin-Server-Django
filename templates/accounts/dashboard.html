@@ -58,6 +58,29 @@
     </div>
     {% endif %}
 
+    {# 快速配置启动器（对照原版 yggdrasil-api 插件 dnd 板块；文案由面板选项驱动） #}
+    {% if ygg_dnd %}
+    <div class="card mb-3" style="border-color:var(--bs-success)">
+      <div class="card-body">
+        <h1 class="card-title h6 mb-0" style="color:var(--bs-success)">
+          <i class="bi bi-rocket-takeoff me-1"></i>{{ ygg_dnd.title }}
+        </h1>
+        <p class="small mb-1" style="margin-top:8px">
+          本站的 Yggdrasil API 认证服务器地址：
+          <code id="ygg-api-url">{{ ygg_dnd.api_url }}</code>
+        </p>
+        <p class="small text-secondary mb-2">{{ ygg_dnd.tip }}</p>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <button class="btn btn-primary" id="ygg-dnd-button" type="button"
+                  draggable="true" data-api-url="{{ ygg_dnd.api_url }}">
+            <i class="bi bi-hand-index-thumb me-1"></i>{{ ygg_dnd.button }}
+          </button>
+          <span class="small text-secondary">点击复制地址 · 拖动到启动器自动添加</span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <div class="card">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center">

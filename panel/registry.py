@@ -298,6 +298,23 @@ OptionField("ygg_search_profile_max", "批量查询上限", widget="int"),
                 help_text="接口日志（YGG_VERBOSE_LOG 开启时落库）仅保留最近 N 天，"
                           "过期在写入与面板页访问时惰性清理（不跑定时任务）；0=永久保留",
             ),
+            OptionField(
+                "ygg_show_config_section", "用户中心显示「快速配置启动器」", widget="bool",
+                help_text="对照原版 ygg_show_config_section：开启后用户中心首页"
+                          "显示可拖拽到启动器的快速添加卡片",
+            ),
+            OptionField(
+                "ygg_dnd_title", "启动器卡片标题",
+                help_text="留空用默认「快速配置启动器」",
+            ),
+            OptionField(
+                "ygg_dnd_tip", "启动器卡片提示语", widget="textarea", rows=2,
+                help_text="卡片内说明文字（拖拽/复制说明）；留空用默认文案",
+            ),
+            OptionField(
+                "ygg_dnd_button", "拖拽按钮文字",
+                help_text="留空用默认「将此按钮拖动至启动器」",
+            ),
             OptionField("ygg_enable_ali", "API 地址指示（ALI）", widget="bool",
                         help_text="用户输入域名即可自动发现 API 地址，建议开启"),
             OptionField(

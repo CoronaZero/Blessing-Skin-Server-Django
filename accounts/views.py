@@ -439,6 +439,26 @@ def user_dashboard(request):
 
     # 签到状态（选项驱动，与 daily_sign 同一套判定）
     can_sign, next_sign_text = _sign_state(request.user)
+
+    # 快速配置启动器卡片（对照原版 yggdrasil-api 插件 dnd 板块；
+    # 文案选项化——原版硬编码在 lang 文件中不可改）
+    ygg_dnd = None
+    if (Option.objects.get_value("ygg_show_config_section") or "0") in (
+        "1", "true", "on",
+    ):
+        from yggdrasil.views import _public_base_url
+
+        base = _public_base_url(request)
+        ygg_dnd = {
+            "api_url": f"{base}/api/yggdrasil/",
+            "title": (Option.objects.get_value("ygg_dnd_title") or "").strip()
+            or "快速配置启动器",
+            "tip": (Option.objects.get_value("ygg_dnd_tip") or "").strip()
+            or "点击下方按钮复制 API 地址，或将按钮拖动至启动器的任意界面"
+              "即可快速添加认证服务器。",
+            "button": (Option.objects.get_value("ygg_dnd_button") or "").strip()
+            or "将此按钮拖动至启动器",
+        }
     return render(
         request,
         "accounts/dashboard.html",
@@ -451,6 +471,7 @@ def user_dashboard(request):
             "has_more": has_more,
             "can_sign": can_sign,
             "next_sign_text": next_sign_text,
+            "ygg_dnd": ygg_dnd,
         },
     )
 
